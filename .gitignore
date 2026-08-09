@@ -1,0 +1,6 @@
+# macOS legt das automatisch in jedem Ordner an - nur Anzeigeeinstellungen, kein Inhalt
+.DS_Store
+
+# Falls du mal mit VS Code oder anderen Editoren eigene Einstellungen hier ablegst
+.vscode/
+.idea/
