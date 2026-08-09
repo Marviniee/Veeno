@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <!-- viewport-fit=cover sorgt dafür, dass die App bis in die Ecken (Notch, Home-Indicator) geht -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <title>Trinkgeld Tracker</title>
+
+  <!-- Diese drei Meta-Tags sagen dem iPhone: "Öffne mich als eigene App ohne Safari-Leiste" -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Trinkgeld" />
+  <meta name="theme-color" content="#f59e0b" />
+
+  <!-- iOS ignoriert die Icons aus der manifest.webmanifest meistens - deshalb extra hier verlinkt -->
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ================= Bildschirm: Eintrag ================= -->
+    <main id="screen-eintrag" class="screen">
+
+      <!-- Anzeige des aktuell eingegebenen Betrags -->
+      <div class="display" id="display">0 €</div>
+
+      <!-- Eigenes Zahlenfeld statt iPhone-Tastatur -->
+      <div class="keypad">
+        <button class="key" data-digit="1">1</button>
+        <button class="key" data-digit="2">2</button>
+        <button class="key" data-digit="3">3</button>
+
+        <button class="key" data-digit="4">4</button>
+        <button class="key" data-digit="5">5</button>
+        <button class="key" data-digit="6">6</button>
+
+        <button class="key" data-digit="7">7</button>
+        <button class="key" data-digit="8">8</button>
+        <button class="key" data-digit="9">9</button>
+
+        <button class="key key--muted" id="key-tens-cent">0,</button>
+        <button class="key" data-digit="0">0</button>
+        <button class="key key--muted" id="key-single-cent">0,0</button>
+
+        <button class="key key--action" id="key-delete">⌫</button>
+        <button class="key key--save" id="key-save">Speichern</button>
+      </div>
+
+      <!-- Liste der letzten Einträge -->
+      <section class="entries">
+        <h2 class="entries__title">Letzte Einträge</h2>
+        <ul class="entries__list" id="entries-list">
+          <!-- wird von app.js gefüllt -->
+        </ul>
+        <p class="entries__empty" id="entries-empty">Noch keine Einträge heute.</p>
+      </section>
+    </main>
+
+    <!-- Tagessumme, immer sichtbar über der Menüleiste -->
+    <div class="day-total">
+      <span>Heute</span>
+      <span id="day-total-value">0,00 €</span>
+    </div>
+
+    <!-- Untere Menüleiste -->
+    <nav class="bottom-nav">
+      <button class="nav-btn nav-btn--active" data-screen="eintrag">Eintrag</button>
+      <button class="nav-btn" data-screen="verlauf" disabled>Verlauf</button>
+      <button class="nav-btn" data-screen="sparziel" disabled>Sparziel</button>
+    </nav>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
