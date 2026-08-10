@@ -14,8 +14,9 @@
 //   5. Tagessumme
 //   6. Bearbeiten-Dialog
 //   7. Schicht-Abrechnung (Becher-Logik) + Sparrücklage
-//   8. Motivations-Text
-//   9. Start
+//   8. Bottom-Nav / Screen-Umschaltung
+//   9. Motivations-Text
+//  10. Start
 // ============================================================================
 
 // localStorage kann nur Text speichern -> wir benutzen feste "Schlüssel"
@@ -405,11 +406,29 @@ function calcSavingsTotal() {
   return Object.values(dailySummaries).reduce((summe, tag) => summe + tag.paidOut, 0);
 }
 
+// Automatische Aufteilung beim Öffnen: so viel wie möglich in vollen
+// 5€-Scheinen einzahlen, der Rest (Münzen, krumme Beträge) bleibt im Becher.
+// Beispiel: 22,35 € Tagessumme -> 20 € einzahlen, 2,35 € im Becher.
+function calcAutoSplit(total) {
+  const eingezahlt = Math.floor(total / 5) * 5;
+  return { eingezahlt, imBecher: round2(total - eingezahlt) };
+}
+
+// Aktualisiert die Bestätigungs-Zeile "20,00 € + 2,35 € = 22,35 €"
+function updateSplitCheck(eingezahlt, imBecher, total) {
+  document.getElementById("split-check").innerHTML =
+    `${formatAmount(eingezahlt)} + ${formatAmount(imBecher)} = <strong>${formatAmount(total)}</strong>`;
+}
+
 function openShiftDialog() {
   const total = calcDayTotal();
+  const { eingezahlt, imBecher } = calcAutoSplit(total);
+
   document.getElementById("shift-total-value").textContent = formatAmount(total);
-  document.getElementById("shift-paid-out").value = "";
-  document.getElementById("shift-in-cup").value = "";
+  document.getElementById("shift-paid-out").value = eingezahlt.toFixed(2);
+  document.getElementById("shift-in-cup").value = imBecher.toFixed(2);
+  updateSplitCheck(eingezahlt, imBecher, total);
+
   document.getElementById("shift-overlay").hidden = false;
 }
 
@@ -474,18 +493,25 @@ function initShiftDialog() {
   const eingezahltFeld = document.getElementById("shift-paid-out");
   const becherFeld = document.getElementById("shift-in-cup");
 
-  // Die beiden Felder sind gekoppelt: sobald eins ausgefüllt wird,
-  // berechnet sich das andere automatisch (Tagessumme - eins = das andere).
+  // Die beiden Felder sind gekoppelt: sobald eins geändert wird, berechnet
+  // sich das andere automatisch (Tagessumme - eins = das andere), und die
+  // Check-Zeile darunter wird mit aktualisiert.
   eingezahltFeld.addEventListener("input", () => {
     const total = calcDayTotal();
-    const eingezahlt = parseFloat(eingezahltFeld.value);
-    becherFeld.value = isNaN(eingezahlt) ? "" : Math.max(0, round2(total - eingezahlt)).toFixed(2);
+    const roh = parseFloat(eingezahltFeld.value);
+    const eingezahlt = isNaN(roh) ? 0 : Math.max(0, roh);
+    const imBecher = Math.max(0, round2(total - eingezahlt));
+    becherFeld.value = imBecher.toFixed(2);
+    updateSplitCheck(eingezahlt, imBecher, total);
   });
 
   becherFeld.addEventListener("input", () => {
     const total = calcDayTotal();
-    const imBecher = parseFloat(becherFeld.value);
-    eingezahltFeld.value = isNaN(imBecher) ? "" : Math.max(0, round2(total - imBecher)).toFixed(2);
+    const roh = parseFloat(becherFeld.value);
+    const imBecher = isNaN(roh) ? 0 : Math.max(0, roh);
+    const eingezahlt = Math.max(0, round2(total - imBecher));
+    eingezahltFeld.value = eingezahlt.toFixed(2);
+    updateSplitCheck(eingezahlt, imBecher, total);
   });
 
   const overlay = document.getElementById("shift-overlay");
@@ -496,7 +522,33 @@ function initShiftDialog() {
 
 
 // ============================================================================
-// 8. Motivations-Text
+// 8. Bottom-Nav / Screen-Umschaltung
+//
+// Jeder <main class="screen"> hat eine id nach dem Muster "screen-NAME".
+// Die passenden Nav-Buttons tragen das gleiche NAME in data-screen - so
+// finden wir per Namen immer den richtigen Screen dazu.
+// ============================================================================
+
+function switchScreen(name) {
+  document.querySelectorAll(".screen").forEach((screen) => {
+    screen.hidden = screen.id !== `screen-${name}`;
+  });
+  document.querySelectorAll(".nav-btn").forEach((button) => {
+    button.classList.toggle("nav-btn--active", button.dataset.screen === name);
+  });
+}
+
+function initBottomNav() {
+  // ":not([disabled])" -> der "Verlauf"-Tab hat noch keinen Screen dahinter
+  // und bleibt deaktiviert, bis der gebaut ist.
+  document.querySelectorAll(".nav-btn:not([disabled])").forEach((button) => {
+    button.addEventListener("click", () => switchScreen(button.dataset.screen));
+  });
+}
+
+
+// ============================================================================
+// 9. Motivations-Text
 // ============================================================================
 
 const MOTIVATIONSSPRUECHE = [
@@ -544,7 +596,7 @@ function initServiceWorker() {
 
 
 // ============================================================================
-// 9. Start
+// 10. Start
 // ============================================================================
 
 function init() {
@@ -558,6 +610,7 @@ function init() {
   initKeypad();
   initEditDialog();
   initShiftDialog();
+  initBottomNav();
   initServiceWorker();
 }
 

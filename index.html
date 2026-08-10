@@ -23,20 +23,11 @@
     <!-- ================= Bildschirm: Eintrag ================= -->
     <main id="screen-eintrag" class="screen">
 
-      <!-- Kopfzeile: Logo, Name, ein freundliches Icon daneben -->
+      <!-- Kopfzeile: Logo + Name -->
       <header class="app-header">
         <img src="icons/icon-192.png" alt="" class="app-header__icon" />
         <span class="app-header__title">Veeno</span>
-        <span class="app-header__smiley" aria-hidden="true">😊</span>
       </header>
-
-      <!-- Sparrücklage: laufende Gesamtsumme aller eingezahlten Beträge -->
-      <section class="savings-card">
-        <div class="savings-card__value" id="savings-total-value">0,00 €</div>
-        <div class="savings-card__label">Sparrücklage</div>
-        <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
-        <button class="savings-card__shift-btn" id="open-shift-dialog">Schicht abschließen</button>
-      </section>
 
       <!-- Anzeige des aktuell eingegebenen Betrags -->
       <div class="display" id="display">0 €</div>
@@ -63,6 +54,9 @@
         <button class="key key--save" id="key-save">Speichern</button>
       </div>
 
+      <!-- Gehört zum täglichen Workflow, deshalb hier und nicht auf dem Sparziel-Screen -->
+      <button class="shift-btn" id="open-shift-dialog">Schicht abschließen</button>
+
       <!-- Liste der letzten Einträge - antippen öffnet den Bearbeiten-Dialog -->
       <section class="entries">
         <h2 class="entries__title">Letzte Einträge</h2>
@@ -75,6 +69,18 @@
       <p class="motivation-text" id="motivation-text"></p>
     </main>
 
+    <!-- ================= Bildschirm: Sparziel ================= -->
+    <main id="screen-sparziel" class="screen" hidden>
+      <h1 class="screen-title">Sparziel</h1>
+
+      <!-- Sparrücklage: laufende Gesamtsumme aller eingezahlten Beträge -->
+      <section class="savings-card">
+        <div class="savings-card__value" id="savings-total-value">0,00 €</div>
+        <div class="savings-card__label">Sparrücklage</div>
+        <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
+      </section>
+    </main>
+
     <!-- Tagessumme, immer sichtbar über der Menüleiste -->
     <div class="day-total">
       <span>Heute</span>
@@ -85,7 +91,7 @@
     <nav class="bottom-nav">
       <button class="nav-btn nav-btn--active" data-screen="eintrag">Eintrag</button>
       <button class="nav-btn" data-screen="verlauf" disabled>Verlauf</button>
-      <button class="nav-btn" data-screen="sparziel" disabled>Sparziel</button>
+      <button class="nav-btn" data-screen="sparziel">Sparziel</button>
     </nav>
   </div>
 
@@ -123,10 +129,10 @@
       <label class="field-label" for="edit-time">Uhrzeit</label>
       <input type="time" id="edit-time" class="time-input" />
 
-      <div class="modal__actions">
-        <button class="key key--danger" id="edit-delete-entry">Löschen</button>
-        <button class="key key--save" id="edit-save-entry">Speichern</button>
-      </div>
+      <!-- Speichern ist die Haupt-Aktion (voller Button), Löschen ein unauffälliger
+           Text-Link darunter - das Abbrechen oben im Header reicht als Ausstieg. -->
+      <button class="key key--save modal__save-btn" id="edit-save-entry">Speichern</button>
+      <button class="modal__delete-link" id="edit-delete-entry">Löschen</button>
     </div>
   </div>
 
@@ -139,23 +145,36 @@
         <span class="modal__spacer"></span>
       </div>
 
-      <p class="shift-total">Heute verdient: <strong id="shift-total-value">0,00 €</strong></p>
+      <p class="shift-total">
+        Heutiges Total<br />
+        <strong id="shift-total-value">0,00 €</strong>
+      </p>
 
-      <div class="field">
-        <label for="shift-paid-out">Eingezahlt</label>
-        <div class="field__input-row">
-          <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-paid-out" placeholder="0,00" />
-          <span>€</span>
-        </div>
+      <!-- Wird beim Öffnen automatisch berechnet (volle 5€-Scheine eingezahlt,
+           Rest im Becher) - beide Werte lassen sich danach antippen und ändern. -->
+      <div class="split-cards">
+        <label class="split-card split-card--paid">
+          <span class="split-card__icon" aria-hidden="true">💳</span>
+          <span class="split-card__label">Einzahlen</span>
+          <span class="split-card__value-row">
+            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-paid-out" class="split-card__value" />
+            <span>€</span>
+          </span>
+        </label>
+
+        <span class="split-cards__arrow" aria-hidden="true">⇄</span>
+
+        <label class="split-card split-card--cup">
+          <span class="split-card__icon" aria-hidden="true">🥤</span>
+          <span class="split-card__label">Im Becher</span>
+          <span class="split-card__value-row">
+            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-in-cup" class="split-card__value" />
+            <span>€</span>
+          </span>
+        </label>
       </div>
 
-      <div class="field">
-        <label for="shift-in-cup">Im Becher gelassen</label>
-        <div class="field__input-row">
-          <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-in-cup" placeholder="0,00" />
-          <span>€</span>
-        </div>
-      </div>
+      <p class="split-check" id="split-check"></p>
 
       <button class="key key--save" id="shift-save">Speichern</button>
     </div>
