@@ -59,6 +59,16 @@ html, body {
   height: 100dvh; /* volle Bildschirmhöhe, iPhone-Notch berücksichtigt */
 }
 
+/* Verhindert, dass iOS schnelles Doppel-Tippen (z.B. auf dem Zahlenfeld)
+   manchmal als Doppel-Tap-Zoom missversteht. Fast alle klickbaren Flächen
+   in der App sind <button>-Elemente - deshalb reicht diese eine Regel für
+   praktisch alles (Zahlenfeld, Menüleiste, Dialog-Buttons, Export-Link...).
+   .entry ist die einzige Ausnahme (ein anklickbares <li>). */
+button,
+.entry {
+  touch-action: manipulation;
+}
+
 .screen {
   flex: 1;
   display: flex;
