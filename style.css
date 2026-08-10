@@ -240,9 +240,13 @@ html, body {
 }
 
 /* Kompakte Keypad-Variante für den Bearbeiten-Dialog: kein Speichern-Feld
-   im Zahlenfeld selbst, dafür eine eigene Zeile nur für ⌫ */
+   im Zahlenfeld selbst, dafür eine eigene (niedrigere) Zeile nur für ⌫.
+   Tasten und Abstände sind enger als beim Haupt-Zahlenfeld, damit der ganze
+   Dialog ohne Scrollen aufs Display passt - 44px bleibt die Untergrenze für
+   gut per Daumen tippbare Flächen. */
 .keypad--compact {
-  grid-template-rows: repeat(4, minmax(52px, 1fr)) 48px;
+  grid-template-rows: repeat(4, minmax(44px, 1fr)) 40px;
+  gap: 8px;
 }
 
 .key--full-row {
@@ -388,11 +392,18 @@ html, body {
   overflow-y: auto;
   background: var(--color-bg);
   border-radius: 20px 20px 0 0;
-  padding: 10px 16px calc(20px + env(safe-area-inset-bottom));
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+}
+
+/* Im Bearbeiten-Dialog darf die Betrags-Anzeige kleiner sein als auf dem
+   Haupt-Screen - spart Höhe, damit der Dialog ohne Scrollen passt. */
+#edit-display {
+  font-size: 2.2rem;
+  padding: 4px 0 0;
 }
 
 .modal__header {
@@ -422,17 +433,26 @@ html, body {
   width: 70px;
 }
 
-/* Speichern: volle Breite, die Haupt-Aktion des Dialogs */
+/* Speichern und Löschen nebeneinander in einer Reihe, damit der Dialog
+   ohne Scrollen aufs Display passt. */
+.modal__actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Speichern: doppelt so breit wie Löschen, bleibt die Haupt-Aktion */
 .modal__save-btn {
-  width: 100%;
-  min-height: 54px;
-  font-size: 1.15rem;
+  flex: 2;
+  min-height: 50px;
+  font-size: 1.1rem;
 }
 
 /* Löschen: bewusst unauffällig - ein reiner Text-Link, kein Button-Rahmen,
-   damit "Speichern" klar die Hauptaktion bleibt und man nicht aus Versehen
-   auf einen genauso großen Löschen-Button tippt. */
+   damit "Speichern" klar die Hauptaktion bleibt. Nimmt nur ein Drittel der
+   Zeile ein (flex: 1 neben flex: 2) und ist durch align-items:stretch
+   automatisch genauso hoch wie der Speichern-Button daneben. */
 .modal__delete-link {
+  flex: 1;
   border: none;
   background: none;
   color: var(--color-danger);

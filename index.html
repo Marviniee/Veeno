@@ -129,10 +129,13 @@
       <label class="field-label" for="edit-time">Uhrzeit</label>
       <input type="time" id="edit-time" class="time-input" />
 
-      <!-- Speichern ist die Haupt-Aktion (voller Button), Löschen ein unauffälliger
-           Text-Link darunter - das Abbrechen oben im Header reicht als Ausstieg. -->
-      <button class="key key--save modal__save-btn" id="edit-save-entry">Speichern</button>
-      <button class="modal__delete-link" id="edit-delete-entry">Löschen</button>
+      <!-- Speichern und Löschen nebeneinander, damit der Dialog kompakt bleibt.
+           Speichern bleibt optisch die Haupt-Aktion (doppelt so breit, Akzentfarbe),
+           Löschen bleibt unauffällig (kein Rahmen, roter Text). -->
+      <div class="modal__actions">
+        <button class="key key--save modal__save-btn" id="edit-save-entry">Speichern</button>
+        <button class="modal__delete-link" id="edit-delete-entry">Löschen</button>
+      </div>
     </div>
   </div>
 
