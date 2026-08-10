@@ -10,7 +10,7 @@
   --color-text-muted: #6b6b6f;
   --color-border: #e2e2e0;
 
-  --color-accent: #f59e0b;       /* warmes Orange - Hauptfarbe */
+  --color-accent: #FF9E3E;       /* warmes Orange - Hauptfarbe */
   --color-accent-text: #1c1c1e;  /* Text auf orangem Hintergrund */
   --color-danger: #ef4444;
 }
@@ -23,7 +23,7 @@
     --color-text-muted: #9a9a9d;
     --color-border: #2c2c2e;
 
-    --color-accent: #f59e0b;
+    --color-accent: #FF9E3E;
     --color-accent-text: #1c1c1e;
   }
 }
