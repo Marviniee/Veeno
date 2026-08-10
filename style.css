@@ -151,6 +151,21 @@ html, body {
   border-radius: 3px;
 }
 
+/* Unauffälliger Text-Link, unten auf dem Sparziel-Screen. Kein Button-Look,
+   das ist eine Absicherungs-Funktion, keine Haupt-Aktion des Screens. */
+.export-link {
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 10px 0;
+  margin-top: auto; /* an den unteren Rand des Screens drücken */
+  align-self: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+
 /* ==========================================================================
    "Schicht abschließen" - Button auf dem Eintrag-Screen
    ========================================================================== */
@@ -190,6 +205,21 @@ html, body {
   font-weight: 700;
   padding: 12px 0 4px;
   font-variant-numeric: tabular-nums;
+}
+
+/* Kurzes Wackeln + rote Farbe, wenn "Speichern" mit leerem/ungültigem
+   Betrag gedrückt wird - Feedback, dass etwas nicht ging, ohne Text-Popup. */
+@keyframes display-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+
+.display--invalid {
+  animation: display-shake 250ms ease-in-out;
+  color: var(--color-danger);
 }
 
 /* ==========================================================================

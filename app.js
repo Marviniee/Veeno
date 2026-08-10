@@ -14,9 +14,10 @@
 //   5. Tagessumme
 //   6. Bearbeiten-Dialog
 //   7. Schicht-Abrechnung (Becher-Logik) + Sparrücklage
-//   8. Bottom-Nav / Screen-Umschaltung
-//   9. Motivations-Text
-//  10. Start
+//   8. Backup/Export
+//   9. Bottom-Nav / Screen-Umschaltung
+//  10. Motivations-Text
+//  11. Start
 // ============================================================================
 
 // localStorage kann nur Text speichern -> wir benutzen feste "Schlüssel"
@@ -91,18 +92,30 @@ function persistDailySummaries() {
 // auch für das Zahlenfeld im Bearbeiten-Dialog wiederverwenden.
 // ============================================================================
 
+// Ein einzelnes Trinkgeld wird realistisch nie höher als das sein -
+// weitere Ziffern über der Grenze werden von applyDigit einfach ignoriert.
+const MAX_BETRAG = 9.99;
+
 function applyDigit(text, ziffer) {
+  let kandidat;
+
   if (text === "") {
-    return ziffer;
-  }
-  if (text.includes(",")) {
+    kandidat = ziffer;
+  } else if (text.includes(",")) {
     const nachkommastellen = text.split(",")[1];
     // Mehr als 2 Nachkommastellen ergeben bei Geld keinen Sinn -> ignorieren.
-    return nachkommastellen.length < 2 ? text + ziffer : text;
+    kandidat = nachkommastellen.length < 2 ? text + ziffer : text;
+  } else {
+    // Ganze-Euro-Modus: führende "0" wird durch die neue Ziffer ersetzt
+    // (aus "0" + "5" wird "5", nicht "05").
+    kandidat = text === "0" ? ziffer : text + ziffer;
   }
-  // Ganze-Euro-Modus: führende "0" wird durch die neue Ziffer ersetzt
-  // (aus "0" + "5" wird "5", nicht "05").
-  return text === "0" ? ziffer : text + ziffer;
+
+  const zahl = parseFloat(kandidat.replace(",", "."));
+  if (!isNaN(zahl) && zahl > MAX_BETRAG) {
+    return text; // Grenze erreicht -> Ziffer wird ignoriert, Text bleibt wie er war
+  }
+  return kandidat;
 }
 
 // Wandelt einen buffer-Text ("12" oder "0,10") in eine echte Zahl (12 oder
@@ -158,10 +171,28 @@ function updateDisplay() {
   anzeige.textContent = (buffer === "" ? "0" : buffer) + " €";
 }
 
+// Kurzes visuelles Feedback (Wackeln + rot), wenn eine Aktion nicht geklappt
+// hat - z.B. "Speichern" bei leerem Betrag. Kein Text-Popup, nur ein Hinweis,
+// dass gerade etwas ignoriert wurde statt dass die App "eingefroren" wirkt.
+function flashInvalid(elementId) {
+  const anzeige = document.getElementById(elementId);
+  // Falls die Animation gerade schon läuft (schnelles Doppel-Tippen): erst
+  // zurücksetzen und einen Reflow erzwingen, sonst startet sie nicht neu.
+  anzeige.classList.remove("display--invalid");
+  void anzeige.offsetWidth;
+  anzeige.classList.add("display--invalid");
+  anzeige.addEventListener(
+    "animationend",
+    () => anzeige.classList.remove("display--invalid"),
+    { once: true }
+  );
+}
+
 function saveEntry() {
   const betrag = bufferToAmount(buffer);
   if (betrag === null) {
-    // Nichts (Sinnvolles) eingegeben -> einfach nichts tun.
+    // Nichts (Sinnvolles) eingegeben -> kurz wackeln statt einfach nichts zu tun.
+    flashInvalid("display");
     return;
   }
 
@@ -316,7 +347,10 @@ function saveEditedEntry() {
   if (editingEntryId === null) return;
 
   const betrag = bufferToAmount(editBuffer);
-  if (betrag === null) return; // ungültiger Betrag -> nichts speichern
+  if (betrag === null) {
+    flashInvalid("edit-display");
+    return;
+  }
 
   const eintrag = entries.find((e) => e.id === editingEntryId);
   if (!eintrag) return;
@@ -485,6 +519,40 @@ function renderSavingsChart() {
   }
 }
 
+// ============================================================================
+// 8. Backup/Export
+//
+// iOS kann localStorage-Daten nach längerer App-Nichtnutzung automatisch
+// löschen (Intelligent Tracking Prevention). Das hier ist die einzige
+// Absicherung dagegen: ein manueller Download-Knopf, kein Auto-Backup.
+// ============================================================================
+
+function exportData() {
+  const daten = {
+    exportiertAm: new Date().toISOString(),
+    eintraege: entries,
+    tagesabrechnungen: dailySummaries,
+  };
+
+  // Ein Blob ist eine "Datei im Speicher" - wir erzeugen daraus eine
+  // temporäre URL, verlinken sie unsichtbar und klicken sie per Code an,
+  // das startet im Browser den normalen Download.
+  const blob = new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `veeno-backup-${todayDateKey()}.json`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
+
+function initExport() {
+  document.getElementById("export-data").addEventListener("click", exportData);
+}
+
+
 function initShiftDialog() {
   document.getElementById("open-shift-dialog").addEventListener("click", openShiftDialog);
   document.getElementById("shift-cancel").addEventListener("click", closeShiftDialog);
@@ -522,7 +590,7 @@ function initShiftDialog() {
 
 
 // ============================================================================
-// 8. Bottom-Nav / Screen-Umschaltung
+// 9. Bottom-Nav / Screen-Umschaltung
 //
 // Jeder <main class="screen"> hat eine id nach dem Muster "screen-NAME".
 // Die passenden Nav-Buttons tragen das gleiche NAME in data-screen - so
@@ -548,7 +616,7 @@ function initBottomNav() {
 
 
 // ============================================================================
-// 9. Motivations-Text
+// 10. Motivations-Text
 // ============================================================================
 
 const MOTIVATIONSSPRUECHE = [
@@ -596,7 +664,7 @@ function initServiceWorker() {
 
 
 // ============================================================================
-// 10. Start
+// 11. Start
 // ============================================================================
 
 function init() {
@@ -610,6 +678,7 @@ function init() {
   initKeypad();
   initEditDialog();
   initShiftDialog();
+  initExport();
   initBottomNav();
   initServiceWorker();
 }
