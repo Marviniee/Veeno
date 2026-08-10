@@ -83,6 +83,9 @@ function persistDailySummaries() {
 // - Normale Ziffern (1-9, 0) hängen sich an den Text an.
 // - Solange noch kein Komma im Text ist, bauen wir damit eine ganze
 //   Euro-Zahl auf (z.B. "1" -> "12" -> "125").
+// - Die ","-Taste setzt (falls noch keins da ist) ein Komma an den Text,
+//   egal ob vorher schon Euro-Ziffern getippt wurden oder nicht
+//   (z.B. "2" -> "2," oder "" -> "0,").
 // - Sobald ein Komma im Text ist, sind die nächsten 1-2 Ziffern die
 //   Cent-Nachkommastellen (z.B. "0," -> "0,1" -> "0,10").
 //
@@ -118,6 +121,14 @@ function applyDigit(text, ziffer) {
   return kandidat;
 }
 
+// Setzt ein Komma an den Text - wie bei einem Taschenrechner. Ist schon
+// eins da, passiert nichts (kein zweites Komma möglich). Auch eine reine
+// "pure" Funktion, genau wie applyDigit(), aus demselben Grund wiederverwendbar.
+function insertComma(text) {
+  if (text.includes(",")) return text;
+  return (text === "" ? "0" : text) + ",";
+}
+
 // Wandelt einen buffer-Text ("12" oder "0,10") in eine echte Zahl (12 oder
 // 0.1) um. Gibt null zurück, wenn (noch) nichts Sinnvolles eingegeben wurde.
 function bufferToAmount(text) {
@@ -150,9 +161,10 @@ function startTensCent() {
   updateDisplay();
 }
 
-function startSingleCent() {
-  // Taste "0,0" - Abkürzung für Einer-Cent, z.B. "0,0" + "1" -> "0,01"
-  buffer = "0,0";
+function commaPressed() {
+  // Taste "," - setzt ein Komma, egal was vorher schon getippt wurde,
+  // z.B. "2" + "," + "1" + "0" -> "2,10"
+  buffer = insertComma(buffer);
   updateDisplay();
 }
 
@@ -385,8 +397,8 @@ function initEditDialog() {
     editBuffer = "0,";
     updateEditDisplay();
   });
-  document.getElementById("edit-key-single-cent").addEventListener("click", () => {
-    editBuffer = "0,0";
+  document.getElementById("edit-key-comma").addEventListener("click", () => {
+    editBuffer = insertComma(editBuffer);
     updateEditDisplay();
   });
   document.getElementById("edit-key-delete-digit").addEventListener("click", () => {
@@ -643,7 +655,7 @@ function initKeypad() {
   });
 
   document.getElementById("key-tens-cent").addEventListener("click", startTensCent);
-  document.getElementById("key-single-cent").addEventListener("click", startSingleCent);
+  document.getElementById("key-comma").addEventListener("click", commaPressed);
   document.getElementById("key-delete").addEventListener("click", deletePressed);
   document.getElementById("key-save").addEventListener("click", saveEntry);
 }
