@@ -23,6 +23,21 @@
     <!-- ================= Bildschirm: Eintrag ================= -->
     <main id="screen-eintrag" class="screen">
 
+      <!-- Kopfzeile: Logo, Name, ein freundliches Icon daneben -->
+      <header class="app-header">
+        <img src="icons/icon-192.png" alt="" class="app-header__icon" />
+        <span class="app-header__title">Veeno</span>
+        <span class="app-header__smiley" aria-hidden="true">😊</span>
+      </header>
+
+      <!-- Sparrücklage: laufende Gesamtsumme aller eingezahlten Beträge -->
+      <section class="savings-card">
+        <div class="savings-card__value" id="savings-total-value">0,00 €</div>
+        <div class="savings-card__label">Sparrücklage</div>
+        <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
+        <button class="savings-card__shift-btn" id="open-shift-dialog">Schicht abschließen</button>
+      </section>
+
       <!-- Anzeige des aktuell eingegebenen Betrags -->
       <div class="display" id="display">0 €</div>
 
@@ -48,7 +63,7 @@
         <button class="key key--save" id="key-save">Speichern</button>
       </div>
 
-      <!-- Liste der letzten Einträge -->
+      <!-- Liste der letzten Einträge - antippen öffnet den Bearbeiten-Dialog -->
       <section class="entries">
         <h2 class="entries__title">Letzte Einträge</h2>
         <ul class="entries__list" id="entries-list">
@@ -56,6 +71,8 @@
         </ul>
         <p class="entries__empty" id="entries-empty">Noch keine Einträge heute.</p>
       </section>
+
+      <p class="motivation-text" id="motivation-text"></p>
     </main>
 
     <!-- Tagessumme, immer sichtbar über der Menüleiste -->
@@ -70,6 +87,78 @@
       <button class="nav-btn" data-screen="verlauf" disabled>Verlauf</button>
       <button class="nav-btn" data-screen="sparziel" disabled>Sparziel</button>
     </nav>
+  </div>
+
+  <!-- ================= Dialog: Eintrag bearbeiten ================= -->
+  <div class="modal-overlay" id="edit-overlay" hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <button class="modal__cancel" id="edit-cancel">Abbrechen</button>
+        <h2>Eintrag bearbeiten</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <div class="display" id="edit-display">0 €</div>
+
+      <div class="keypad keypad--compact" id="edit-keypad">
+        <button class="key" data-digit="1">1</button>
+        <button class="key" data-digit="2">2</button>
+        <button class="key" data-digit="3">3</button>
+
+        <button class="key" data-digit="4">4</button>
+        <button class="key" data-digit="5">5</button>
+        <button class="key" data-digit="6">6</button>
+
+        <button class="key" data-digit="7">7</button>
+        <button class="key" data-digit="8">8</button>
+        <button class="key" data-digit="9">9</button>
+
+        <button class="key key--muted" id="edit-key-tens-cent">0,</button>
+        <button class="key" data-digit="0">0</button>
+        <button class="key key--muted" id="edit-key-single-cent">0,0</button>
+
+        <button class="key key--action key--full-row" id="edit-key-delete-digit">⌫</button>
+      </div>
+
+      <label class="field-label" for="edit-time">Uhrzeit</label>
+      <input type="time" id="edit-time" class="time-input" />
+
+      <div class="modal__actions">
+        <button class="key key--danger" id="edit-delete-entry">Löschen</button>
+        <button class="key key--save" id="edit-save-entry">Speichern</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Dialog: Schicht abschließen (Becher-Logik) ================= -->
+  <div class="modal-overlay" id="shift-overlay" hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <button class="modal__cancel" id="shift-cancel">Abbrechen</button>
+        <h2>Schicht abschließen</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <p class="shift-total">Heute verdient: <strong id="shift-total-value">0,00 €</strong></p>
+
+      <div class="field">
+        <label for="shift-paid-out">Eingezahlt</label>
+        <div class="field__input-row">
+          <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-paid-out" placeholder="0,00" />
+          <span>€</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="shift-in-cup">Im Becher gelassen</label>
+        <div class="field__input-row">
+          <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-in-cup" placeholder="0,00" />
+          <span>€</span>
+        </div>
+      </div>
+
+      <button class="key key--save" id="shift-save">Speichern</button>
+    </div>
   </div>
 
   <script src="app.js"></script>

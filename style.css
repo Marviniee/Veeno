@@ -28,6 +28,12 @@
   }
 }
 
+/* Türkis/Teal - zweite Akzentfarbe, aktuell nur fürs Icon/Branding gedacht.
+   Hier als Variable hinterlegt, falls du sie später im UI brauchst. */
+:root {
+  --color-accent-2: #06B6D4;
+}
+
 /* ==========================================================================
    Grundgerüst
    ========================================================================== */
@@ -60,6 +66,104 @@ html, body {
   overflow-y: auto;
   padding: 12px 16px 8px;
   gap: 12px;
+}
+
+/* ==========================================================================
+   Kopfzeile (Logo + Name + Smiley)
+   ========================================================================== */
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.app-header__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+
+.app-header__title {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.app-header__smiley {
+  font-size: 1.3rem;
+}
+
+/* ==========================================================================
+   Sparrücklage-Karte
+   ========================================================================== */
+.savings-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 18px 16px;
+  text-align: center;
+}
+
+.savings-card__value {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.savings-card__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+/* Ganz einfaches Balkendiagramm: 7 Balken für die letzten 7 Tage,
+   Höhe wird per JS über style.height gesetzt. */
+.savings-card__chart {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  height: 36px;
+  width: 100%;
+  max-width: 220px;
+  margin-top: 10px;
+}
+
+.savings-chart__bar {
+  flex: 1;
+  min-height: 4px;
+  background: var(--color-accent);
+  opacity: 0.45;
+  border-radius: 3px;
+}
+
+.savings-card__shift-btn {
+  margin-top: 12px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 12px;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+/* ==========================================================================
+   Motivations-Text
+   ========================================================================== */
+.motivation-text {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin: 8px 0 4px;
 }
 
 /* ==========================================================================
@@ -120,6 +224,24 @@ html, body {
   font-size: 1.3rem;
 }
 
+/* Löschen-Taste im Bearbeiten-Dialog (löscht den ganzen Eintrag, nicht nur eine Ziffer) */
+.key--danger {
+  background: transparent;
+  border: 2px solid var(--color-danger);
+  color: var(--color-danger);
+  font-weight: 700;
+}
+
+/* Kompakte Keypad-Variante für den Bearbeiten-Dialog: kein Speichern-Feld
+   im Zahlenfeld selbst, dafür eine eigene Zeile nur für ⌫ */
+.keypad--compact {
+  grid-template-rows: repeat(4, minmax(52px, 1fr)) 48px;
+}
+
+.key--full-row {
+  grid-column: span 3;
+}
+
 /* ==========================================================================
    Liste der letzten Einträge
    ========================================================================== */
@@ -148,6 +270,12 @@ html, body {
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 12px 14px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.entry:active {
+  background: var(--color-border);
 }
 
 .entry__amount {
@@ -160,18 +288,9 @@ html, body {
   font-size: 0.9rem;
 }
 
-.entry__actions {
-  display: flex;
-  gap: 8px;
-}
-
-.entry__actions button {
-  border: none;
-  background: none;
-  font-size: 1.1rem;
-  padding: 4px 6px;
-  cursor: pointer;
+.entry__hint {
   color: var(--color-text-muted);
+  font-size: 1.1rem;
 }
 
 .entries__empty {
@@ -234,4 +353,145 @@ html, body {
 
 .nav-btn:disabled {
   opacity: 0.4;
+}
+
+/* ==========================================================================
+   Dialoge (Bearbeiten-Dialog & Schicht-Abrechnung)
+   Beide sind als "Bottom Sheet" gebaut: ein Hintergrund-Schleier
+   (.modal-overlay) plus eine von unten hochkommende Karte (.modal).
+   ========================================================================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  z-index: 50;
+}
+
+/* Das [hidden]-Attribut blendet Elemente aus - hier extra betont, weil
+   display:flex oben sonst Vorrang vor dem Browser-Standard hätte. */
+.modal-overlay[hidden] {
+  display: none;
+}
+
+.modal {
+  width: 100%;
+  max-height: 92dvh;
+  overflow-y: auto;
+  background: var(--color-bg);
+  border-radius: 20px 20px 0 0;
+  padding: 10px 16px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0 2px;
+}
+
+.modal__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.modal__cancel {
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-size: 1rem;
+  min-height: 44px;
+  padding: 0 4px;
+}
+
+/* Unsichtbarer Platzhalter rechts, damit die Überschrift optisch mittig steht
+   (gleiche Breite wie der "Abbrechen"-Text links) */
+.modal__spacer {
+  width: 70px;
+}
+
+.modal__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.modal__actions .key {
+  flex: 1;
+  min-height: 52px;
+}
+
+.field-label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.time-input {
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Formularfelder in der Schicht-Abrechnung
+   ========================================================================== */
+.shift-total {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--color-text-muted);
+}
+
+.shift-total strong {
+  color: var(--color-text);
+  font-size: 1.2rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.field__input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.field__input-row input {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--color-text);
+  min-width: 0;
+}
+
+.field__input-row input:focus {
+  outline: none;
+}
+
+.field__input-row span {
+  color: var(--color-text-muted);
 }
