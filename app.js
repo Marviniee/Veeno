@@ -1,5 +1,5 @@
 // ============================================================================
-// Trinkgeld Tracker - app.js
+// Veeno - app.js
 //
 // Alles, was die Eintrags-Seite tut, steht hier drin. Kein Framework, nur
 // "normales" JavaScript. Der Code ist in kleine Funktionen aufgeteilt, die

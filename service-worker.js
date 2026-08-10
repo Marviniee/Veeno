@@ -12,7 +12,7 @@
 // willst, dass installierte Nutzer die neue Version bekommen.
 // ============================================================================
 
-const CACHE_NAME = "trinkgeld-tracker-v1";
+const CACHE_NAME = "veeno-v1";
 
 const APP_SHELL_DATEIEN = [
   "./",

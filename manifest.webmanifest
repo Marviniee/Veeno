@@ -1,6 +1,6 @@
 {
-  "name": "Trinkgeld Tracker",
-  "short_name": "Trinkgeld",
+  "name": "Veeno",
+  "short_name": "Veeno",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
