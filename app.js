@@ -155,9 +155,9 @@ function digitPressed(ziffer) {
   updateDisplay();
 }
 
-function startTensCent() {
-  // Taste "0," - Abkürzung für Zehner-Cent, z.B. "0," + "1" -> "0,1" (=10 Cent)
-  buffer = "0,";
+function startSingleCent() {
+  // Taste "0,0" - Abkürzung für Einer-Cent, z.B. "0,0" + "1" -> "0,01"
+  buffer = "0,0";
   updateDisplay();
 }
 
@@ -393,12 +393,12 @@ function initEditDialog() {
     });
   });
 
-  document.getElementById("edit-key-tens-cent").addEventListener("click", () => {
-    editBuffer = "0,";
-    updateEditDisplay();
-  });
   document.getElementById("edit-key-comma").addEventListener("click", () => {
     editBuffer = insertComma(editBuffer);
+    updateEditDisplay();
+  });
+  document.getElementById("edit-key-single-cent").addEventListener("click", () => {
+    editBuffer = "0,0";
     updateEditDisplay();
   });
   document.getElementById("edit-key-delete-digit").addEventListener("click", () => {
@@ -654,8 +654,8 @@ function initKeypad() {
     button.addEventListener("click", () => digitPressed(button.dataset.digit));
   });
 
-  document.getElementById("key-tens-cent").addEventListener("click", startTensCent);
   document.getElementById("key-comma").addEventListener("click", commaPressed);
+  document.getElementById("key-single-cent").addEventListener("click", startSingleCent);
   document.getElementById("key-delete").addEventListener("click", deletePressed);
   document.getElementById("key-save").addEventListener("click", saveEntry);
 }
