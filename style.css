@@ -67,28 +67,27 @@
   box-sizing: border-box;
 }
 
-/* Zwei vorherige Fix-Versuche (position:fixed auf html/body, danach
-   100dvh statt 100%) haben die Lücke unter der Tab-Leiste im echten
-   iOS-Standalone-Modus NICHT behoben - offenbar ist dort position:fixed
-   kombiniert mit berechneten Höhen unzuverlässig gegenüber der
-   tatsächlich sichtbaren Fläche. Deshalb jetzt ein grundlegend anderer
-   Ansatz: html/body bleiben ganz normal im Dokumentfluss (kein
-   position:fixed, kein eigenes Höhen-Management mehr nötig) - #app ist
-   der einzige Höhen-Container (100dvh, min. 100vh als Fallback), und
-   .bottom-nav positioniert sich nicht mehr selbst, sondern landet als
-   letztes Flex-Kind von #app einfach automatisch ganz unten (siehe
-   Kommentare bei #app und .bottom-nav unten). */
+/* Drei vorherige Fix-Versuche für die Lücke unter der Tab-Leiste
+   scheiterten alle an derselben falschen Annahme: dass sich die volle
+   Bildschirmhöhe zuverlässig berechnen lässt (100%, 100vh, 100dvh).
+   Diagnose per Safari-Web-Inspector auf einem echten iPhone (390×844,
+   Standalone-Modus) hat das widerlegt: window.innerHeight UND die
+   berechnete Höhe von #app mit height:100dvh lieferten dort BEIDE 797px
+   statt 844px - 47px fehlten systematisch, unabhängig von vh vs. dvh.
+   Vermutlich reserviert iOS im Standalone-Modus die Safe-Area auf eine
+   Art, die window.innerHeight/vh/dvh nicht (immer) korrekt einrechnen.
+
+   Deshalb verzichtet #app jetzt komplett auf eine explizite height-Angabe
+   und nutzt stattdessen position:fixed mit allen vier inset-Kanten auf 0:
+   das "streckt" #app auf den kompletten Viewport rein durch Verankerung
+   an allen Rändern, ganz ohne vh/dvh-Berechnung, die auf diesem Gerät
+   nachweislich falsch war. html/body brauchen dafür keine eigene Höhen-/
+   Positionierungslogik mehr - #app nimmt sich selbst aus dem Dokumentfluss
+   heraus und beansprucht den ganzen Viewport, unabhängig davon, wie hoch
+   html/body "denken" dass sie sind. */
 html, body {
   margin: 0;
   padding: 0;
-  width: 100%;
-  height: 100%;
-  /* Zusätzliches Sicherheitsnetz gegen dokumentweites Rubber-Banding -
-     OHNE position:fixed (das war Teil des Problems). #app innen ist
-     ohnehin exakt auf die Viewport-Höhe begrenzt (siehe unten), dieses
-     overflow:hidden hier verhindert nur, dass html/body selbst je
-     versehentlich höher werden als ihr Inhalt und dadurch scrollbar wären. */
-  overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
@@ -97,24 +96,22 @@ html, body {
   user-select: none;
 }
 
-/* #app ist der einzige Höhen-/Scroll-Container der ganzen App:
-   - height:100vh als Fallback für Browser ohne dvh-Unterstützung, direkt
-     danach von height:100dvh überschrieben (dvh berücksichtigt die
-     dynamische Safe-Area/Toolbar-Höhe zuverlässiger als vh/%).
-   - overflow:hidden verhindert, dass #app SELBST scrollt - dadurch kann
-     nur noch .screen (eigener overflow-y:auto-Container, siehe unten)
-     scrollen, nicht das ganze Dokument. Kein position:fixed nötig: weil
-     #app nie größer wird als sein eigenes overflow:hidden, "rubber-bandet"
-     nichts über den sichtbaren Bereich hinaus.
-   - .bottom-nav braucht dadurch KEIN eigenes Positionierungs-Hack mehr:
-     als letztes Flex-Kind (flex-direction:column) landet sie automatisch
-     exakt am unteren Rand von #app, die davor liegenden .screen-Elemente
-     füllen mit flex:1 den kompletten Rest. */
+/* #app: position:fixed + top/right/bottom/left:0 statt einer expliziten
+   height - siehe ausführliche Begründung im Kommentar oben. overflow:hidden
+   verhindert, dass #app SELBST scrollt - dadurch kann nur noch .screen
+   (eigener overflow-y:auto-Container, siehe unten) scrollen. .bottom-nav
+   braucht dadurch KEIN eigenes Positionierungs-Hack mehr: als letztes
+   Flex-Kind (flex-direction:column) landet sie automatisch exakt am
+   unteren Rand von #app, die davor liegenden .screen-Elemente füllen mit
+   flex:1 den kompletten Rest. */
 #app {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100dvh;
   overflow: hidden;
 }
 
