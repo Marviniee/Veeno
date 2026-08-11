@@ -2,20 +2,26 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <!-- viewport-fit=cover sorgt dafür, dass die App bis in die Ecken (Notch,
-       Home-Indicator) geht (Edge-to-Edge). WICHTIG: nach Änderungen an
-       diesem Tag oder an apple-mobile-web-app-status-bar-style muss das
-       Homescreen-Icon auf dem iPhone GELÖSCHT und über Safari + "Zum
-       Home-Bildschirm hinzufügen" NEU angelegt werden - iOS übernimmt
-       Änderungen an dieser Konfiguration bei einem bestehenden Icon
-       nachweislich nicht zuverlässig (das war die eigentliche Ursache
-       der Bottom-Nav-Lücke, nicht der CSS-Code selbst). -->
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <!-- KEIN viewport-fit=cover (bewusster Verzicht auf Edge-to-Edge, siehe
+       Kommentar bei status-bar-style unten). -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Veeno</title>
 
   <!-- Diese drei Meta-Tags sagen dem iPhone: "Öffne mich als eigene App ohne Safari-Leiste" -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- "default" statt "black-translucent", UND viewport-fit=cover oben
+       bewusst weggelassen: auf Marvins Gerät verursacht die Kombination
+       aus viewport-fit=cover + status-bar-style=black-translucent einen
+       WKWebView-Container-Sizing-Bug im Standalone-Modus (Fenster wird
+       nur ~797pt statt 844pt hoch angelegt) - reproduzierbar auch mit
+       frisch angelegtem Homescreen-Icon, also kein Cache-/Icon-Problem.
+       Der native WKWebView-Container selbst (nicht nur der CSS-Viewport)
+       ist zu kurz - das liegt unterhalb der Web-Ebene und ist per CSS/JS
+       aus der Seite heraus nicht behebbar. Deshalb bewusst konservativer,
+       nicht-immersiver Ansatz: iOS reserviert Platz für Statusleiste und
+       Home-Indicator nativ selbst, unser Content bekommt einen korrekt
+       berechneten, aber nicht bis in die Ecken reichenden Viewport. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="Veeno" />
   <meta name="theme-color" content="#FF9E3E" />
 
@@ -330,7 +336,7 @@
         <p class="settings-info__desc">Veeno hilft dir, dein Trinkgeld zu erfassen und zu sparen.</p>
         <p class="settings-info__privacy">Alle Daten werden ausschließlich lokal auf diesem Gerät gespeichert. Es gibt keinen Server, keine Cloud-Synchronisation, keine Datenweitergabe.</p>
         <p class="settings-info__meta">
-          Veeno <span id="settings-app-semver">0.4.0</span> · Build <span id="settings-build-version">v24</span> ·
+          Veeno <span id="settings-app-semver">0.4.0</span> · Build <span id="settings-build-version">v25</span> ·
           <a href="https://github.com/Marviniee/Veeno" target="_blank" rel="noopener">GitHub-Repo</a>
         </p>
       </section>

@@ -67,18 +67,16 @@
   box-sizing: border-box;
 }
 
-/* Die Bottom-Nav-Lücke, die mehrere CSS-Fix-Versuche (100%, 100vh/100dvh,
-   position:fixed+inset, ein JS-Override aus window.screen.height) und ein
-   kurzzeitiger Rückbau von Edge-to-Edge (viewport-fit=cover entfernt)
-   nicht beheben konnten, lag am Ende NICHT am Code: iOS übernimmt
-   Änderungen an viewport-fit/status-bar-style bei einem bereits
-   bestehenden Homescreen-Icon nicht zuverlässig (eingefrorene Fenster-
-   Konfiguration vom ersten "Zum Home-Bildschirm hinzufügen"). Nach
-   Löschen + frischem Neu-Hinzufügen des Icons war die Lücke sofort weg.
-   Deshalb bleibt Edge-to-Edge (viewport-fit=cover + status-bar-style=
-   black-translucent, siehe index.html) aktiv - WICHTIG: nach jeder
-   Änderung an diesen Meta-Tags muss das Homescreen-Icon neu angelegt
-   werden, siehe Kommentar in index.html. */
+/* Bewusster Verzicht auf Edge-to-Edge-Rendering (siehe ausführliche
+   Begründung bei den Meta-Tags in index.html): viewport-fit=cover +
+   status-bar-style=black-translucent verursachte auf Marvins Gerät einen
+   WKWebView-Container-Sizing-Bug (nativer Container nur ~797pt statt
+   844pt hoch), reproduzierbar auch mit frischem Homescreen-Icon - also
+   kein CSS-Problem und per CSS/JS aus der Seite heraus nicht behebbar.
+   Ohne viewport-fit=cover reserviert iOS Platz für Statusleiste/Home-
+   Indicator selbst nativ; ganz normales 100dvh reicht deshalb aus, keine
+   env(safe-area-inset-*)-Paddings mehr nötig (der unsafe Bereich ist ja
+   bereits nativ freigehalten). */
 html, body {
   margin: 0;
   padding: 0;
@@ -141,8 +139,7 @@ button,
 .screen-title {
   font-size: 1.3rem;
   font-weight: 700;
-  margin: 0;
-  padding-top: max(4px, calc(env(safe-area-inset-top) + 8px));
+  margin: 4px 0 0;
 }
 
 /* ==========================================================================
@@ -153,7 +150,6 @@ button,
   align-items: center;
   gap: 10px;
   padding: 4px 0;
-  padding-top: max(4px, calc(env(safe-area-inset-top) + 8px));
 }
 
 .app-header__icon {
@@ -242,8 +238,7 @@ button,
 .home-greeting__title {
   font-size: 1.4rem;
   font-weight: 700;
-  margin: 0;
-  padding-top: max(4px, calc(env(safe-area-inset-top) + 8px));
+  margin: 4px 0 0;
 }
 
 .home-greeting__subtitle {
@@ -865,10 +860,11 @@ button,
   flex-shrink: 0;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
-  /* Puffer + Safe-Area INNERHALB der Nav-Leiste (nicht als Lücke davor),
-     damit ihr Hintergrund bis in den Home-Indicator-Bereich durchgezogen
-     wird, statt dass dieser Bereich unbemalt bleibt. */
-  padding-bottom: max(6px, env(safe-area-inset-bottom));
+  /* Ohne viewport-fit=cover reserviert iOS den Home-Indicator-Bereich
+     bereits selbst nativ unterhalb unseres Web-Contents - env(safe-area-
+     inset-bottom) ist damit immer 0 und nicht mehr nötig, ein normaler
+     Puffer reicht. */
+  padding-bottom: 6px;
 }
 
 .nav-btn {
@@ -929,7 +925,7 @@ button,
   overflow-y: auto;
   background: var(--color-bg);
   border-radius: 20px 20px 0 0;
-  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  padding: 10px 16px 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -965,14 +961,6 @@ button,
   font-size: 1.15rem; /* etwas kleiner als screen-title (1.3rem), sonst bricht der Text
                          neben "Abbrechen" auf 375px-Breite in zwei Zeilen um */
   white-space: nowrap;
-}
-
-/* Anders als die echten Bottom-Sheet-Dialoge (Eintrag bearbeiten, Sparziel,
-   Eingabe-Obergrenze) läuft der Schicht-Screen als Vollbild-Screen ganz oben
-   an die Statusleiste/Dynamic Island heran - deshalb hier zusätzlich Safe-
-   Area-Puffer, nur für diesen einen .modal__header. */
-#screen-schicht .modal__header {
-  padding-top: max(6px, calc(env(safe-area-inset-top) + 8px));
 }
 
 .modal__cancel {
