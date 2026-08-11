@@ -113,7 +113,8 @@ button,
 .screen-title {
   font-size: 1.3rem;
   font-weight: 700;
-  margin: 4px 0 0;
+  margin: 0;
+  padding-top: max(4px, calc(env(safe-area-inset-top) + 8px));
 }
 
 /* ==========================================================================
@@ -124,6 +125,7 @@ button,
   align-items: center;
   gap: 10px;
   padding: 4px 0;
+  padding-top: max(4px, calc(env(safe-area-inset-top) + 8px));
 }
 
 .app-header__icon {
@@ -253,25 +255,63 @@ button,
   color: var(--color-text-muted);
 }
 
-/* Ganz einfaches Balkendiagramm: 7 Balken für die letzten 7 Tage,
-   Höhe wird per JS über style.height gesetzt. */
+/* Ganz einfaches Balkendiagramm: 7 Balken für die letzten 7 Tage, je einer
+   pro Spalte mit Wochentags-Kürzel darunter. Höhe des Balkens wird per JS
+   über style.height gesetzt (relativ zur festen Höhe von .savings-chart__bar-track). */
 .savings-card__chart {
   display: flex;
-  align-items: flex-end;
   justify-content: center;
   gap: 4px;
-  height: 36px;
   width: 100%;
-  max-width: 220px;
+  max-width: 240px;
   margin-top: 10px;
 }
 
-.savings-chart__bar {
+.savings-chart__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   flex: 1;
+  min-width: 0;
+}
+
+.savings-chart__bar-track {
+  display: flex;
+  align-items: flex-end;
+  height: 36px;
+  width: 100%;
+}
+
+.savings-chart__bar {
+  width: 100%;
   min-height: 4px;
   background: var(--color-accent);
   opacity: 0.45;
   border-radius: 3px;
+}
+
+.savings-chart__day-label {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+}
+
+/* Stat-Zeilen unter dem Diagramm: Wochendurchschnitt + bester Tag jemals. */
+.savings-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+}
+
+.savings-stats__line {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.savings-stats__line strong {
+  color: var(--color-text);
 }
 
 /* Becher-Bestand-Karte: gleiches Grundmuster wie .savings-card, aber
@@ -650,6 +690,14 @@ button,
   white-space: nowrap;
 }
 
+/* Anders als die echten Bottom-Sheet-Dialoge (Eintrag bearbeiten, Sparziel,
+   Eingabe-Obergrenze) läuft der Schicht-Screen als Vollbild-Screen ganz oben
+   an die Statusleiste/Dynamic Island heran - deshalb hier zusätzlich Safe-
+   Area-Puffer, nur für diesen einen .modal__header. */
+#screen-schicht .modal__header {
+  padding-top: max(6px, calc(env(safe-area-inset-top) + 8px));
+}
+
 .modal__cancel {
   border: none;
   background: none;
@@ -806,6 +854,7 @@ button,
 .split-card__value-row {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 3px;
 }
 
@@ -815,7 +864,7 @@ button,
   background: none;
   font-size: 1.25rem;
   font-weight: 800;
-  text-align: right;
+  text-align: center;
   padding: 0;
   min-height: 32px;
 }
@@ -853,6 +902,24 @@ button,
 
 .split-check strong {
   color: var(--color-text);
+}
+
+/* Zusammenfassungszeile direkt über dem Speichern-Button: der tatsächliche
+   neue Becherbestand (Topf minus Einzahlen), live aktualisiert. */
+.shift-neuer-becher-summary {
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+/* #shift-save sitzt anders als das Haupt-Zahlenfeld nicht in der 60px-Grid-
+   Zeile von .keypad, sondern als freistehender Button - ohne eigene Größe
+   würde er sich nur an seinen Text anpassen und zu klein/gequetscht wirken. */
+#shift-save {
+  padding: 16px 0;
+  min-height: 56px;
 }
 
 /* ==========================================================================
@@ -1027,10 +1094,21 @@ button,
 }
 
 .settings-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   text-align: center;
   color: var(--color-text-muted);
   font-size: 0.8rem;
   margin: 12px 0 4px;
+}
+
+.settings-info p {
+  margin: 0;
+}
+
+.settings-info__meta {
+  margin-top: 2px;
 }
 
 .settings-info a {

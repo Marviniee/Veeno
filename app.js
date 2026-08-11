@@ -32,7 +32,7 @@ const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
 
 // Muss beim Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen
 // werden - zeigt nur die Versionsnummer im Einstellungen-Screen an.
-const APP_VERSION = "v15";
+const APP_VERSION = "v16";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -572,9 +572,11 @@ function updateSplitCheck(eingezahlt, imBecher, topf) {
 }
 
 // Der "Im Becher"-Wert IST der neue Becherbestand nach dieser Abrechnung
-// (Topf minus Einzahlen) - beide Anzeigen bekommen also denselben Wert.
+// (Topf minus Einzahlen) - die Zusammenfassungszeile über dem Speichern-
+// Button bekommt diesen Wert live mit.
 function updateNeuerBecherbestand(imBecher) {
-  document.getElementById("shift-neuer-becher-value").textContent = formatAmount(imBecher);
+  document.getElementById("shift-neuer-becher-summary").textContent =
+    `Neuer Becherbestand: ${formatAmount(imBecher)}`;
 }
 
 function openShiftDialog() {
@@ -585,6 +587,7 @@ function openShiftDialog() {
 
   document.getElementById("shift-bisher-becher-value").textContent = formatAmount(vorherigerBecherbestand);
   document.getElementById("shift-schicht-value").textContent = formatAmount(heutigesSchichtTotal);
+  document.getElementById("shift-gesamt-value").textContent = formatAmount(gesamtTopf);
   updateNeuerBecherbestand(imBecher);
 
   document.getElementById("shift-paid-out").value = eingezahlt.toFixed(2);
@@ -780,28 +783,71 @@ function initGoalDialog() {
   });
 }
 
+// Wochentags-Kürzel, indiziert wie Date.getDay() (0 = Sonntag).
+const WOCHENTAGS_KUERZEL = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
 // Kleines Balkendiagramm: ein Balken pro Tag der letzten 7 Tage, Höhe
 // zeigt, wie viel an dem Tag eingezahlt wurde (0, wenn der Tag noch nicht
-// abgerechnet wurde).
+// abgerechnet wurde), mit Wochentags-Kürzel darunter.
 function renderSavingsChart() {
   const container = document.getElementById("savings-chart");
   container.innerHTML = "";
 
-  const werte = [];
+  const tage = [];
   for (let tageZurueck = 6; tageZurueck >= 0; tageZurueck--) {
     const tag = new Date();
     tag.setDate(tag.getDate() - tageZurueck);
     const eintrag = dailySummaries[dateKey(tag)];
-    werte.push(eintrag ? eintrag.paidOut : 0);
+    tage.push({ datum: tag, wert: eintrag ? eintrag.paidOut : 0 });
   }
 
-  const maxWert = Math.max(...werte, 1); // min. 1, sonst Division durch 0
-  for (const wert of werte) {
+  const maxWert = Math.max(...tage.map((t) => t.wert), 1); // min. 1, sonst Division durch 0
+  for (const { datum, wert } of tage) {
+    const spalte = document.createElement("div");
+    spalte.className = "savings-chart__col";
+
+    const track = document.createElement("div");
+    track.className = "savings-chart__bar-track";
     const balken = document.createElement("div");
     balken.className = "savings-chart__bar";
     balken.style.height = `${Math.max(4, (wert / maxWert) * 100)}%`;
-    container.appendChild(balken);
+    track.appendChild(balken);
+
+    const label = document.createElement("span");
+    label.className = "savings-chart__day-label";
+    label.textContent = WOCHENTAGS_KUERZEL[datum.getDay()];
+
+    spalte.appendChild(track);
+    spalte.appendChild(label);
+    container.appendChild(spalte);
   }
+
+  renderSavingsStats(tage);
+}
+
+// Wochendurchschnitt (aus den 7 im Diagramm gezeigten Tagen) + bester
+// jemals abgerechneter Tag (paidOut, über alle dailySummaries hinweg).
+function renderSavingsStats(letzte7Tage) {
+  const avgEl = document.getElementById("savings-stat-avg");
+  const bestEl = document.getElementById("savings-stat-best");
+
+  const durchschnitt = letzte7Tage.reduce((summe, t) => summe + t.wert, 0) / 7;
+  avgEl.innerHTML = `Wochendurchschnitt: <strong>${formatAmount(round2(durchschnitt))}</strong>`;
+
+  const tagesEintraege = Object.entries(dailySummaries);
+  if (tagesEintraege.length === 0) {
+    bestEl.textContent = "";
+    return;
+  }
+
+  const [besterTag, bestesEintrag] = tagesEintraege.reduce((bester, aktuell) =>
+    aktuell[1].paidOut > bester[1].paidOut ? aktuell : bester
+  );
+
+  const [jahr, monat, tag] = besterTag.split("-").map(Number);
+  const wochentag = WOCHENTAGS_KUERZEL[new Date(jahr, monat - 1, tag).getDay()];
+  const datumsText = `${wochentag}, ${String(tag).padStart(2, "0")}.${String(monat).padStart(2, "0")}.${jahr}`;
+  bestEl.innerHTML = `Bester Tag: <strong>${formatAmount(bestesEintrag.paidOut)}</strong> (${datumsText})`;
 }
 
 // ============================================================================
