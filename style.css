@@ -67,27 +67,24 @@
   box-sizing: border-box;
 }
 
-/* Drei vorherige Fix-Versuche für die Lücke unter der Tab-Leiste
-   scheiterten alle an derselben falschen Annahme: dass sich die volle
-   Bildschirmhöhe zuverlässig berechnen lässt (100%, 100vh, 100dvh).
-   Diagnose per Safari-Web-Inspector auf einem echten iPhone (390×844,
-   Standalone-Modus) hat das widerlegt: window.innerHeight UND die
-   berechnete Höhe von #app mit height:100dvh lieferten dort BEIDE 797px
-   statt 844px - 47px fehlten systematisch, unabhängig von vh vs. dvh.
-   Vermutlich reserviert iOS im Standalone-Modus die Safe-Area auf eine
-   Art, die window.innerHeight/vh/dvh nicht (immer) korrekt einrechnen.
-
-   Deshalb verzichtet #app jetzt komplett auf eine explizite height-Angabe
-   und nutzt stattdessen position:fixed mit allen vier inset-Kanten auf 0:
-   das "streckt" #app auf den kompletten Viewport rein durch Verankerung
-   an allen Rändern, ganz ohne vh/dvh-Berechnung, die auf diesem Gerät
-   nachweislich falsch war. html/body brauchen dafür keine eigene Höhen-/
-   Positionierungslogik mehr - #app nimmt sich selbst aus dem Dokumentfluss
-   heraus und beansprucht den ganzen Viewport, unabhängig davon, wie hoch
-   html/body "denken" dass sie sind. */
+/* Die Bottom-Nav-Lücke, die mehrere CSS-Fix-Versuche (100%, 100vh/100dvh,
+   position:fixed+inset, ein JS-Override aus window.screen.height) und ein
+   kurzzeitiger Rückbau von Edge-to-Edge (viewport-fit=cover entfernt)
+   nicht beheben konnten, lag am Ende NICHT am Code: iOS übernimmt
+   Änderungen an viewport-fit/status-bar-style bei einem bereits
+   bestehenden Homescreen-Icon nicht zuverlässig (eingefrorene Fenster-
+   Konfiguration vom ersten "Zum Home-Bildschirm hinzufügen"). Nach
+   Löschen + frischem Neu-Hinzufügen des Icons war die Lücke sofort weg.
+   Deshalb bleibt Edge-to-Edge (viewport-fit=cover + status-bar-style=
+   black-translucent, siehe index.html) aktiv - WICHTIG: nach jeder
+   Änderung an diesen Meta-Tags muss das Homescreen-Icon neu angelegt
+   werden, siehe Kommentar in index.html. */
 html, body {
   margin: 0;
   padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
@@ -96,20 +93,14 @@ html, body {
   user-select: none;
 }
 
-/* #app: position:fixed + top/right/bottom/left:0 statt einer expliziten
-   height - siehe ausführliche Begründung im Kommentar oben. overflow:hidden
-   verhindert, dass #app SELBST scrollt - dadurch kann nur noch .screen
-   (eigener overflow-y:auto-Container, siehe unten) scrollen. .bottom-nav
-   braucht dadurch KEIN eigenes Positionierungs-Hack mehr: als letztes
-   Flex-Kind (flex-direction:column) landet sie automatisch exakt am
-   unteren Rand von #app, die davor liegenden .screen-Elemente füllen mit
-   flex:1 den kompletten Rest. */
+/* overflow:hidden verhindert, dass #app SELBST scrollt - dadurch kann nur
+   noch .screen (eigener overflow-y:auto-Container, siehe unten) scrollen.
+   .bottom-nav braucht dadurch KEIN eigenes Positionierungs-Hack mehr: als
+   letztes Flex-Kind (flex-direction:column) landet sie automatisch exakt
+   am unteren Rand von #app, die davor liegenden .screen-Elemente füllen
+   mit flex:1 den kompletten Rest. */
 #app {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
