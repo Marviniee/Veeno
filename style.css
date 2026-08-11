@@ -67,32 +67,27 @@
   box-sizing: border-box;
 }
 
-/* position:fixed + overflow:hidden auf html/body verhindert, dass die
-   SEITE SELBST scrollt (iOS-Standalone-Bug: beim "Rubber-Banding" der
-   Body-Scrollposition wandert sonst die untere Tab-Leiste sichtbar mit,
-   weil sie Teil des scrollenden Dokuments wird). Dadurch kann NUR noch
-   .screen (siehe unten, eigener overflow-y:auto-Container) scrollen -
-   #app/.bottom-nav bleiben unabhängig vom Scroll-Zustand exakt an Ort
-   und Stelle, auf allen 4 Screens gleich.
-
-   WICHTIG: top/left/right einzeln setzen statt der "inset: 0"-Kurzform
-   (die auch bottom:0 mitsetzen würde) UND height:100dvh statt 100% -
-   beides zusammen (top+bottom+height) wäre "over-constrained", CSS würde
-   dann bottom:0 verwerfen und nur height wirken lassen. Mit 100% konnte
-   das im iOS-Standalone-Modus kürzer als die tatsächliche Viewport-Höhe
-   ausfallen (Safe-Area/Toolbar nicht sauber berücksichtigt) - darunter
-   blieb ein unbemalter Streifen (weiße/schwarze Fläche) übrig, in dem die
-   eigentlich bündig sitzende .bottom-nav zu weit oben zu hängen schien.
-   100dvh berücksichtigt die dynamische Viewport-Höhe zuverlässig, und
-   ohne gesetztes bottom gibt es keinen Konflikt mehr. */
+/* Zwei vorherige Fix-Versuche (position:fixed auf html/body, danach
+   100dvh statt 100%) haben die Lücke unter der Tab-Leiste im echten
+   iOS-Standalone-Modus NICHT behoben - offenbar ist dort position:fixed
+   kombiniert mit berechneten Höhen unzuverlässig gegenüber der
+   tatsächlich sichtbaren Fläche. Deshalb jetzt ein grundlegend anderer
+   Ansatz: html/body bleiben ganz normal im Dokumentfluss (kein
+   position:fixed, kein eigenes Höhen-Management mehr nötig) - #app ist
+   der einzige Höhen-Container (100dvh, min. 100vh als Fallback), und
+   .bottom-nav positioniert sich nicht mehr selbst, sondern landet als
+   letztes Flex-Kind von #app einfach automatisch ganz unten (siehe
+   Kommentare bei #app und .bottom-nav unten). */
 html, body {
   margin: 0;
   padding: 0;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 100dvh;
+  width: 100%;
+  height: 100%;
+  /* Zusätzliches Sicherheitsnetz gegen dokumentweites Rubber-Banding -
+     OHNE position:fixed (das war Teil des Problems). #app innen ist
+     ohnehin exakt auf die Viewport-Höhe begrenzt (siehe unten), dieses
+     overflow:hidden hier verhindert nur, dass html/body selbst je
+     versehentlich höher werden als ihr Inhalt und dadurch scrollbar wären. */
   overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
@@ -102,10 +97,25 @@ html, body {
   user-select: none;
 }
 
+/* #app ist der einzige Höhen-/Scroll-Container der ganzen App:
+   - height:100vh als Fallback für Browser ohne dvh-Unterstützung, direkt
+     danach von height:100dvh überschrieben (dvh berücksichtigt die
+     dynamische Safe-Area/Toolbar-Höhe zuverlässiger als vh/%).
+   - overflow:hidden verhindert, dass #app SELBST scrollt - dadurch kann
+     nur noch .screen (eigener overflow-y:auto-Container, siehe unten)
+     scrollen, nicht das ganze Dokument. Kein position:fixed nötig: weil
+     #app nie größer wird als sein eigenes overflow:hidden, "rubber-bandet"
+     nichts über den sichtbaren Bereich hinaus.
+   - .bottom-nav braucht dadurch KEIN eigenes Positionierungs-Hack mehr:
+     als letztes Flex-Kind (flex-direction:column) landet sie automatisch
+     exakt am unteren Rand von #app, die davor liegenden .screen-Elemente
+     füllen mit flex:1 den kompletten Rest. */
 #app {
   display: flex;
   flex-direction: column;
-  height: 100dvh; /* volle Bildschirmhöhe, iPhone-Notch berücksichtigt */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 /* Verhindert, dass iOS schnelles Doppel-Tippen (z.B. auf dem Zahlenfeld)
@@ -120,6 +130,11 @@ button,
 
 .screen {
   flex: 1;
+  /* Ohne min-height:0 verhindert Flexbox standardmäßig, dass ein
+     flex:1-Kind kleiner als sein Inhalt wird (min-height:auto) - dann
+     würde .screen bei viel Inhalt #app aufsprengen statt selbst zu
+     scrollen, und .bottom-nav aus dem sichtbaren Bereich schieben. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow-y: auto;
@@ -854,10 +869,17 @@ button,
    ========================================================================== */
 .bottom-nav {
   display: flex;
+  /* Kein position:fixed/absolute mehr - als letztes Flex-Kind von #app
+     (flex-direction:column) landet sie automatisch exakt am unteren Rand
+     des sichtbaren Bereichs. flex-shrink:0 verhindert, dass sie bei wenig
+     Platz zusammengedrückt wird (die .screen-Elemente davor haben flex:1
+     und geben zuerst nach). */
+  flex-shrink: 0;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
-  /* Puffer + Safe-Area, damit die Leiste im Standalone-Modus nicht direkt
-     am Home-Indicator klebt/abgeschnitten wirkt. */
+  /* Puffer + Safe-Area INNERHALB der Nav-Leiste (nicht als Lücke davor),
+     damit ihr Hintergrund bis in den Home-Indicator-Bereich durchgezogen
+     wird, statt dass dieser Bereich unbemalt bleibt. */
   padding-bottom: max(6px, env(safe-area-inset-bottom));
 }
 
