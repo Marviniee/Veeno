@@ -262,7 +262,9 @@ function renderEntries() {
 
   // Wir zeigen die letzten 10 Einträge, neueste zuerst (entries ist bereits
   // so sortiert, weil wir beim Speichern mit unshift() vorne einfügen).
-  const letzteEintraege = entries.slice(0, 10);
+  // Abgerechnete Einträge (settled: true) sind schon Teil einer
+  // Tagesabrechnung und tauchen hier nicht mehr auf.
+  const letzteEintraege = entries.filter((eintrag) => !eintrag.settled).slice(0, 10);
 
   liste.innerHTML = "";
   leerHinweis.style.display = letzteEintraege.length === 0 ? "block" : "none";
@@ -304,8 +306,10 @@ function isToday(isoString) {
 }
 
 function calcDayTotal() {
+  // Bereits abgerechnete Einträge (settled: true) zählen nicht mehr mit -
+  // die stecken schon in einer früheren Tagesabrechnung (Abschnitt 7).
   return entries
-    .filter((eintrag) => isToday(eintrag.timestamp))
+    .filter((eintrag) => isToday(eintrag.timestamp) && !eintrag.settled)
     .reduce((gesamt, eintrag) => gesamt + eintrag.amount, 0);
 }
 
@@ -428,9 +432,16 @@ function initEditDialog() {
 // als "im Becher gelassen" (Kleingeld). Das wird pro Tag in
 // dailySummaries gespeichert.
 //
-// Die Sparrücklage (savings_total) speichern wir NICHT als eigene Zahl,
-// sondern berechnen sie aus der Summe aller "eingezahlt"-Werte in
-// dailySummaries. So können die beiden Zahlen nie auseinanderlaufen.
+// Beim Speichern werden alle heutigen, noch nicht abgerechneten Einträge
+// als "settled" markiert (Abschnitt 3/4/5) und dailySummaries[heute] wird
+// AUFADDIERT statt überschrieben - so kann man mehrmals am selben Tag
+// abrechnen (z.B. nach einer zweiten Schicht), ohne dass frühere Beträge
+// verloren gehen.
+//
+// Die Sparrücklage (savings_total) und der aktuelle Becher-Bestand
+// speichern wir NICHT als eigene Zahlen, sondern berechnen sie aus der
+// Summe aller "eingezahlt"- bzw. "im Becher"-Werte in dailySummaries. So
+// können die Zahlen nie auseinanderlaufen.
 // ============================================================================
 
 function todayDateKey() {
@@ -450,6 +461,13 @@ function round2(zahl) {
 
 function calcSavingsTotal() {
   return Object.values(dailySummaries).reduce((summe, tag) => summe + tag.paidOut, 0);
+}
+
+// Wie viel Kleingeld aktuell insgesamt im Becher liegt (Summe aller
+// inCup-Werte aus allen bisherigen Tagesabrechnungen) - genau wie
+// calcSavingsTotal(), nur mit inCup statt paidOut.
+function calcBecherBestand() {
+  return Object.values(dailySummaries).reduce((summe, tag) => summe + tag.inCup, 0);
 }
 
 // Automatische Aufteilung beim Öffnen: so viel wie möglich in vollen
@@ -490,21 +508,48 @@ function saveShiftSummary() {
   const eingezahlt = isNaN(eingezahltRoh) ? 0 : Math.min(Math.max(0, eingezahltRoh), total);
   const imBecher = round2(total - eingezahlt);
 
-  dailySummaries[todayDateKey()] = {
-    total: round2(total),
-    paidOut: round2(eingezahlt),
-    inCup: imBecher,
+  // Alle heutigen, noch nicht abgerechneten Einträge gehören jetzt zu dieser
+  // Abrechnung -> als "erledigt" markieren. Dadurch verschwinden sie aus der
+  // Einträge-Liste und zählen nicht mehr in calcDayTotal() mit, tauchen also
+  // nicht bei der nächsten Schicht-Abrechnung desselben Tages erneut auf.
+  entries.forEach((eintrag) => {
+    if (isToday(eintrag.timestamp) && !eintrag.settled) {
+      eintrag.settled = true;
+    }
+  });
+
+  // Wurde am selben Tag schon einmal abgerechnet, addieren wir die neuen
+  // Werte zum bestehenden Tageseintrag, statt ihn zu überschreiben - sonst
+  // wären die Sparrücklagen-Beträge der ersten Abrechnung verloren.
+  const heute = todayDateKey();
+  const bisherigerEintrag = dailySummaries[heute] || { total: 0, paidOut: 0, inCup: 0 };
+  dailySummaries[heute] = {
+    total: round2(bisherigerEintrag.total + total),
+    paidOut: round2(bisherigerEintrag.paidOut + eingezahlt),
+    inCup: round2(bisherigerEintrag.inCup + imBecher),
     closedAt: new Date().toISOString(),
   };
 
+  persistEntries();
   persistDailySummaries();
+  renderEntries();
+  renderDayTotal();
   renderSavingsTotal();
   renderSavingsChart();
+  renderBecherBestand();
   closeShiftDialog();
+
+  // Nach erfolgreicher Abrechnung direkt zeigen, wie sich die Sparrücklage
+  // verändert hat - deshalb automatisch zum Sparziel-Tab wechseln.
+  switchScreen("sparziel");
 }
 
 function renderSavingsTotal() {
   document.getElementById("savings-total-value").textContent = formatAmount(calcSavingsTotal());
+}
+
+function renderBecherBestand() {
+  document.getElementById("becher-bestand-value").textContent = formatAmount(calcBecherBestand());
 }
 
 // Kleines Balkendiagramm: ein Balken pro Tag der letzten 7 Tage, Höhe
@@ -685,6 +730,7 @@ function init() {
   renderDayTotal();
   renderSavingsTotal();
   renderSavingsChart();
+  renderBecherBestand();
   renderMotivation();
 
   initKeypad();

@@ -12,7 +12,7 @@
 // willst, dass installierte Nutzer die neue Version bekommen.
 // ============================================================================
 
-const CACHE_NAME = "veeno-v9";
+const CACHE_NAME = "veeno-v10";
 
 const APP_SHELL_DATEIEN = [
   "./",

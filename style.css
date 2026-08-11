@@ -161,6 +161,35 @@ button,
   border-radius: 3px;
 }
 
+/* Becher-Bestand-Karte: gleiches Grundmuster wie .savings-card, aber
+   bewusst kleiner (weniger Padding, kleinere Schrift, kein Diagramm) -
+   die Sparrücklage oben soll die auffälligere Zahl bleiben. */
+.becher-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.becher-card__value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.becher-card__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
 /* Unauffälliger Text-Link, unten auf dem Sparziel-Screen. Kein Button-Look,
    das ist eine Absicherungs-Funktion, keine Haupt-Aktion des Screens. */
 .export-link {

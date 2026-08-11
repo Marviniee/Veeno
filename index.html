@@ -80,6 +80,14 @@
         <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
       </section>
 
+      <!-- Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher liegt.
+           Bewusst kleiner/nachrangig gestaltet - die Sparrücklage oben ist
+           die eigentlich wichtige Zahl. -->
+      <section class="becher-card">
+        <div class="becher-card__value" id="becher-bestand-value">0,00 €</div>
+        <div class="becher-card__label">Im Becher (aktuell)</div>
+      </section>
+
       <!-- Backup: alle Daten als JSON-Datei herunterladen (Absicherung gegen
            iOS' automatische Datenbereinigung bei längerer Nichtnutzung) -->
       <button class="export-link" id="export-data">Daten exportieren</button>
