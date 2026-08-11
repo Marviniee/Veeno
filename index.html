@@ -88,39 +88,90 @@
       <p class="motivation-text" id="motivation-text"></p>
     </main>
 
-    <!-- ================= Bildschirm: Sparziel ================= -->
+    <!-- ================= Bildschirm: Sparziel / Übersicht =================
+         Interner Screen-/Tab-Name bleibt "sparziel" (siehe switchScreen()),
+         nur Label + Icon in der Bottom-Nav zeigen jetzt "Übersicht" - eine
+         echte Home-Seite, angelehnt an die Homescreen-V1/V2/V4-Mockups
+         (nur das strukturelle Konzept übernommen, keine App-fremden
+         Elemente wie Kategorien/Läden). -->
     <main id="screen-sparziel" class="screen" hidden>
-      <h1 class="screen-title">Sparziel</h1>
+      <!-- 1. Tageszeit-Begrüßung + dezenter, statischer Untertext -->
+      <div class="home-greeting">
+        <h1 class="home-greeting__title" id="home-greeting-title">Guten Tag!</h1>
+        <p class="home-greeting__subtitle">Jeder Euro bringt dich deinem Ziel näher.</p>
+      </div>
 
-      <!-- Zielbetrag + Fortschritt - die Hauptaussage des Screens, deshalb
-           ganz oben. Wird komplett von app.js gerendert (renderSparziel),
-           weil der Inhalt je nach Zustand (kein Ziel / Fortschritt / Ziel
-           erreicht) sehr unterschiedlich aussieht. -->
-      <section class="goal-card" id="goal-card">
+      <!-- 2. Zielbetrag + Fortschritt - Herzstück der Seite, deshalb optisch
+           prominenter (goal-card--hero) als vorher. Wird komplett von
+           app.js gerendert (renderSparziel), weil der Inhalt je nach
+           Zustand (kein Ziel / Fortschritt / Ziel erreicht) sehr
+           unterschiedlich aussieht. -->
+      <section class="goal-card goal-card--hero" id="goal-card">
         <!-- wird von app.js gefüllt -->
       </section>
 
-      <!-- Sparrücklage: laufende Gesamtsumme aller eingezahlten Beträge -->
-      <section class="savings-card">
-        <div class="savings-card__value" id="savings-total-value">0,00 €</div>
-        <div class="savings-card__label">Sparrücklage</div>
-        <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
-        <div class="savings-stats" id="savings-stats">
-          <p class="savings-stats__line" id="savings-stat-avg"><!-- wird von app.js gefüllt --></p>
-          <p class="savings-stats__line" id="savings-stat-best"><!-- wird von app.js gefüllt --></p>
-        </div>
-      </section>
-
-      <!-- Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher liegt.
-           Bewusst kleiner/nachrangig gestaltet - die Sparrücklage oben ist
-           die eigentlich wichtige Zahl. -->
+      <!-- 3. Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher
+           liegt. Bewusst kompakt/nachrangig - die Zielkarte oben ist die
+           eigentlich wichtige Fläche. -->
       <section class="becher-card">
         <div class="becher-card__value" id="becher-bestand-value">0,00 €</div>
         <div class="becher-card__label">Im Becher (aktuell)</div>
       </section>
 
-      <!-- Backup: alle Daten als JSON-Datei herunterladen (Absicherung gegen
-           iOS' automatische Datenbereinigung bei längerer Nichtnutzung) -->
+      <!-- 4. Sparrücklage: 7-Tage-Diagramm + zwei Wochen-Stat-Karten
+           ("Diese Woche" vs. Vorwoche, "Stärkster Tag" als Wochentag mit
+           historisch höchstem Durchschnitt - siehe renderWeekStats() in app.js). -->
+      <section class="savings-card">
+        <div class="savings-card__value" id="savings-total-value">0,00 €</div>
+        <div class="savings-card__label">Sparrücklage</div>
+        <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
+
+        <div class="week-stats">
+          <div class="week-stat-card">
+            <div class="week-stat-card__icon-wrap week-stat-card__icon-wrap--teal">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="4 15 10 9 14 13 20 6" />
+                <polyline points="14 6 20 6 20 12" />
+              </svg>
+            </div>
+            <div class="week-stat-card__label">Diese Woche</div>
+            <div class="week-stat-card__value" id="week-stat-diff">+0,00 €</div>
+            <div class="week-stat-card__sub">vs. Vorwoche</div>
+          </div>
+
+          <div class="week-stat-card">
+            <div class="week-stat-card__icon-wrap week-stat-card__icon-wrap--accent">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polygon points="12 3 14.6 8.6 20.8 9.3 16.2 13.4 17.5 19.5 12 16.3 6.5 19.5 7.8 13.4 3.2 9.3 9.4 8.6" />
+              </svg>
+            </div>
+            <div class="week-stat-card__label">Stärkster Tag</div>
+            <div class="week-stat-card__value week-stat-card__value--accent" id="week-stat-day">–</div>
+            <div class="week-stat-card__sub" id="week-stat-day-avg"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Kompakte Vorschau der letzten Einträge (kein Duplikat der
+           vollen Liste vom Eintrag-Screen - nur 4, mit Link zum Verlauf). -->
+      <section class="home-recent">
+        <div class="home-recent__header">
+          <h2 class="home-recent__title">Letzte Einträge</h2>
+          <button class="home-recent__all" id="home-recent-all">Alle anzeigen ›</button>
+        </div>
+        <ul class="entries__list" id="home-recent-list">
+          <!-- wird von app.js gefüllt -->
+        </ul>
+        <p class="entries__empty" id="home-recent-empty">Noch keine Einträge heute.</p>
+      </section>
+
+      <!-- 6. Motivationstext (bestehender Mechanismus/Einstellung, siehe
+           renderMotivation() - jetzt auch hier statt nur auf dem
+           Eintrag-Screen, wie in den Homescreen-Mockups ganz unten). -->
+      <p class="motivation-text" id="home-motivation-text"></p>
+
+      <!-- 7. Backup: alle Daten als JSON-Datei herunterladen (Absicherung
+           gegen iOS' automatische Datenbereinigung bei längerer Nichtnutzung). -->
       <button class="export-link" id="export-data">Daten exportieren</button>
     </main>
 
@@ -272,7 +323,7 @@
         <p class="settings-info__desc">Veeno hilft dir, dein Trinkgeld zu erfassen und zu sparen.</p>
         <p class="settings-info__privacy">Alle Daten werden ausschließlich lokal auf diesem Gerät gespeichert. Es gibt keinen Server, keine Cloud-Synchronisation, keine Datenweitergabe.</p>
         <p class="settings-info__meta">
-          Veeno <span id="settings-app-semver">0.4.0</span> · Build <span id="settings-build-version">v18</span> ·
+          Veeno <span id="settings-app-semver">0.4.0</span> · Build <span id="settings-build-version">v20</span> ·
           <a href="https://github.com/Marviniee/Veeno" target="_blank" rel="noopener">GitHub-Repo</a>
         </p>
       </section>
@@ -298,17 +349,12 @@
         <span class="nav-btn__label">Verlauf</span>
       </button>
       <button class="nav-btn" data-screen="sparziel">
-        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="11" cy="13" r="7" />
-          <circle cx="11" cy="13" r="4" />
-          <circle cx="11" cy="13" r="1.1" fill="currentColor" stroke="none" />
-          <!-- Pfeil/Dart, der von oben rechts ins Zentrum einschlägt -->
-          <line x1="20" y1="4" x2="13.2" y2="10.8" />
-          <polyline points="11.3,10.3 13.2,10.8 12.7,12.7" stroke-linejoin="round" />
-          <line x1="20" y1="4" x2="17.3" y2="4.7" />
-          <line x1="20" y1="4" x2="19.3" y2="6.7" />
+        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 11.5 12 4l8 7.5" />
+          <path d="M6 10v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" />
+          <path d="M10 20v-6h4v6" />
         </svg>
-        <span class="nav-btn__label">Sparziel</span>
+        <span class="nav-btn__label">Übersicht</span>
       </button>
       <button class="nav-btn" data-screen="einstellungen">
         <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

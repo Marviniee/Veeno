@@ -216,6 +216,56 @@ button,
 }
 
 /* ==========================================================================
+   Übersichtsseite (bisheriger Sparziel-Screen): Tageszeit-Begrüßung
+   ========================================================================== */
+.home-greeting {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.home-greeting__title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin: 0;
+  padding-top: max(4px, calc(env(safe-area-inset-top) + 8px));
+}
+
+.home-greeting__subtitle {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* ==========================================================================
+   Übersichtsseite: kompakte Vorschau der letzten Einträge
+   ========================================================================== */
+.home-recent__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 4px 0 8px;
+}
+
+.home-recent__title {
+  font-size: 0.95rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.home-recent__all {
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+/* ==========================================================================
    Sparziel-Karte (Zielbetrag + Fortschritt, ganz oben auf dem Sparziel-Screen)
    ========================================================================== */
 .goal-card {
@@ -295,6 +345,38 @@ button,
   color: var(--color-text-muted);
 }
 
+/* "Hero"-Variante auf der neuen Übersichtsseite: gleiche Balken-Lösung wie
+   bisher, aber als optisches Herzstück der Seite größer/prominenter -
+   Akzentrahmen, mehr Luft, größerer Balken und ein groß hervorgehobener
+   "X € von Y €"-Wert (angelehnt an die große Ring/Karten-Darstellung aus
+   den Homescreen-Mockups, ohne die Balken-Lösung selbst zu ersetzen). */
+.goal-card--hero {
+  padding: 20px 18px;
+  border-width: 1.5px;
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 24px rgba(255, 158, 62, 0.15);
+}
+
+.goal-card--hero .goal-card__bar-track {
+  height: 16px;
+}
+
+.goal-card--hero .goal-card__meta {
+  align-items: baseline;
+}
+
+.goal-card--hero .goal-card__meta span:first-child {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.goal-card--hero .goal-card__meta span:last-child {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
 .goal-card__celebrate {
   margin: 0;
   text-align: center;
@@ -372,22 +454,84 @@ button,
   color: var(--color-text-muted);
 }
 
-/* Stat-Zeilen unter dem Diagramm: Wochendurchschnitt + bester Tag jemals. */
-.savings-stats {
+/* Zwei Stat-Karten unter dem Diagramm (angelehnt an Homescreen-V4-Mockup):
+   "Diese Woche" vs. Vorwoche + "Stärkster Tag" (Wochentag mit historisch
+   höchstem Durchschnitt, siehe renderWeekStats() in app.js). */
+.week-stats {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
 }
 
-.savings-stats__line {
-  margin: 0;
-  font-size: 0.75rem;
+.week-stat-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px 10px;
+  text-align: left;
+}
+
+.week-stat-card__icon-wrap {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  margin-bottom: 2px;
+}
+
+.week-stat-card__icon-wrap svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Feste rgba-Werte statt color-mix() (breitere iOS-Safari-Kompatibilität) -
+   beide Akzentfarben sind in hell/dunkel ohnehin identisch (siehe :root oben). */
+.week-stat-card__icon-wrap--teal {
+  background: rgba(6, 182, 212, 0.18);
+  color: var(--color-accent-2);
+}
+
+.week-stat-card__icon-wrap--accent {
+  background: rgba(255, 158, 62, 0.2);
+  color: var(--color-accent);
+}
+
+.week-stat-card__label {
+  font-size: 0.7rem;
   color: var(--color-text-muted);
 }
 
-.savings-stats__line strong {
+.week-stat-card__value {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--color-accent-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* "Diese Woche" wird negativ (weniger als Vorwoche) in der normalen
+   Textfarbe statt Teal angezeigt - Teal ist für "positiv/Zuwachs" reserviert. */
+.week-stat-card__value--negative {
   color: var(--color-text);
+}
+
+.week-stat-card__value--accent {
+  color: var(--color-accent);
+}
+
+.week-stat-card__sub {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
 }
 
 /* Becher-Bestand-Karte: gleiches Grundmuster wie .savings-card, aber

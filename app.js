@@ -44,7 +44,7 @@ const APP_SEMVER = "0.4.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v19";
+const APP_VERSION = "v20";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -338,15 +338,17 @@ function formatTime(isoString) {
   });
 }
 
-function renderEntries() {
-  const liste = document.getElementById("entries-list");
-  const leerHinweis = document.getElementById("entries-empty");
+// Füllt eine <ul class="entries__list"> mit den neuesten unabgerechneten
+// Einträgen (entries ist bereits neueste-zuerst sortiert, weil saveEntry()
+// mit unshift() vorne einfügt). Gemeinsam genutzt von der vollen Liste auf
+// dem Eintrag-Screen und der kompakten Vorschau auf der Übersichtsseite -
+// gleiches Markup/Klick-Verhalten (öffnet den Bearbeiten-Dialog), nur mit
+// unterschiedlichem Limit.
+function renderEntryList(listeId, leerHinweisId, limit) {
+  const liste = document.getElementById(listeId);
+  const leerHinweis = document.getElementById(leerHinweisId);
 
-  // Wir zeigen die letzten 10 Einträge, neueste zuerst (entries ist bereits
-  // so sortiert, weil wir beim Speichern mit unshift() vorne einfügen).
-  // Abgerechnete Einträge (settled: true) sind schon Teil einer
-  // Tagesabrechnung und tauchen hier nicht mehr auf.
-  const letzteEintraege = entries.filter((eintrag) => !eintrag.settled).slice(0, 10);
+  const letzteEintraege = entries.filter((eintrag) => !eintrag.settled).slice(0, limit);
 
   liste.innerHTML = "";
   leerHinweis.style.display = letzteEintraege.length === 0 ? "block" : "none";
@@ -370,6 +372,17 @@ function renderEntries() {
   liste.querySelectorAll(".entry").forEach((li) => {
     li.addEventListener("click", () => openEditDialog(Number(li.dataset.id)));
   });
+}
+
+function renderEntries() {
+  renderEntryList("entries-list", "entries-empty", 10);
+  renderHomeRecent();
+}
+
+// Kompakte Vorschau auf der Übersichtsseite (Punkt 5) - bewusst nur 4
+// Einträge, keine Kopie der vollen Liste vom Eintrag-Screen.
+function renderHomeRecent() {
+  renderEntryList("home-recent-list", "home-recent-empty", 4);
 }
 
 
@@ -722,6 +735,22 @@ function renderSparziel() {
   document.getElementById("goal-edit-btn").addEventListener("click", openGoalDialog);
 }
 
+// Punkt 1 der Übersichtsseite: Begrüßung passend zur Tageszeit. Der
+// Untertext bleibt bewusst statisch (siehe HTML) statt ein zweites,
+// eigenes Zufalls-System neben MOTIVATIONSSPRUECHE einzuführen.
+function renderHomeGreeting() {
+  const stunde = new Date().getHours();
+  let gruss;
+  if (stunde >= 5 && stunde < 12) {
+    gruss = "Guten Morgen!";
+  } else if (stunde >= 12 && stunde < 18) {
+    gruss = "Guten Tag!";
+  } else {
+    gruss = "Guten Abend!";
+  }
+  document.getElementById("home-greeting-title").textContent = gruss;
+}
+
 // Eigener kleiner "buffer" fürs Sparziel-Zahlenfeld - genau wie buffer/
 // editBuffer, nur ohne MAX_BETRAG-Deckel (siehe applyDigit()-Aufruf unten).
 let zielBuffer = "";
@@ -795,8 +824,9 @@ function initGoalDialog() {
   });
 }
 
-// Wochentags-Kürzel, indiziert wie Date.getDay() (0 = Sonntag).
+// Wochentags-Kürzel/-Namen, indiziert wie Date.getDay() (0 = Sonntag).
 const WOCHENTAGS_KUERZEL = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+const WOCHENTAGE_VOLL = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
 
 // Kleines Balkendiagramm: ein Balken pro Tag der letzten 7 Tage, Höhe
 // zeigt, wie viel an dem Tag eingezahlt wurde (0, wenn der Tag noch nicht
@@ -834,32 +864,76 @@ function renderSavingsChart() {
     container.appendChild(spalte);
   }
 
-  renderSavingsStats(tage);
+  renderWeekStats();
 }
 
-// Wochendurchschnitt (aus den 7 im Diagramm gezeigten Tagen) + bester
-// jemals abgerechneter Tag (paidOut, über alle dailySummaries hinweg).
-function renderSavingsStats(letzte7Tage) {
-  const avgEl = document.getElementById("savings-stat-avg");
-  const bestEl = document.getElementById("savings-stat-best");
+// Zwei Stat-Karten unter dem Diagramm (angelehnt an Homescreen-V4-Mockup):
+//   "Diese Woche" - Summe der letzten 7 Tage vs. der 7 Tage davor.
+//   "Stärkster Tag" - NICHT der beste Einzeltag, sondern der Wochentag
+//   (Mo-So), der über alle bisherigen Vorkommen hinweg im Schnitt am
+//   meisten einbringt (paidOut). Beispiel: "Freitag, Ø +18,40 €", weil an
+//   allen bisherigen Freitagen im Schnitt am meisten abgerechnet wurde.
+function renderWeekStats() {
+  renderWeekComparison();
+  renderStrongestWeekday();
+}
 
-  const durchschnitt = letzte7Tage.reduce((summe, t) => summe + t.wert, 0) / 7;
-  avgEl.innerHTML = `Wochendurchschnitt: <strong>${formatAmount(round2(durchschnitt))}</strong>`;
+function summeLetzteNTage(startTageZurueck, anzahlTage) {
+  let summe = 0;
+  for (let i = startTageZurueck; i < startTageZurueck + anzahlTage; i++) {
+    const tag = new Date();
+    tag.setDate(tag.getDate() - i);
+    const eintrag = dailySummaries[dateKey(tag)];
+    summe += eintrag ? eintrag.paidOut : 0;
+  }
+  return summe;
+}
 
-  const tagesEintraege = Object.entries(dailySummaries);
-  if (tagesEintraege.length === 0) {
-    bestEl.textContent = "";
+function renderWeekComparison() {
+  const diffEl = document.getElementById("week-stat-diff");
+
+  const dieseWoche = summeLetzteNTage(0, 7);
+  const vorwoche = summeLetzteNTage(7, 7);
+  const diff = round2(dieseWoche - vorwoche);
+
+  diffEl.textContent = `${diff >= 0 ? "+" : "-"}${formatAmount(Math.abs(diff))}`;
+  diffEl.classList.toggle("week-stat-card__value--negative", diff < 0);
+}
+
+function renderStrongestWeekday() {
+  const dayEl = document.getElementById("week-stat-day");
+  const avgEl = document.getElementById("week-stat-day-avg");
+
+  // Pro Wochentag (0=So...6=Sa) Summe + Anzahl aller bisherigen
+  // Abrechnungen sammeln, daraus den Durchschnitt bilden.
+  const summen = [0, 0, 0, 0, 0, 0, 0];
+  const anzahl = [0, 0, 0, 0, 0, 0, 0];
+  for (const [datumsSchluessel, eintrag] of Object.entries(dailySummaries)) {
+    const [jahr, monat, tag] = datumsSchluessel.split("-").map(Number);
+    const wochentag = new Date(jahr, monat - 1, tag).getDay();
+    summen[wochentag] += eintrag.paidOut;
+    anzahl[wochentag] += 1;
+  }
+
+  let bestIndex = -1;
+  let bestDurchschnitt = -Infinity;
+  for (let i = 0; i < 7; i++) {
+    if (anzahl[i] === 0) continue;
+    const durchschnitt = summen[i] / anzahl[i];
+    if (durchschnitt > bestDurchschnitt) {
+      bestDurchschnitt = durchschnitt;
+      bestIndex = i;
+    }
+  }
+
+  if (bestIndex === -1) {
+    dayEl.textContent = "–";
+    avgEl.textContent = "Noch keine Daten";
     return;
   }
 
-  const [besterTag, bestesEintrag] = tagesEintraege.reduce((bester, aktuell) =>
-    aktuell[1].paidOut > bester[1].paidOut ? aktuell : bester
-  );
-
-  const [jahr, monat, tag] = besterTag.split("-").map(Number);
-  const wochentag = WOCHENTAGS_KUERZEL[new Date(jahr, monat - 1, tag).getDay()];
-  const datumsText = `${wochentag}, ${String(tag).padStart(2, "0")}.${String(monat).padStart(2, "0")}.${jahr}`;
-  bestEl.innerHTML = `Bester Tag: <strong>${formatAmount(bestesEintrag.paidOut)}</strong> (${datumsText})`;
+  dayEl.textContent = WOCHENTAGE_VOLL[bestIndex];
+  avgEl.textContent = `Ø +${formatAmount(round2(bestDurchschnitt))}`;
 }
 
 // ============================================================================
@@ -1145,6 +1219,12 @@ function initExport() {
   document.getElementById("export-data").addEventListener("click", exportData);
 }
 
+// "Alle anzeigen" bei der Letzte-Einträge-Vorschau auf der Übersichtsseite
+// springt zum Verlauf-Tab, statt die volle Liste hier zu duplizieren.
+function initHomeRecent() {
+  document.getElementById("home-recent-all").addEventListener("click", () => switchScreen("verlauf"));
+}
+
 
 // Liefert den aktuellen Gesamttopf (bisheriger Becherbestand + heutige,
 // noch nicht abgerechnete Schicht) - wird an mehreren Stellen im
@@ -1291,6 +1371,12 @@ function switchScreen(name) {
   document.querySelectorAll(".nav-btn").forEach((button) => {
     button.classList.toggle("nav-btn--active", button.dataset.screen === name);
   });
+
+  // Übersichtsseite frisch halten, falls seit dem letzten Rendern die
+  // Tageszeit gewechselt hat (z.B. App blieb über Nacht im Hintergrund offen).
+  if (name === "sparziel") {
+    renderHomeGreeting();
+  }
 }
 
 function initBottomNav() {
@@ -1314,19 +1400,23 @@ const MOTIVATIONSSPRUECHE = [
   "Ein Trinkgeld nach dem anderen. 😊",
 ];
 
+// Zwei Stellen zeigen den Motivationstext: der Eintrag-Screen (#motivation-text)
+// und - neu - die Übersichtsseite (#home-motivation-text) ganz unten, wie in
+// den Homescreen-Mockups. Beide teilen sich denselben Spruch/dieselbe
+// Einstellung, deshalb querySelectorAll(".motivation-text") statt getElementById.
 function renderMotivation() {
-  const anzeige = document.getElementById("motivation-text");
+  const anzeigen = document.querySelectorAll(".motivation-text");
 
-  // Einstellung 8: aus -> Element bleibt einfach leer, statt es per CSS zu
-  // verstecken (dann bräuchte man keine Höhe im Layout einzuplanen, das
-  // Element ist eh nur eine einzeilige <p>).
+  // Einstellung 8: aus -> Elemente bleiben einfach leer, statt sie per CSS zu
+  // verstecken (dann bräuchte man keine Höhe im Layout einzuplanen, die
+  // Elemente sind eh nur einzeilige <p>s).
   if (!einstellungen.motivationAn) {
-    anzeige.textContent = "";
+    anzeigen.forEach((anzeige) => { anzeige.textContent = ""; });
     return;
   }
 
   const spruch = MOTIVATIONSSPRUECHE[Math.floor(Math.random() * MOTIVATIONSSPRUECHE.length)];
-  anzeige.textContent = spruch;
+  anzeigen.forEach((anzeige) => { anzeige.textContent = spruch; });
 }
 
 
@@ -1375,6 +1465,7 @@ function init() {
   renderSavingsChart();
   renderBecherBestand();
   renderSparziel();
+  renderHomeGreeting();
   renderMotivation();
   renderSettings();
 
@@ -1383,6 +1474,7 @@ function init() {
   initShiftDialog();
   initGoalDialog();
   initExport();
+  initHomeRecent();
   initSettings();
   initMaxDialog();
   initBottomNav();
