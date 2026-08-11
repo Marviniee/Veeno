@@ -23,10 +23,15 @@
     <!-- ================= Bildschirm: Eintrag ================= -->
     <main id="screen-eintrag" class="screen">
 
-      <!-- Kopfzeile: Logo + Name -->
+      <!-- Kopfzeile: Logo + Name + Tagessumme (Chip rechts, damit Eingabe und
+           Tagessumme auf einen Blick zusammen sichtbar sind) -->
       <header class="app-header">
         <img src="icons/icon-192.png" alt="" class="app-header__icon" />
         <span class="app-header__title">Veeno</span>
+        <div class="day-total-chip">
+          <span class="day-total-chip__label">Heute</span>
+          <span class="day-total-chip__value" id="day-total-value">0,00 €</span>
+        </div>
       </header>
 
       <!-- Anzeige des aktuell eingegebenen Betrags -->
@@ -259,18 +264,50 @@
       </section>
     </main>
 
-    <!-- Tagessumme, immer sichtbar über der Menüleiste -->
-    <div class="day-total">
-      <span>Heute</span>
-      <span id="day-total-value">0,00 €</span>
-    </div>
-
-    <!-- Untere Menüleiste -->
+    <!-- Untere Menüleiste: Icon oben, Label darunter (klassisches iOS-Muster).
+         Alle Icons als schlichte Inline-SVGs (stroke=currentColor), Farbe
+         kommt komplett aus .nav-btn/.nav-btn--active in style.css. -->
     <nav class="bottom-nav">
-      <button class="nav-btn nav-btn--active" data-screen="eintrag">Eintrag</button>
-      <button class="nav-btn" data-screen="verlauf">Verlauf</button>
-      <button class="nav-btn" data-screen="sparziel">Sparziel</button>
-      <button class="nav-btn" data-screen="einstellungen">Einstellungen</button>
+      <button class="nav-btn nav-btn--active" data-screen="eintrag">
+        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <line x1="12" y1="8" x2="12" y2="16" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+        </svg>
+        <span class="nav-btn__label">Eintrag</span>
+      </button>
+      <button class="nav-btn" data-screen="verlauf">
+        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <polyline points="12 7 12 12 15.5 14" />
+        </svg>
+        <span class="nav-btn__label">Verlauf</span>
+      </button>
+      <button class="nav-btn" data-screen="sparziel">
+        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <circle cx="12" cy="12" r="5" />
+          <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+        </svg>
+        <span class="nav-btn__label">Sparziel</span>
+      </button>
+      <button class="nav-btn" data-screen="einstellungen">
+        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="7" />
+          <circle cx="12" cy="12" r="2.4" />
+          <g fill="currentColor" stroke="none">
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" />
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" transform="rotate(45 12 12)" />
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" transform="rotate(90 12 12)" />
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" transform="rotate(135 12 12)" />
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" transform="rotate(180 12 12)" />
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" transform="rotate(225 12 12)" />
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" transform="rotate(270 12 12)" />
+            <rect x="11" y="1.6" width="2" height="3.2" rx="1" transform="rotate(315 12 12)" />
+          </g>
+        </svg>
+        <span class="nav-btn__label">Einstellungen</span>
+      </button>
     </nav>
   </div>
 

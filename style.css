@@ -139,6 +139,32 @@ button,
   font-weight: 700;
 }
 
+/* Tagessumme als Chip rechts in der Kopfzeile - so sind Eingabe (darunter)
+   und Tagessumme auf einen Blick zusammen sichtbar, ohne einen eigenen
+   Bildschirmbereich zu beanspruchen. margin-left:auto schiebt sie an den
+   rechten Rand, auch wenn app-header__title mal kürzer/länger wird. */
+.day-total-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  margin-left: auto;
+}
+
+.day-total-chip__label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.day-total-chip__value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
 /* ==========================================================================
    Sparziel-Karte (Zielbetrag + Fortschritt, ganz oben auf dem Sparziel-Screen)
    ========================================================================== */
@@ -572,49 +598,41 @@ button,
 }
 
 /* ==========================================================================
-   Tagessumme
-   ========================================================================== */
-.day-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 10px 20px;
-  background: var(--color-surface);
-  border-top: 1px solid var(--color-border);
-  font-size: 1.1rem;
-}
-
-.day-total span:first-child {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.day-total span:last-child {
-  font-weight: 700;
-  font-size: 1.3rem;
-  color: var(--color-accent);
-}
-
-/* ==========================================================================
    Untere Menüleiste
+   Klassisches iOS-Muster: Icon oben, Label klein darunter. Die Tagessumme
+   stand hier früher als eigene Zeile - lebt jetzt als Chip in der Kopfzeile
+   des Eintrag-Screens (siehe .day-total-chip).
    ========================================================================== */
 .bottom-nav {
   display: flex;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
-  /* Platz für den Home-Indicator am unteren iPhone-Rand */
-  padding-bottom: env(safe-area-inset-bottom);
+  /* Puffer + Safe-Area, damit die Leiste im Standalone-Modus nicht direkt
+     am Home-Indicator klebt/abgeschnitten wirkt. */
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
 }
 
 .nav-btn {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   border: none;
   background: none;
-  padding: 12px 0;
-  font-size: 0.95rem;
+  padding: 8px 0 6px;
+  font-size: 0.7rem;
   color: var(--color-text-muted);
+}
+
+.nav-btn__icon {
+  width: 23px;
+  height: 23px;
+}
+
+.nav-btn__label {
+  line-height: 1;
 }
 
 .nav-btn--active {

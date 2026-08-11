@@ -32,7 +32,7 @@ const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
 
 // Muss beim Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen
 // werden - zeigt nur die Versionsnummer im Einstellungen-Screen an.
-const APP_VERSION = "v16";
+const APP_VERSION = "v17";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
