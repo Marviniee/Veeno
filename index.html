@@ -23,19 +23,33 @@
     <!-- ================= Bildschirm: Eintrag ================= -->
     <main id="screen-eintrag" class="screen">
 
-      <!-- Kopfzeile: Logo + Name + Tagessumme (Chip rechts, damit Eingabe und
-           Tagessumme auf einen Blick zusammen sichtbar sind) -->
+      <!-- Kopfzeile: Logo + Name -->
       <header class="app-header">
         <img src="icons/icon-192.png" alt="" class="app-header__icon" />
         <span class="app-header__title">Veeno</span>
-        <div class="day-total-chip">
-          <span class="day-total-chip__label">Heute</span>
-          <span class="day-total-chip__value" id="day-total-value">0,00 €</span>
-        </div>
       </header>
 
-      <!-- Anzeige des aktuell eingegebenen Betrags -->
-      <div class="display" id="display">0 €</div>
+      <!-- Betragsfeld links + Tagessumme als eigene Karte rechts daneben,
+           auf gleicher Höhe - so sind Eingabe und Tagessumme auf einen
+           Blick zusammen sichtbar (siehe Variante 2 "Balanciert"). -->
+      <div class="entry-head">
+        <div class="entry-amount">
+          <span class="entry-amount__label">Betrag</span>
+          <div class="display" id="display">0 €</div>
+        </div>
+
+        <div class="today-card">
+          <div class="today-card__header">
+            <svg class="today-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="6" width="18" height="13" rx="2.5" />
+              <path d="M3 10.5h18" />
+              <circle cx="17" cy="14" r="1" fill="currentColor" stroke="none" />
+            </svg>
+            <span class="today-card__label">Heute</span>
+          </div>
+          <div class="today-card__value" id="day-total-value">0,00 €</div>
+        </div>
+      </div>
 
       <!-- Eigenes Zahlenfeld statt iPhone-Tastatur -->
       <div class="keypad">
@@ -284,10 +298,15 @@
         <span class="nav-btn__label">Verlauf</span>
       </button>
       <button class="nav-btn" data-screen="sparziel">
-        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <circle cx="12" cy="12" r="5" />
-          <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="13" r="7" />
+          <circle cx="11" cy="13" r="4" />
+          <circle cx="11" cy="13" r="1.1" fill="currentColor" stroke="none" />
+          <!-- Pfeil/Dart, der von oben rechts ins Zentrum einschlägt -->
+          <line x1="20" y1="4" x2="13.2" y2="10.8" />
+          <polyline points="11.3,10.3 13.2,10.8 12.7,12.7" stroke-linejoin="round" />
+          <line x1="20" y1="4" x2="17.3" y2="4.7" />
+          <line x1="20" y1="4" x2="19.3" y2="6.7" />
         </svg>
         <span class="nav-btn__label">Sparziel</span>
       </button>
@@ -320,7 +339,14 @@
         <span class="modal__spacer"></span>
       </div>
 
-      <div class="display" id="edit-display">0 €</div>
+      <div class="field-with-icon field-with-icon--amount">
+        <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="6" width="18" height="13" rx="2.5" />
+          <path d="M3 10.5h18" />
+          <circle cx="17" cy="14" r="1" fill="currentColor" stroke="none" />
+        </svg>
+        <div class="display" id="edit-display">0 €</div>
+      </div>
 
       <div class="keypad keypad--compact" id="edit-keypad">
         <button class="key" data-digit="1">1</button>
@@ -343,7 +369,13 @@
       </div>
 
       <label class="field-label" for="edit-time">Uhrzeit</label>
-      <input type="time" id="edit-time" class="time-input" />
+      <div class="field-with-icon field-with-icon--time">
+        <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="9" />
+          <polyline points="12 7 12 12 15.5 14" />
+        </svg>
+        <input type="time" id="edit-time" class="time-input" />
+      </div>
 
       <!-- Speichern und Löschen nebeneinander, damit der Dialog kompakt bleibt.
            Speichern bleibt optisch die Haupt-Aktion (doppelt so breit, Akzentfarbe),

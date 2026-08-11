@@ -67,10 +67,21 @@
   box-sizing: border-box;
 }
 
+/* position:fixed + overflow:hidden auf html/body verhindert, dass die
+   SEITE SELBST scrollt (iOS-Standalone-Bug: beim "Rubber-Banding" der
+   Body-Scrollposition wandert sonst die untere Tab-Leiste sichtbar mit,
+   weil sie Teil des scrollenden Dokuments wird). Dadurch kann NUR noch
+   .screen (siehe unten, eigener overflow-y:auto-Container) scrollen -
+   #app/.bottom-nav bleiben unabhängig vom Scroll-Zustand exakt an Ort
+   und Stelle, auf allen 4 Screens gleich. */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  width: 100%;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
@@ -100,6 +111,8 @@ button,
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
   padding: 12px 16px 8px;
   gap: 12px;
 }
@@ -139,30 +152,67 @@ button,
   font-weight: 700;
 }
 
-/* Tagessumme als Chip rechts in der Kopfzeile - so sind Eingabe (darunter)
-   und Tagessumme auf einen Blick zusammen sichtbar, ohne einen eigenen
-   Bildschirmbereich zu beanspruchen. margin-left:auto schiebt sie an den
-   rechten Rand, auch wenn app-header__title mal kürzer/länger wird. */
-.day-total-chip {
+/* Kopfbereich des Eintrag-Screens: Betragsfeld links + Tagessumme-Karte
+   rechts, auf gleicher Höhe (siehe Design "Variante 2 - Balanciert"). */
+.entry-head {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 1px;
-  margin-left: auto;
+  align-items: stretch;
+  gap: 10px;
 }
 
-.day-total-chip__label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.entry-amount {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.entry-amount__label {
+  font-size: 0.8rem;
   color: var(--color-text-muted);
 }
 
-.day-total-chip__value {
-  font-size: 1rem;
+/* Tagessumme als eigene, umrandete Karte - Wallet-Icon + Label oben,
+   großer Betrag darunter. Feste Breite statt flex:1 wie .entry-amount,
+   damit sie neben dem Betragsfeld wie ein Chip/eine Card wirkt und nicht
+   die Hälfte der Zeile beansprucht. */
+.today-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 108px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 10px 14px;
+}
+
+.today-card__header {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-muted);
+}
+
+.today-card__icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.today-card__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.today-card__value {
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--color-accent);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* ==========================================================================
@@ -425,6 +475,14 @@ button,
   font-variant-numeric: tabular-nums;
 }
 
+/* Im Kopfbereich des Eintrag-Screens steht das Betragsfeld links neben der
+   Tagessumme-Karte statt allein über volle Breite - dort wirkt eine
+   zentrierte Zahl verloren, deshalb hier linksbündig. */
+.entry-amount .display {
+  text-align: left;
+  padding: 2px 0 0;
+}
+
 /* Kurzes Wackeln + rote Farbe, wenn "Speichern" mit leerem/ungültigem
    Betrag gedrückt wird - Feedback, dass etwas nicht ging, ohne Text-Popup. */
 @keyframes display-shake {
@@ -488,17 +546,52 @@ button,
 }
 
 /* Kompakte Keypad-Variante für den Bearbeiten-Dialog: kein Speichern-Feld
-   im Zahlenfeld selbst, dafür eine eigene (niedrigere) Zeile nur für ⌫.
-   Tasten und Abstände sind enger als beim Haupt-Zahlenfeld, damit der ganze
-   Dialog ohne Scrollen aufs Display passt - 44px bleibt die Untergrenze für
-   gut per Daumen tippbare Flächen. */
+   im Zahlenfeld selbst, dafür eine eigene Zeile nur für ⌫ - gleiche
+   Zeilenhöhe (minmax(44px, 1fr)) wie die Ziffern-Zeilen, damit ⌫ nicht
+   niedriger/gequetschter wirkt als die Ziffern-Buttons. Tasten und
+   Abstände sind enger als beim Haupt-Zahlenfeld, damit der ganze Dialog
+   ohne Scrollen aufs Display passt - 44px bleibt die Untergrenze für gut
+   per Daumen tippbare Flächen. */
 .keypad--compact {
-  grid-template-rows: repeat(4, minmax(44px, 1fr)) 40px;
+  grid-template-rows: repeat(5, minmax(44px, 1fr));
   gap: 8px;
 }
 
 .key--full-row {
   grid-column: span 3;
+}
+
+/* ==========================================================================
+   Eingabefelder mit Icon links (Bearbeiten-Dialog: Betrag, Uhrzeit)
+   ========================================================================== */
+.field-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.field-with-icon__icon {
+  position: absolute;
+  left: 14px;
+  width: 20px;
+  height: 20px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.field-with-icon--amount .display {
+  flex: 1;
+  padding-left: 44px;
+}
+
+.field-with-icon--time .time-input {
+  flex: 1;
+  padding-left: 44px;
+  border: none;
+  background: none;
 }
 
 /* ==========================================================================
@@ -833,11 +926,17 @@ button,
 }
 
 /* Zwei nebeneinanderliegende Karten: links "Einzahlen" (Teal), rechts
-   "Im Becher" (Orange), dazwischen ein kleines Pfeil-Icon als Verbindung. */
+   "Im Becher" (Orange), dazwischen ein kleines Pfeil-Icon als Verbindung.
+   flex:1 auf .split-cards lässt sie den auf dem Schicht-Screen übrig
+   bleibenden Platz füllen (statt darunter ungenutzt zu bleiben) - die
+   Karten selbst zentrieren ihren Inhalt dann vertikal mit justify-content.
+   Orientiert an Mockup "Becher-V2", Variante 2 "TWO INPUT FIELDS". */
 .split-cards {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 150px;
+  gap: 10px;
 }
 
 .split-card {
@@ -845,9 +944,10 @@ button,
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 14px 8px;
-  border-radius: 14px;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 10px;
+  border-radius: 18px;
   border: 2px solid var(--color-border);
   background: var(--color-surface);
 }
@@ -861,11 +961,11 @@ button,
 }
 
 .split-card__icon {
-  font-size: 1.4rem;
+  font-size: 2.1rem;
 }
 
 .split-card__label {
-  font-size: 0.8rem;
+  font-size: 0.9rem;
   color: var(--color-text-muted);
 }
 
@@ -873,18 +973,18 @@ button,
   display: flex;
   align-items: baseline;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
 }
 
 .split-card__value {
-  width: 72px;
+  width: 92px;
   border: none;
   background: none;
-  font-size: 1.25rem;
+  font-size: 1.7rem;
   font-weight: 800;
   text-align: center;
   padding: 0;
-  min-height: 32px;
+  min-height: 40px;
 }
 
 .split-card__value:focus {
@@ -904,17 +1004,21 @@ button,
 .split-cards__arrow {
   font-size: 1.2rem;
   color: var(--color-text-muted);
+  align-self: center;
 }
 
-/* Bestätigungs-Zeile: zeigt, dass Einzahlen + Becher wieder die Tagessumme ergeben */
+/* Bestätigungs-Zeile: zeigt, dass Einzahlen + Becher wieder die Tagessumme
+   ergeben - gleiche dezente Rahmenlinie wie die Karten darüber, aber
+   bewusst flacher/ruhiger (dünnerer Rand, kein Akzent), da sie nur zur
+   Kontrolle dient statt zur Eingabe. */
 .split-check {
   text-align: center;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: var(--color-text-muted);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 14px; /* Konsistenz-Pass: an split-card/flow-card angeglichen (war 12px) */
-  padding: 10px;
+  padding: 14px;
   margin: 0;
 }
 
