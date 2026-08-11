@@ -966,6 +966,21 @@ button,
   white-space: nowrap;
 }
 
+/* .screen liefert oben bereits 12px Padding - der geerbte .modal__header-
+   Standardwert (6px) obendrauf wirkte in Summe zu großzügig für diesen
+   Vollbild-Screen, deshalb hier knapper. */
+#screen-schicht .modal__header {
+  padding-top: 2px;
+}
+
+/* .screen liefert unten nur 8px Padding - auf einem Vollbild-Screen wie
+   diesem reicht das nicht als Puffer zum Home-Indicator (siehe
+   env(safe-area-inset-bottom) bei .bottom-nav, dieser Screen hat aber
+   keine eigene Nav-Leiste als Puffer). */
+#screen-schicht {
+  padding-bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+}
+
 .modal__cancel {
   border: none;
   background: none;
