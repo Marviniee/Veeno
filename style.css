@@ -28,6 +28,32 @@
   }
 }
 
+/* Manueller Farbmodus-Override (Einstellungen, Punkt 2): app.js setzt
+   data-theme="light"/"dark" auf <html>, wenn der Nutzer "Hell" oder "Dunkel"
+   statt "System" wählt. Ein Attribut-Selektor ist spezifischer als die
+   einfache :root-Regel oben UND als :root in der Media-Query - gewinnt also
+   in beide Richtungen, egal was das iPhone gerade eingestellt hat. Bei
+   "System" setzt app.js kein Attribut, dann greifen die Regeln oben wie bisher. */
+:root[data-theme="light"] {
+  --color-bg: #f5f5f4;
+  --color-surface: #ffffff;
+  --color-text: #1c1c1e;
+  --color-text-muted: #6b6b6f;
+  --color-border: #e2e2e0;
+  --color-accent: #FF9E3E;
+  --color-accent-text: #1c1c1e;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #000000;
+  --color-surface: #1c1c1e;
+  --color-text: #f5f5f5;
+  --color-text-muted: #9a9a9d;
+  --color-border: #2c2c2e;
+  --color-accent: #FF9E3E;
+  --color-accent-text: #1c1c1e;
+}
+
 /* Türkis/Teal - zweite Akzentfarbe, aktuell nur fürs Icon/Branding gedacht.
    Hier als Variable hinterlegt, falls du sie später im UI brauchst. */
 :root {
@@ -815,4 +841,186 @@ button,
 
 .split-check strong {
   color: var(--color-text);
+}
+
+/* ==========================================================================
+   Einstellungen-Screen
+   ========================================================================== */
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+/* Für die Zeilen, die nur ein Label + einen Schalter brauchen (z.B.
+   Motivationssprüche an/aus) - Label links, Bedienelement rechts. */
+.settings-card--row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-card__label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.settings-card__hint {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Zeigt einen Wert an UND öffnet beim Antippen den Bearbeiten-Dialog -
+   gleiches Prinzip wie .goal-card__edit auf dem Sparziel-Screen. */
+.settings-card__edit {
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-weight: 700;
+  font-size: 0.95rem;
+  min-height: 44px;
+  padding: 4px 2px;
+  cursor: pointer;
+}
+
+/* Gruppe kleiner Auswahl-Buttons (Farbmodus, Rundung) - wie eine
+   abgerundete Segment-Steuerung, aktive Option in Akzentfarbe. */
+.choice-group {
+  display: flex;
+  gap: 8px;
+}
+
+.choice-btn {
+  flex: 1;
+  min-height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.choice-btn--active {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+.settings-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-input-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.settings-input-row span {
+  color: var(--color-text-muted);
+}
+
+.settings-apply-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.settings-link-btn {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 2px;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* "Sparziel zurücksetzen" und "Alle Daten löschen" - beide unumkehrbar
+   bzw. destruktiv, deshalb in der Warnfarbe statt der normalen Akzentfarbe. */
+.settings-link-btn--danger {
+  color: var(--color-danger);
+}
+
+/* Toggle-Schalter (Motivationssprüche an/aus). Klassischer Trick: eine
+   unsichtbare Checkbox + :checked steuert per Geschwister-Selektor das
+   Aussehen von "Track" und "Thumb" daneben - kein JS für die Optik nötig. */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.toggle input {
+  display: none;
+}
+
+.toggle__track {
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: var(--color-border);
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-surface);
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggle input:checked + .toggle__track {
+  background: var(--color-accent);
+}
+
+.toggle input:checked + .toggle__track .toggle__thumb {
+  transform: translateX(18px);
+}
+
+.settings-info {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  margin: 12px 0 4px;
+}
+
+.settings-info a {
+  color: var(--color-accent);
 }

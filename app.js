@@ -15,11 +15,12 @@
 //   6. Bearbeiten-Dialog
 //   7. Schicht-Abrechnung (Becher-Logik) + Sparrücklage
 //   8. Sparziel: Zielbetrag + Fortschritt
-//   9. Backup/Export
-//  10. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
-//  11. Bottom-Nav / Screen-Umschaltung
-//  12. Motivations-Text
-//  13. Start
+//   9. Einstellungen-Screen
+//  10. Backup/Export
+//  11. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
+//  12. Bottom-Nav / Screen-Umschaltung
+//  13. Motivations-Text
+//  14. Start
 // ============================================================================
 
 // localStorage kann nur Text speichern -> wir benutzen feste "Schlüssel"
@@ -27,6 +28,21 @@
 const STORAGE_KEY = "trinkgeld-eintraege";
 const STORAGE_KEY_SUMMARIES = "veeno-tagesabrechnungen";
 const STORAGE_KEY_ZIEL = "veeno-sparziel-betrag";
+const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
+
+// Muss beim Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen
+// werden - zeigt nur die Versionsnummer im Einstellungen-Screen an.
+const APP_VERSION = "v14";
+
+// Defaults, mit denen die App läuft, solange niemand die Einstellungen
+// geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
+const EINSTELLUNGEN_DEFAULT = {
+  maxBetrag: 9.99,      // Eingabe-Obergrenze pro Trinkgeld-Eintrag
+  farbmodus: "system",  // "system" | "hell" | "dunkel"
+  rundung: 5,           // Rundungsgröße beim Schicht abschließen (5/10/20)
+  becherKorrektur: 0,   // Differenz für die manuelle Becherbestand-Korrektur
+  motivationAn: true,   // Motivationssprüche an/aus
+};
 
 // "buffer" ist das, was der Nutzer gerade auf dem Haupt-Zahlenfeld eintippt,
 // z.B. "12" oder "0,10". Er ist immer nur EIN String (Text), den wir bei
@@ -45,6 +61,11 @@ let dailySummaries = loadDailySummaries();
 // (nicht 0, damit wir "kein Ziel" und "Ziel ist 0€" sauber unterscheiden
 // könnten, auch wenn Letzteres in der Praxis nie vorkommen sollte).
 let sparzielBetrag = loadSparzielBetrag();
+
+// Alle Einstellungen in einem gemeinsamen Objekt statt vieler einzelner
+// localStorage-Keys - einfacher zu laden/speichern, und neue Einstellungen
+// lassen sich später ergänzen, ohne bestehende Nutzerdaten zu brechen.
+let einstellungen = loadEinstellungen();
 
 
 // ============================================================================
@@ -101,6 +122,25 @@ function persistSparzielBetrag() {
   localStorage.setItem(STORAGE_KEY_ZIEL, JSON.stringify(sparzielBetrag));
 }
 
+function loadEinstellungen() {
+  const raw = localStorage.getItem(STORAGE_KEY_EINSTELLUNGEN);
+  if (!raw) return { ...EINSTELLUNGEN_DEFAULT };
+  try {
+    const gespeichert = JSON.parse(raw);
+    // Mit den Defaults zusammenführen statt nur das Gespeicherte zu nehmen -
+    // falls später neue Einstellungen dazukommen, haben ältere gespeicherte
+    // Objekte die noch nicht und bekommen sonst automatisch den Default.
+    return { ...EINSTELLUNGEN_DEFAULT, ...gespeichert };
+  } catch (fehler) {
+    console.error("Konnte Einstellungen nicht lesen:", fehler);
+    return { ...EINSTELLUNGEN_DEFAULT };
+  }
+}
+
+function persistEinstellungen() {
+  localStorage.setItem(STORAGE_KEY_EINSTELLUNGEN, JSON.stringify(einstellungen));
+}
+
 
 // ============================================================================
 // 2. Zahlenfeld-Logik (die "Prefix-Logik" aus der Aufgabenstellung)
@@ -121,14 +161,12 @@ function persistSparzielBetrag() {
 // auch für das Zahlenfeld im Bearbeiten-Dialog wiederverwenden.
 // ============================================================================
 
-// Ein einzelnes Trinkgeld wird realistisch nie höher als das sein -
-// weitere Ziffern über der Grenze werden von applyDigit einfach ignoriert.
-const MAX_BETRAG = 9.99;
-
-// "maxBetrag" ist optional und fällt standardmäßig auf MAX_BETRAG zurück -
-// das Sparziel (Abschnitt 7) braucht kein Limit und ruft applyDigit() mit
-// Infinity auf, statt eine eigene Kopie der ganzen Funktion zu schreiben.
-function applyDigit(text, ziffer, maxBetrag = MAX_BETRAG) {
+// "maxBetrag" ist optional und fällt standardmäßig auf die Einstellung
+// zurück (Punkt 1 im Einstellungen-Screen, Default 9,99€, siehe
+// EINSTELLUNGEN_DEFAULT) - das Sparziel und die Eingabe-Obergrenze selbst
+// brauchen kein Limit und rufen applyDigit() mit Infinity auf, statt eine
+// eigene Kopie der ganzen Funktion zu schreiben.
+function applyDigit(text, ziffer, maxBetrag = einstellungen.maxBetrag) {
   let kandidat;
 
   if (text === "") {
@@ -495,22 +533,35 @@ function calcSavingsTotal() {
   return Object.values(dailySummaries).reduce((summe, tag) => summe + tag.paidOut, 0);
 }
 
-// Wie viel Kleingeld aktuell insgesamt im Becher liegt (Summe aller
-// inCup-Werte aus allen bisherigen Tagesabrechnungen) - genau wie
-// calcSavingsTotal(), nur mit inCup statt paidOut.
-function calcBecherBestand() {
+// Summe aller inCup-Werte aus den Tagesabrechnungen - OHNE die manuelle
+// Korrektur (Punkt 4 im Einstellungen-Screen). Eigene kleine Funktion, weil
+// sowohl calcBecherBestand() als auch das Setzen einer neuen Korrektur
+// (settings-becher-apply, Abschnitt Einstellungen) genau diese Rohsumme
+// brauchen.
+function calcBecherBestandOhneKorrektur() {
   return Object.values(dailySummaries).reduce((summe, tag) => summe + tag.inCup, 0);
 }
 
+// Wie viel Kleingeld aktuell insgesamt im Becher liegt: Summe aller
+// inCup-Werte PLUS die manuelle Korrektur. Die Korrektur existiert, weil
+// der Nutzer den echten Becher außerhalb der App leeren/nachzählen kann -
+// siehe "Becherbestand korrigieren" im Einstellungen-Screen für das Setzen
+// der Korrektur als Differenz statt eines Überschreibens.
+function calcBecherBestand() {
+  return round2(calcBecherBestandOhneKorrektur() + einstellungen.becherKorrektur);
+}
+
 // Automatische Aufteilung beim Öffnen: so viel wie möglich in vollen
-// 5€-Scheinen einzahlen, der Rest (Münzen, krumme Beträge) bleibt im Becher.
-// Beispiel: 22,35 € Topf -> 20 € einzahlen, 2,35 € im Becher.
+// Scheinen (Rundungsgröße aus den Einstellungen, Default 5€) einzahlen,
+// der Rest (Münzen, krumme Beträge) bleibt im Becher.
+// Beispiel: 22,35 € Topf, Rundung 5€ -> 20 € einzahlen, 2,35 € im Becher.
 // "Topf" ist NICHT nur die aktuelle Schicht, sondern Schicht + bisheriger
 // Becherbestand zusammen (siehe openShiftDialog) - so ergeben sich über
 // mehrere Schichten hinweg wieder volle Scheine, statt dass sich Kleingeld
 // im Becher anhäuft, weil jede Schicht für sich isoliert betrachtet wird.
 function calcAutoSplit(topf) {
-  const eingezahlt = Math.floor(topf / 5) * 5;
+  const rundung = einstellungen.rundung;
+  const eingezahlt = Math.floor(topf / rundung) * rundung;
   return { eingezahlt, imBecher: round2(topf - eingezahlt) };
 }
 
@@ -754,7 +805,256 @@ function renderSavingsChart() {
 }
 
 // ============================================================================
-// 9. Backup/Export
+// 9. Einstellungen-Screen
+//
+// Alle 9 Einstellungen leben in einem gemeinsamen Objekt (einstellungen,
+// siehe ganz oben). renderSettings() spiegelt den aktuellen Stand in die
+// UI, initSettings() verkabelt alle Klicks - Aufbau wie bei den anderen
+// Screens (renderX()/initX()-Paar).
+// ============================================================================
+
+function renderSettings() {
+  // 1. Eingabe-Obergrenze
+  document.getElementById("settings-max-value").textContent = formatAmount(einstellungen.maxBetrag);
+
+  // 2. Farbmodus
+  document.querySelectorAll("#settings-farbmodus-group .choice-btn").forEach((button) => {
+    button.classList.toggle("choice-btn--active", button.dataset.farbmodus === einstellungen.farbmodus);
+  });
+
+  // 3. Rundung
+  document.querySelectorAll("#settings-rundung-group .choice-btn").forEach((button) => {
+    button.classList.toggle("choice-btn--active", Number(button.dataset.rundung) === einstellungen.rundung);
+  });
+
+  // 4. Becherbestand: aktuellen Stand laut App zur Orientierung anzeigen
+  document.getElementById("settings-becher-aktuell").textContent = formatAmount(calcBecherBestand());
+
+  // 8. Motivationssprüche
+  document.getElementById("settings-motivation-toggle").checked = einstellungen.motivationAn;
+}
+
+// Setzt data-theme auf <html>. Bei "system" wird das Attribut entfernt,
+// dann greift wieder ganz normal die prefers-color-scheme-Media-Query in
+// style.css (automatisch hell/dunkel je nach iPhone-Einstellung).
+function wendeFarbmodusAn() {
+  if (einstellungen.farbmodus === "system") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.setAttribute("data-theme", einstellungen.farbmodus === "dunkel" ? "dark" : "light");
+  }
+}
+
+// --- 1. Eingabe-Obergrenze: eigener kleiner Zahlenfeld-Dialog -------------
+// Gleiches Muster wie beim Sparziel (Abschnitt 8): eigener Buffer, eigenes
+// Keypad, applyDigit() mit Infinity aufgerufen (die Obergrenze selbst darf
+// nicht durch sich selbst begrenzt werden).
+
+let maxBuffer = "";
+
+function updateMaxDisplay() {
+  document.getElementById("max-display").textContent = (maxBuffer === "" ? "0" : maxBuffer) + " €";
+}
+
+function openMaxDialog() {
+  maxBuffer = amountToBuffer(einstellungen.maxBetrag);
+  updateMaxDisplay();
+  document.getElementById("max-overlay").hidden = false;
+}
+
+function closeMaxDialog() {
+  document.getElementById("max-overlay").hidden = true;
+}
+
+function saveMaxBetrag() {
+  const betrag = bufferToAmount(maxBuffer);
+  if (betrag === null) {
+    flashInvalid("max-display");
+    return;
+  }
+  einstellungen.maxBetrag = betrag;
+  persistEinstellungen();
+  renderSettings();
+  closeMaxDialog();
+}
+
+function initMaxDialog() {
+  const keypad = document.getElementById("max-keypad");
+
+  keypad.querySelectorAll(".key[data-digit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      maxBuffer = applyDigit(maxBuffer, button.dataset.digit, Infinity);
+      updateMaxDisplay();
+    });
+  });
+
+  document.getElementById("max-key-comma").addEventListener("click", () => {
+    maxBuffer = insertComma(maxBuffer);
+    updateMaxDisplay();
+  });
+  document.getElementById("max-key-single-cent").addEventListener("click", () => {
+    maxBuffer = "0,0";
+    updateMaxDisplay();
+  });
+  document.getElementById("max-key-delete-digit").addEventListener("click", () => {
+    maxBuffer = maxBuffer.slice(0, -1);
+    updateMaxDisplay();
+  });
+
+  document.getElementById("max-save").addEventListener("click", saveMaxBetrag);
+  document.getElementById("max-cancel").addEventListener("click", closeMaxDialog);
+
+  const overlay = document.getElementById("max-overlay");
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeMaxDialog();
+  });
+}
+
+// --- 7. Backup wiederherstellen --------------------------------------------
+// Gegenstück zu exportData(): liest eine zuvor exportierte JSON-Datei ein
+// und ersetzt die aktuellen Daten damit - nach grober Struktur-Prüfung und
+// einer expliziten Bestätigung, weil das nicht rückgängig zu machen ist.
+
+function importBackup(jsonText) {
+  const statusEl = document.getElementById("settings-restore-status");
+
+  let daten;
+  try {
+    daten = JSON.parse(jsonText);
+  } catch (fehler) {
+    statusEl.textContent = "Datei ist kein gültiges JSON.";
+    return;
+  }
+
+  // Grobe Struktur-Prüfung: genau die Felder, die exportData() schreibt.
+  const gueltig =
+    daten &&
+    Array.isArray(daten.eintraege) &&
+    typeof daten.tagesabrechnungen === "object" &&
+    daten.tagesabrechnungen !== null;
+
+  if (!gueltig) {
+    statusEl.textContent = "Datei hat nicht die erwartete Veeno-Backup-Struktur.";
+    return;
+  }
+
+  const zeitpunkt = daten.exportiertAm
+    ? new Date(daten.exportiertAm).toLocaleString("de-DE")
+    : "unbekanntem Zeitpunkt";
+
+  if (!confirm(`Backup vom ${zeitpunkt} einspielen? Das ersetzt ALLE aktuellen Einträge und Tagesabrechnungen.`)) {
+    statusEl.textContent = "";
+    return;
+  }
+
+  entries = daten.eintraege;
+  dailySummaries = daten.tagesabrechnungen;
+  persistEntries();
+  persistDailySummaries();
+
+  renderEntries();
+  renderDayTotal();
+  renderVerlauf();
+  renderSavingsTotal();
+  renderSavingsChart();
+  renderBecherBestand();
+  renderSparziel();
+  renderSettings();
+
+  statusEl.textContent = "Backup erfolgreich eingespielt.";
+}
+
+function initSettings() {
+  document.getElementById("settings-app-version").textContent = APP_VERSION;
+
+  // 2. Farbmodus
+  document.querySelectorAll("#settings-farbmodus-group .choice-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      einstellungen.farbmodus = button.dataset.farbmodus;
+      persistEinstellungen();
+      wendeFarbmodusAn();
+      renderSettings();
+    });
+  });
+
+  // 3. Rundung
+  document.querySelectorAll("#settings-rundung-group .choice-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      einstellungen.rundung = Number(button.dataset.rundung);
+      persistEinstellungen();
+      renderSettings();
+    });
+  });
+
+  // 4. Becherbestand korrigieren: aus dem eingegebenen Zielwert die
+  // Korrektur-Differenz berechnen (Zielwert - aktuelle inCup-Summe OHNE
+  // Korrektur), damit zukünftige Schicht-Abrechnungen weiter korrekt
+  // darauf aufbauen (siehe calcBecherBestand()/calcBecherBestandOhneKorrektur()).
+  document.getElementById("settings-becher-apply").addEventListener("click", () => {
+    const eingabe = document.getElementById("settings-becher-input");
+    const zielWert = parseFloat(eingabe.value);
+    if (isNaN(zielWert) || zielWert < 0) return; // ungültige Eingabe -> nichts tun
+
+    einstellungen.becherKorrektur = round2(zielWert - calcBecherBestandOhneKorrektur());
+    persistEinstellungen();
+    eingabe.value = "";
+
+    renderSettings();
+    renderBecherBestand();
+  });
+
+  // 5. Sparziel zurücksetzen - nutzt removeGoal() aus dem Sparziel-Screen
+  // (Abschnitt 8) direkt, statt die Lösch-Logik zu duplizieren.
+  document.getElementById("settings-goal-reset").addEventListener("click", () => {
+    if (!sparzielBetrag) return; // es ist eh schon kein Ziel gesetzt
+    if (confirm("Sparziel wirklich zurücksetzen?")) {
+      removeGoal();
+    }
+  });
+
+  // 6. Alle Daten löschen - zweistufig: erst normale Bestätigung, dann
+  // muss "LÖSCHEN" exakt eingetippt werden. Absichtlich unbequem, weil es
+  // nicht rückgängig zu machen ist.
+  document.getElementById("settings-delete-all").addEventListener("click", () => {
+    if (!confirm("Wirklich ALLE Daten löschen? Einträge, Tagesabrechnungen, Sparziel und Einstellungen sind danach unwiderruflich weg.")) {
+      return;
+    }
+    const bestaetigung = prompt('Zum endgültigen Bestätigen "LÖSCHEN" eintippen:');
+    if (bestaetigung !== "LÖSCHEN") return;
+
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(STORAGE_KEY_SUMMARIES);
+    localStorage.removeItem(STORAGE_KEY_ZIEL);
+    localStorage.removeItem(STORAGE_KEY_EINSTELLUNGEN);
+    location.reload();
+  });
+
+  // 7. Backup wiederherstellen - Button öffnet den (unsichtbaren) Datei-Dialog
+  document.getElementById("settings-restore-btn").addEventListener("click", () => {
+    document.getElementById("settings-restore-input").click();
+  });
+  document.getElementById("settings-restore-input").addEventListener("change", (event) => {
+    const datei = event.target.files[0];
+    if (!datei) return;
+    const reader = new FileReader();
+    reader.onload = () => importBackup(reader.result);
+    reader.readAsText(datei);
+    event.target.value = ""; // dieselbe Datei später erneut auswählbar machen
+  });
+
+  // 8. Motivationssprüche an/aus
+  document.getElementById("settings-motivation-toggle").addEventListener("change", (event) => {
+    einstellungen.motivationAn = event.target.checked;
+    persistEinstellungen();
+    renderMotivation();
+  });
+
+  document.getElementById("settings-max-edit").addEventListener("click", openMaxDialog);
+}
+
+
+// ============================================================================
+// 11. Backup/Export
 //
 // iOS kann localStorage-Daten nach längerer App-Nichtnutzung automatisch
 // löschen (Intelligent Tracking Prevention). Das hier ist die einzige
@@ -828,7 +1128,7 @@ function initShiftDialog() {
 
 
 // ============================================================================
-// 10. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
+// 12. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
 //
 // Anders als die "Letzte Einträge"-Liste auf dem Eintrag-Screen zeigt der
 // Verlauf ALLE Einträge, inklusive bereits abgerechneter (settled: true) -
@@ -918,7 +1218,7 @@ function renderVerlauf() {
 
 
 // ============================================================================
-// 11. Bottom-Nav / Screen-Umschaltung
+// 13. Bottom-Nav / Screen-Umschaltung
 //
 // Jeder <main class="screen"> hat eine id nach dem Muster "screen-NAME".
 // Die passenden Nav-Buttons tragen das gleiche NAME in data-screen - so
@@ -944,7 +1244,7 @@ function initBottomNav() {
 
 
 // ============================================================================
-// 12. Motivations-Text
+// 14. Motivations-Text
 // ============================================================================
 
 const MOTIVATIONSSPRUECHE = [
@@ -956,8 +1256,18 @@ const MOTIVATIONSSPRUECHE = [
 ];
 
 function renderMotivation() {
+  const anzeige = document.getElementById("motivation-text");
+
+  // Einstellung 8: aus -> Element bleibt einfach leer, statt es per CSS zu
+  // verstecken (dann bräuchte man keine Höhe im Layout einzuplanen, das
+  // Element ist eh nur eine einzeilige <p>).
+  if (!einstellungen.motivationAn) {
+    anzeige.textContent = "";
+    return;
+  }
+
   const spruch = MOTIVATIONSSPRUECHE[Math.floor(Math.random() * MOTIVATIONSSPRUECHE.length)];
-  document.getElementById("motivation-text").textContent = spruch;
+  anzeige.textContent = spruch;
 }
 
 
@@ -992,10 +1302,12 @@ function initServiceWorker() {
 
 
 // ============================================================================
-// 13. Start
+// 15. Start
 // ============================================================================
 
 function init() {
+  wendeFarbmodusAn(); // vor allem anderen, damit kein falsches Theme aufblitzt
+
   updateDisplay();
   renderEntries();
   renderDayTotal();
@@ -1005,12 +1317,15 @@ function init() {
   renderBecherBestand();
   renderSparziel();
   renderMotivation();
+  renderSettings();
 
   initKeypad();
   initEditDialog();
   initShiftDialog();
   initGoalDialog();
   initExport();
+  initSettings();
+  initMaxDialog();
   initBottomNav();
   initServiceWorker();
 }

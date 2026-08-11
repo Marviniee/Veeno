@@ -173,6 +173,86 @@
       <button class="key key--save" id="shift-save">Speichern</button>
     </main>
 
+    <!-- ================= Bildschirm: Einstellungen ================= -->
+    <main id="screen-einstellungen" class="screen" hidden>
+      <h1 class="screen-title">Einstellungen</h1>
+
+      <!-- 1. Eingabe-Obergrenze pro Trinkgeld-Eintrag -->
+      <section class="settings-card">
+        <div class="settings-card__header">
+          <span class="settings-card__label">Eingabe-Obergrenze</span>
+          <button class="settings-card__edit" id="settings-max-edit">✏️ <span id="settings-max-value">9,99 €</span></button>
+        </div>
+        <p class="settings-card__hint">Gilt für einzelne Trinkgeld-Einträge, auf dem Eintrag-Screen und im Bearbeiten-Dialog.</p>
+      </section>
+
+      <!-- 2. Farbmodus -->
+      <section class="settings-card">
+        <span class="settings-card__label">Farbmodus</span>
+        <div class="choice-group" id="settings-farbmodus-group">
+          <button class="choice-btn" data-farbmodus="system">System</button>
+          <button class="choice-btn" data-farbmodus="hell">Hell</button>
+          <button class="choice-btn" data-farbmodus="dunkel">Dunkel</button>
+        </div>
+      </section>
+
+      <!-- 3. Rundung beim Schicht abschließen -->
+      <section class="settings-card">
+        <span class="settings-card__label">Rundung beim Schicht abschließen</span>
+        <div class="choice-group" id="settings-rundung-group">
+          <button class="choice-btn" data-rundung="5">5 €</button>
+          <button class="choice-btn" data-rundung="10">10 €</button>
+          <button class="choice-btn" data-rundung="20">20 €</button>
+        </div>
+      </section>
+
+      <!-- 4. Becherbestand manuell korrigieren -->
+      <section class="settings-card">
+        <span class="settings-card__label">Becherbestand korrigieren</span>
+        <p class="settings-card__hint">Aktuell laut App: <strong id="settings-becher-aktuell">0,00 €</strong>. Falls der echte Becher davon abweicht (z.B. nach dem Leeren), hier den tatsächlichen Betrag eintragen.</p>
+        <div class="settings-input-row">
+          <input type="number" inputmode="decimal" step="0.01" min="0" id="settings-becher-input" placeholder="0,00" />
+          <span>€</span>
+          <button class="settings-apply-btn" id="settings-becher-apply">Übernehmen</button>
+        </div>
+      </section>
+
+      <!-- 5. Sparziel zurücksetzen -->
+      <section class="settings-card">
+        <span class="settings-card__label">Sparziel</span>
+        <button class="settings-link-btn settings-link-btn--danger" id="settings-goal-reset">Sparziel zurücksetzen</button>
+      </section>
+
+      <!-- 6. Alle Daten löschen -->
+      <section class="settings-card">
+        <span class="settings-card__label">Gefahrenzone</span>
+        <button class="settings-link-btn settings-link-btn--danger" id="settings-delete-all">Alle Daten löschen</button>
+      </section>
+
+      <!-- 7. Backup wiederherstellen -->
+      <section class="settings-card">
+        <span class="settings-card__label">Backup</span>
+        <button class="settings-link-btn" id="settings-restore-btn">Backup wiederherstellen</button>
+        <input type="file" accept="application/json" id="settings-restore-input" hidden />
+        <p class="settings-card__hint" id="settings-restore-status"></p>
+      </section>
+
+      <!-- 8. Motivationssprüche an/aus -->
+      <section class="settings-card settings-card--row">
+        <span class="settings-card__label">Motivationssprüche anzeigen</span>
+        <label class="toggle">
+          <input type="checkbox" id="settings-motivation-toggle" />
+          <span class="toggle__track"><span class="toggle__thumb"></span></span>
+        </label>
+      </section>
+
+      <!-- 9. App-Info -->
+      <p class="settings-info">
+        Veeno <span id="settings-app-version">v14</span> ·
+        <a href="https://github.com/Marviniee/Veeno" target="_blank" rel="noopener">GitHub-Repo</a>
+      </p>
+    </main>
+
     <!-- Tagessumme, immer sichtbar über der Menüleiste -->
     <div class="day-total">
       <span>Heute</span>
@@ -184,6 +264,7 @@
       <button class="nav-btn nav-btn--active" data-screen="eintrag">Eintrag</button>
       <button class="nav-btn" data-screen="verlauf">Verlauf</button>
       <button class="nav-btn" data-screen="sparziel">Sparziel</button>
+      <button class="nav-btn" data-screen="einstellungen">Einstellungen</button>
     </nav>
   </div>
 
@@ -271,6 +352,43 @@
         <button class="key key--save modal__save-btn" id="goal-save">Speichern</button>
         <button class="modal__delete-link" id="goal-remove">Ziel entfernen</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ================= Dialog: Eingabe-Obergrenze festlegen =================
+       Gleiches Zahlenfeld-Pattern wie beim Sparziel-Dialog, ebenfalls ohne
+       MAX_BETRAG-Deckel (die Obergrenze soll sich nicht selbst begrenzen). -->
+  <div class="modal-overlay" id="max-overlay" hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <button class="modal__cancel" id="max-cancel">Abbrechen</button>
+        <h2>Eingabe-Obergrenze</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <div class="display" id="max-display">0 €</div>
+
+      <div class="keypad keypad--compact" id="max-keypad">
+        <button class="key" data-digit="1">1</button>
+        <button class="key" data-digit="2">2</button>
+        <button class="key" data-digit="3">3</button>
+
+        <button class="key" data-digit="4">4</button>
+        <button class="key" data-digit="5">5</button>
+        <button class="key" data-digit="6">6</button>
+
+        <button class="key" data-digit="7">7</button>
+        <button class="key" data-digit="8">8</button>
+        <button class="key" data-digit="9">9</button>
+
+        <button class="key key--muted" id="max-key-comma">,</button>
+        <button class="key" data-digit="0">0</button>
+        <button class="key key--muted" id="max-key-single-cent">0,0</button>
+
+        <button class="key key--action key--full-row" id="max-key-delete-digit">⌫</button>
+      </div>
+
+      <button class="key key--save" id="max-save">Speichern</button>
     </div>
   </div>
 
