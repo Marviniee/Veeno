@@ -73,15 +73,27 @@
    weil sie Teil des scrollenden Dokuments wird). Dadurch kann NUR noch
    .screen (siehe unten, eigener overflow-y:auto-Container) scrollen -
    #app/.bottom-nav bleiben unabhängig vom Scroll-Zustand exakt an Ort
-   und Stelle, auf allen 4 Screens gleich. */
+   und Stelle, auf allen 4 Screens gleich.
+
+   WICHTIG: top/left/right einzeln setzen statt der "inset: 0"-Kurzform
+   (die auch bottom:0 mitsetzen würde) UND height:100dvh statt 100% -
+   beides zusammen (top+bottom+height) wäre "over-constrained", CSS würde
+   dann bottom:0 verwerfen und nur height wirken lassen. Mit 100% konnte
+   das im iOS-Standalone-Modus kürzer als die tatsächliche Viewport-Höhe
+   ausfallen (Safe-Area/Toolbar nicht sauber berücksichtigt) - darunter
+   blieb ein unbemalter Streifen (weiße/schwarze Fläche) übrig, in dem die
+   eigentlich bündig sitzende .bottom-nav zu weit oben zu hängen schien.
+   100dvh berücksichtigt die dynamische Viewport-Höhe zuverlässig, und
+   ohne gesetztes bottom gibt es keinen Konflikt mehr. */
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
-  overflow: hidden;
   position: fixed;
-  inset: 0;
-  width: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100dvh;
+  overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
