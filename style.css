@@ -67,16 +67,18 @@
   box-sizing: border-box;
 }
 
-/* Bewusster Verzicht auf Edge-to-Edge-Rendering (siehe ausführliche
-   Begründung bei den Meta-Tags in index.html): viewport-fit=cover +
-   status-bar-style=black-translucent verursachte auf Marvins Gerät einen
-   WKWebView-Container-Sizing-Bug (nativer Container nur ~797pt statt
-   844pt hoch), reproduzierbar auch mit frischem Homescreen-Icon - also
-   kein CSS-Problem und per CSS/JS aus der Seite heraus nicht behebbar.
-   Ohne viewport-fit=cover reserviert iOS Platz für Statusleiste/Home-
-   Indicator selbst nativ; ganz normales 100dvh reicht deshalb aus, keine
-   env(safe-area-inset-*)-Paddings mehr nötig (der unsafe Bereich ist ja
-   bereits nativ freigehalten). */
+/* ISOLATIONSTEST (siehe ausführliche Begründung bei den Meta-Tags in
+   index.html): viewport-fit=cover ist wieder aktiv, status-bar-style
+   bleibt bewusst auf "default" statt "black-translucent" - bisher wurde
+   nur die KOMBINATION aus beidem getestet, nie viewport-fit=cover
+   isoliert. Da status-bar-style weiterhin "default" ist, sollte die
+   Statusleiste voraussichtlich weiter opak/nativ gezeichnet werden und
+   oben keine Überlappung entstehen - deshalb vorerst KEINE
+   env(safe-area-inset-top)-Paddings ergänzt, nur beobachten und bei
+   tatsächlicher Überlappung nachziehen. Unten sorgt viewport-fit=cover
+   aber dafür, dass der Home-Indicator-Bereich potenziell zum Web-Content
+   gehört - deshalb testweise env(safe-area-inset-bottom) auf .bottom-nav
+   wieder ergänzt (siehe dort). */
 html, body {
   margin: 0;
   padding: 0;
@@ -860,11 +862,12 @@ button,
   flex-shrink: 0;
   border-top: 1px solid var(--color-border);
   background: var(--color-surface);
-  /* Ohne viewport-fit=cover reserviert iOS den Home-Indicator-Bereich
-     bereits selbst nativ unterhalb unseres Web-Contents - env(safe-area-
-     inset-bottom) ist damit immer 0 und nicht mehr nötig, ein normaler
-     Puffer reicht. */
-  padding-bottom: 6px;
+  /* ISOLATIONSTEST: viewport-fit=cover ist wieder aktiv (siehe Kommentar
+     oben bei html,body), dadurch kann der Home-Indicator-Bereich unten
+     wieder zum Web-Content gehören - Puffer + Safe-Area INNERHALB der
+     Nav-Leiste (nicht als Lücke davor), damit ihr Hintergrund bis in
+     diesen Bereich durchgezogen wird, statt dass er unbemalt bleibt. */
+  padding-bottom: max(6px, env(safe-area-inset-bottom));
 }
 
 .nav-btn {
