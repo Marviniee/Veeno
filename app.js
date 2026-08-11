@@ -15,9 +15,10 @@
 //   6. Bearbeiten-Dialog
 //   7. Schicht-Abrechnung (Becher-Logik) + Sparrücklage
 //   8. Backup/Export
-//   9. Bottom-Nav / Screen-Umschaltung
-//  10. Motivations-Text
-//  11. Start
+//   9. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
+//  10. Bottom-Nav / Screen-Umschaltung
+//  11. Motivations-Text
+//  12. Start
 // ============================================================================
 
 // localStorage kann nur Text speichern -> wir benutzen feste "Schlüssel"
@@ -218,6 +219,7 @@ function saveEntry() {
   clearBuffer();
   renderEntries();
   renderDayTotal();
+  renderVerlauf();
 }
 
 function deleteEntry(id) {
@@ -225,6 +227,7 @@ function deleteEntry(id) {
   persistEntries();
   renderEntries();
   renderDayTotal();
+  renderVerlauf();
 }
 
 function updateEntry(id, betrag, timestamp) {
@@ -235,6 +238,7 @@ function updateEntry(id, betrag, timestamp) {
   persistEntries();
   renderEntries();
   renderDayTotal();
+  renderVerlauf();
 }
 
 
@@ -534,6 +538,7 @@ function saveShiftSummary() {
   persistDailySummaries();
   renderEntries();
   renderDayTotal();
+  renderVerlauf();
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();
@@ -647,7 +652,97 @@ function initShiftDialog() {
 
 
 // ============================================================================
-// 9. Bottom-Nav / Screen-Umschaltung
+// 9. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
+//
+// Anders als die "Letzte Einträge"-Liste auf dem Eintrag-Screen zeigt der
+// Verlauf ALLE Einträge, inklusive bereits abgerechneter (settled: true) -
+// die bleiben hier als Historie sichtbar, sind aber nicht mehr antippbar
+// (siehe openVerlaufEntry weiter unten): ihr Betrag steckt schon in einer
+// Tagesabrechnung (dailySummaries), ein nachträgliches Ändern würde die
+// durcheinanderbringen.
+// ============================================================================
+
+// Fasst eine flache Liste von Einträgen zu einem Objekt {datumsSchlüssel: [Einträge]}
+// zusammen. Reine Funktion (bekommt die Liste rein, verändert nichts).
+function groupEntriesByDay(liste) {
+  const gruppen = {};
+  for (const eintrag of liste) {
+    const schluessel = dateKey(new Date(eintrag.timestamp));
+    if (!gruppen[schluessel]) gruppen[schluessel] = [];
+    gruppen[schluessel].push(eintrag);
+  }
+  return gruppen;
+}
+
+// "Heute" / "Gestern" statt Datum, wo es das gibt - sonst "05.08.2026".
+function verlaufTagesLabel(datumsSchluessel) {
+  const gestern = new Date();
+  gestern.setDate(gestern.getDate() - 1);
+
+  if (datumsSchluessel === todayDateKey()) return "Heute";
+  if (datumsSchluessel === dateKey(gestern)) return "Gestern";
+
+  const [jahr, monat, tag] = datumsSchluessel.split("-");
+  return `${tag}.${monat}.${jahr}`;
+}
+
+function renderVerlauf() {
+  const container = document.getElementById("verlauf-groups");
+  const leerHinweis = document.getElementById("verlauf-empty");
+
+  container.innerHTML = "";
+  leerHinweis.style.display = entries.length === 0 ? "block" : "none";
+  if (entries.length === 0) return;
+
+  const gruppen = groupEntriesByDay(entries);
+
+  // Datums-Schlüssel sind "JJJJ-MM-TT" - als Text sortiert entspricht das
+  // automatisch der zeitlichen Reihenfolge. reverse() dreht das um, damit
+  // der neueste Tag zuerst kommt.
+  const tage = Object.keys(gruppen).sort().reverse();
+
+  for (const tag of tage) {
+    const eintraegeDesTages = gruppen[tag].slice().sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+    );
+    const tagesSumme = eintraegeDesTages.reduce((summe, eintrag) => summe + eintrag.amount, 0);
+
+    const gruppenElement = document.createElement("section");
+    gruppenElement.className = "verlauf-group";
+    gruppenElement.innerHTML = `
+      <div class="verlauf-group__header">
+        <span class="verlauf-group__day">${verlaufTagesLabel(tag)}</span>
+        <span class="verlauf-group__total">${formatAmount(tagesSumme)}</span>
+      </div>
+      <ul class="entries__list"></ul>
+    `;
+
+    const liste = gruppenElement.querySelector("ul");
+    for (const eintrag of eintraegeDesTages) {
+      const li = document.createElement("li");
+      li.className = eintrag.settled ? "entry entry--settled" : "entry";
+      li.innerHTML = `
+        <div>
+          <div class="entry__amount">${formatAmount(eintrag.amount)}</div>
+          <div class="entry__time">${formatTime(eintrag.timestamp)}</div>
+        </div>
+        <span class="entry__hint">${eintrag.settled ? "" : "›"}</span>
+      `;
+      // Abgerechnete Einträge bekommen bewusst KEINEN Klick-Handler - siehe
+      // Kommentar am Anfang dieses Abschnitts.
+      if (!eintrag.settled) {
+        li.addEventListener("click", () => openEditDialog(eintrag.id));
+      }
+      liste.appendChild(li);
+    }
+
+    container.appendChild(gruppenElement);
+  }
+}
+
+
+// ============================================================================
+// 10. Bottom-Nav / Screen-Umschaltung
 //
 // Jeder <main class="screen"> hat eine id nach dem Muster "screen-NAME".
 // Die passenden Nav-Buttons tragen das gleiche NAME in data-screen - so
@@ -673,7 +768,7 @@ function initBottomNav() {
 
 
 // ============================================================================
-// 10. Motivations-Text
+// 11. Motivations-Text
 // ============================================================================
 
 const MOTIVATIONSSPRUECHE = [
@@ -721,13 +816,14 @@ function initServiceWorker() {
 
 
 // ============================================================================
-// 11. Start
+// 12. Start
 // ============================================================================
 
 function init() {
   updateDisplay();
   renderEntries();
   renderDayTotal();
+  renderVerlauf();
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();

@@ -93,6 +93,17 @@
       <button class="export-link" id="export-data">Daten exportieren</button>
     </main>
 
+    <!-- ================= Bildschirm: Verlauf ================= -->
+    <main id="screen-verlauf" class="screen" hidden>
+      <h1 class="screen-title">Verlauf</h1>
+
+      <!-- Alle Einträge (auch bereits abgerechnete), nach Tag gruppiert -->
+      <div class="verlauf-groups" id="verlauf-groups">
+        <!-- wird von app.js gefüllt -->
+      </div>
+      <p class="entries__empty" id="verlauf-empty">Noch keine Einträge vorhanden.</p>
+    </main>
+
     <!-- Tagessumme, immer sichtbar über der Menüleiste -->
     <div class="day-total">
       <span>Heute</span>
@@ -102,7 +113,7 @@
     <!-- Untere Menüleiste -->
     <nav class="bottom-nav">
       <button class="nav-btn nav-btn--active" data-screen="eintrag">Eintrag</button>
-      <button class="nav-btn" data-screen="verlauf" disabled>Verlauf</button>
+      <button class="nav-btn" data-screen="verlauf">Verlauf</button>
       <button class="nav-btn" data-screen="sparziel">Sparziel</button>
     </nav>
   </div>
