@@ -37,14 +37,14 @@ const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
 //
 // APP_SEMVER: die "echte" Versionsnummer nach SemVer, von Hand gepflegt.
 // Nur ändern, wenn ein neuer Git-Tag gesetzt wird (siehe Abschnitt 11 der
-// Technischen Referenz) - z.B. Tag "v0.4.0" -> APP_SEMVER = "0.4.0". NICHT
+// Technischen Referenz) - z.B. Tag "v0.5.0" -> APP_SEMVER = "0.5.0". NICHT
 // bei jedem Push hochzählen.
-const APP_SEMVER = "0.4.0";
+const APP_SEMVER = "0.5.0";
 
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v27";
+const APP_VERSION = "v28";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
