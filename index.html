@@ -104,6 +104,67 @@
       <p class="entries__empty" id="verlauf-empty">Noch keine Einträge vorhanden.</p>
     </main>
 
+    <!-- ================= Bildschirm: Schicht abschließen (Becher-Logik) =================
+         Kein eigener Tab in der Menüleiste - erreichbar über den "Schicht
+         abschließen"-Button auf dem Eintrag-Screen, per switchScreen() wie
+         die anderen Screens auch. -->
+    <main id="screen-schicht" class="screen" hidden>
+      <div class="modal__header">
+        <button class="modal__cancel" id="shift-cancel">Abbrechen</button>
+        <h2>Schicht abschließen</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <!-- Drei Kästen als Fluss: bisheriger Becherbestand + diese Schicht
+           ergeben den Topf, aus dem "Einzahlen" (unten) entnommen wird -
+           was übrig bleibt, ist der neue Becherbestand rechts. -->
+      <div class="flow-cards">
+        <div class="flow-card">
+          <div class="flow-card__label">Bisher im Becher</div>
+          <div class="flow-card__value" id="shift-bisher-becher-value">0,00 €</div>
+        </div>
+        <span class="flow-cards__arrow" aria-hidden="true">+</span>
+        <div class="flow-card">
+          <div class="flow-card__label">Diese Schicht</div>
+          <div class="flow-card__value" id="shift-schicht-value">0,00 €</div>
+        </div>
+        <span class="flow-cards__arrow" aria-hidden="true">→</span>
+        <div class="flow-card flow-card--result">
+          <div class="flow-card__label">Neuer Becherbestand</div>
+          <div class="flow-card__value" id="shift-neuer-becher-value">0,00 €</div>
+        </div>
+      </div>
+
+      <!-- Wird beim Öffnen automatisch berechnet (volle 5€-Scheine aus dem
+           gesamten Topf oben) - beide Werte lassen sich danach antippen und
+           ändern, der "Neuer Becherbestand"-Kasten oben rechts folgt live mit. -->
+      <div class="split-cards">
+        <label class="split-card split-card--paid">
+          <span class="split-card__icon" aria-hidden="true">💳</span>
+          <span class="split-card__label">Einzahlen</span>
+          <span class="split-card__value-row">
+            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-paid-out" class="split-card__value" />
+            <span>€</span>
+          </span>
+        </label>
+
+        <span class="split-cards__arrow" aria-hidden="true">⇄</span>
+
+        <label class="split-card split-card--cup">
+          <span class="split-card__icon" aria-hidden="true">🥤</span>
+          <span class="split-card__label">Im Becher</span>
+          <span class="split-card__value-row">
+            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-in-cup" class="split-card__value" />
+            <span>€</span>
+          </span>
+        </label>
+      </div>
+
+      <p class="split-check" id="split-check"></p>
+
+      <button class="key key--save" id="shift-save">Speichern</button>
+    </main>
+
     <!-- Tagessumme, immer sichtbar über der Menüleiste -->
     <div class="day-total">
       <span>Heute</span>
@@ -159,50 +220,6 @@
         <button class="key key--save modal__save-btn" id="edit-save-entry">Speichern</button>
         <button class="modal__delete-link" id="edit-delete-entry">Löschen</button>
       </div>
-    </div>
-  </div>
-
-  <!-- ================= Dialog: Schicht abschließen (Becher-Logik) ================= -->
-  <div class="modal-overlay" id="shift-overlay" hidden>
-    <div class="modal">
-      <div class="modal__header">
-        <button class="modal__cancel" id="shift-cancel">Abbrechen</button>
-        <h2>Schicht abschließen</h2>
-        <span class="modal__spacer"></span>
-      </div>
-
-      <p class="shift-total">
-        Heutiges Total<br />
-        <strong id="shift-total-value">0,00 €</strong>
-      </p>
-
-      <!-- Wird beim Öffnen automatisch berechnet (volle 5€-Scheine eingezahlt,
-           Rest im Becher) - beide Werte lassen sich danach antippen und ändern. -->
-      <div class="split-cards">
-        <label class="split-card split-card--paid">
-          <span class="split-card__icon" aria-hidden="true">💳</span>
-          <span class="split-card__label">Einzahlen</span>
-          <span class="split-card__value-row">
-            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-paid-out" class="split-card__value" />
-            <span>€</span>
-          </span>
-        </label>
-
-        <span class="split-cards__arrow" aria-hidden="true">⇄</span>
-
-        <label class="split-card split-card--cup">
-          <span class="split-card__icon" aria-hidden="true">🥤</span>
-          <span class="split-card__label">Im Becher</span>
-          <span class="split-card__value-row">
-            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-in-cup" class="split-card__value" />
-            <span>€</span>
-          </span>
-        </label>
-      </div>
-
-      <p class="split-check" id="split-check"></p>
-
-      <button class="key key--save" id="shift-save">Speichern</button>
     </div>
   </div>
 

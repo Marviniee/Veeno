@@ -589,15 +589,56 @@ button,
 /* ==========================================================================
    Formularfelder in der Schicht-Abrechnung
    ========================================================================== */
-.shift-total {
+
+/* Drei Kästen als Fluss: "Bisher im Becher" + "Diese Schicht" -> "Neuer
+   Becherbestand". min-width:0 auf den Kästen ist wichtig, sonst schieben
+   die längeren Labels ("Bisher im Becher") die Reihe über den Bildschirmrand
+   hinaus, statt dass der Text in den Kästen umbricht. */
+.flow-cards {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flow-card {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 4px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
   text-align: center;
-  font-size: 1rem;
+}
+
+/* Der Ergebnis-Kasten rechts ist die eigentlich interessante Zahl -> Akzentfarbe */
+.flow-card--result {
+  border-color: var(--color-accent);
+}
+
+.flow-card__label {
+  font-size: 0.65rem;
+  line-height: 1.2;
   color: var(--color-text-muted);
 }
 
-.shift-total strong {
-  color: var(--color-text);
-  font-size: 1.2rem;
+.flow-card__value {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.flow-card--result .flow-card__value {
+  color: var(--color-accent);
+}
+
+.flow-cards__arrow {
+  font-size: 1rem;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 /* Zwei nebeneinanderliegende Karten: links "Einzahlen" (Teal), rechts

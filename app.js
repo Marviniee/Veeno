@@ -476,41 +476,63 @@ function calcBecherBestand() {
 
 // Automatische Aufteilung beim Öffnen: so viel wie möglich in vollen
 // 5€-Scheinen einzahlen, der Rest (Münzen, krumme Beträge) bleibt im Becher.
-// Beispiel: 22,35 € Tagessumme -> 20 € einzahlen, 2,35 € im Becher.
-function calcAutoSplit(total) {
-  const eingezahlt = Math.floor(total / 5) * 5;
-  return { eingezahlt, imBecher: round2(total - eingezahlt) };
+// Beispiel: 22,35 € Topf -> 20 € einzahlen, 2,35 € im Becher.
+// "Topf" ist NICHT nur die aktuelle Schicht, sondern Schicht + bisheriger
+// Becherbestand zusammen (siehe openShiftDialog) - so ergeben sich über
+// mehrere Schichten hinweg wieder volle Scheine, statt dass sich Kleingeld
+// im Becher anhäuft, weil jede Schicht für sich isoliert betrachtet wird.
+function calcAutoSplit(topf) {
+  const eingezahlt = Math.floor(topf / 5) * 5;
+  return { eingezahlt, imBecher: round2(topf - eingezahlt) };
 }
 
 // Aktualisiert die Bestätigungs-Zeile "20,00 € + 2,35 € = 22,35 €"
-function updateSplitCheck(eingezahlt, imBecher, total) {
+function updateSplitCheck(eingezahlt, imBecher, topf) {
   document.getElementById("split-check").innerHTML =
-    `${formatAmount(eingezahlt)} + ${formatAmount(imBecher)} = <strong>${formatAmount(total)}</strong>`;
+    `${formatAmount(eingezahlt)} + ${formatAmount(imBecher)} = <strong>${formatAmount(topf)}</strong>`;
+}
+
+// Der "Im Becher"-Wert IST der neue Becherbestand nach dieser Abrechnung
+// (Topf minus Einzahlen) - beide Anzeigen bekommen also denselben Wert.
+function updateNeuerBecherbestand(imBecher) {
+  document.getElementById("shift-neuer-becher-value").textContent = formatAmount(imBecher);
 }
 
 function openShiftDialog() {
-  const total = calcDayTotal();
-  const { eingezahlt, imBecher } = calcAutoSplit(total);
+  const heutigesSchichtTotal = calcDayTotal();
+  const vorherigerBecherbestand = calcBecherBestand();
+  const gesamtTopf = round2(vorherigerBecherbestand + heutigesSchichtTotal);
+  const { eingezahlt, imBecher } = calcAutoSplit(gesamtTopf);
 
-  document.getElementById("shift-total-value").textContent = formatAmount(total);
+  document.getElementById("shift-bisher-becher-value").textContent = formatAmount(vorherigerBecherbestand);
+  document.getElementById("shift-schicht-value").textContent = formatAmount(heutigesSchichtTotal);
+  updateNeuerBecherbestand(imBecher);
+
   document.getElementById("shift-paid-out").value = eingezahlt.toFixed(2);
   document.getElementById("shift-in-cup").value = imBecher.toFixed(2);
-  updateSplitCheck(eingezahlt, imBecher, total);
+  updateSplitCheck(eingezahlt, imBecher, gesamtTopf);
 
-  document.getElementById("shift-overlay").hidden = false;
-}
-
-function closeShiftDialog() {
-  document.getElementById("shift-overlay").hidden = true;
+  switchScreen("schicht");
 }
 
 function saveShiftSummary() {
-  const total = calcDayTotal();
+  const heutigesSchichtTotal = calcDayTotal();
+  const vorherigerBecherbestand = calcBecherBestand();
+  const gesamtTopf = round2(vorherigerBecherbestand + heutigesSchichtTotal);
+
   const eingezahltRoh = parseFloat(document.getElementById("shift-paid-out").value);
   // Bei ungültiger/leerer Eingabe gilt: nichts eingezahlt, alles im Becher.
-  // Der eingezahlte Betrag darf nie negativ oder größer als die Tagessumme sein.
-  const eingezahlt = isNaN(eingezahltRoh) ? 0 : Math.min(Math.max(0, eingezahltRoh), total);
-  const imBecher = round2(total - eingezahlt);
+  // Der eingezahlte Betrag darf jetzt aus dem GESAMTEN Topf kommen (auch aus
+  // dem bisherigen Becherbestand), nicht nur aus der heutigen Schicht.
+  const eingezahlt = isNaN(eingezahltRoh) ? 0 : Math.min(Math.max(0, eingezahltRoh), gesamtTopf);
+
+  // Wie viel von DIESER Schicht im Becher verbleibt. Das kann negativ sein,
+  // wenn mehr eingezahlt wurde, als die Schicht allein hergibt - dann kam
+  // der Rest aus dem alten Becherbestand. Genau deshalb wird das zum
+  // bestehenden Tageseintrag ADDIERT statt gleichgesetzt: nur so ergibt
+  // calcBecherBestand() (Summe aller inCup-Werte) am Ende wieder exakt
+  // neuerBecherbestand.
+  const inCupDelta = round2(heutigesSchichtTotal - eingezahlt);
 
   // Alle heutigen, noch nicht abgerechneten Einträge gehören jetzt zu dieser
   // Abrechnung -> als "erledigt" markieren. Dadurch verschwinden sie aus der
@@ -528,9 +550,9 @@ function saveShiftSummary() {
   const heute = todayDateKey();
   const bisherigerEintrag = dailySummaries[heute] || { total: 0, paidOut: 0, inCup: 0 };
   dailySummaries[heute] = {
-    total: round2(bisherigerEintrag.total + total),
+    total: round2(bisherigerEintrag.total + heutigesSchichtTotal),
     paidOut: round2(bisherigerEintrag.paidOut + eingezahlt),
-    inCup: round2(bisherigerEintrag.inCup + imBecher),
+    inCup: round2(bisherigerEintrag.inCup + inCupDelta),
     closedAt: new Date().toISOString(),
   };
 
@@ -542,7 +564,6 @@ function saveShiftSummary() {
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();
-  closeShiftDialog();
 
   // Nach erfolgreicher Abrechnung direkt zeigen, wie sich die Sparrücklage
   // verändert hat - deshalb automatisch zum Sparziel-Tab wechseln.
@@ -615,38 +636,42 @@ function initExport() {
 }
 
 
+// Liefert den aktuellen Gesamttopf (bisheriger Becherbestand + heutige,
+// noch nicht abgerechnete Schicht) - wird an mehreren Stellen im
+// Schicht-Screen frisch neu berechnet, deshalb eine eigene kleine Funktion.
+function calcGesamtTopf() {
+  return round2(calcBecherBestand() + calcDayTotal());
+}
+
 function initShiftDialog() {
   document.getElementById("open-shift-dialog").addEventListener("click", openShiftDialog);
-  document.getElementById("shift-cancel").addEventListener("click", closeShiftDialog);
+  document.getElementById("shift-cancel").addEventListener("click", () => switchScreen("eintrag"));
   document.getElementById("shift-save").addEventListener("click", saveShiftSummary);
 
   const eingezahltFeld = document.getElementById("shift-paid-out");
   const becherFeld = document.getElementById("shift-in-cup");
 
   // Die beiden Felder sind gekoppelt: sobald eins geändert wird, berechnet
-  // sich das andere automatisch (Tagessumme - eins = das andere), und die
-  // Check-Zeile darunter wird mit aktualisiert.
+  // sich das andere automatisch (Gesamttopf - eins = das andere), und die
+  // Check-Zeile plus der "Neuer Becherbestand"-Kasten werden mit aktualisiert.
   eingezahltFeld.addEventListener("input", () => {
-    const total = calcDayTotal();
+    const gesamtTopf = calcGesamtTopf();
     const roh = parseFloat(eingezahltFeld.value);
     const eingezahlt = isNaN(roh) ? 0 : Math.max(0, roh);
-    const imBecher = Math.max(0, round2(total - eingezahlt));
+    const imBecher = Math.max(0, round2(gesamtTopf - eingezahlt));
     becherFeld.value = imBecher.toFixed(2);
-    updateSplitCheck(eingezahlt, imBecher, total);
+    updateSplitCheck(eingezahlt, imBecher, gesamtTopf);
+    updateNeuerBecherbestand(imBecher);
   });
 
   becherFeld.addEventListener("input", () => {
-    const total = calcDayTotal();
+    const gesamtTopf = calcGesamtTopf();
     const roh = parseFloat(becherFeld.value);
     const imBecher = isNaN(roh) ? 0 : Math.max(0, roh);
-    const eingezahlt = Math.max(0, round2(total - imBecher));
+    const eingezahlt = Math.max(0, round2(gesamtTopf - imBecher));
     eingezahltFeld.value = eingezahlt.toFixed(2);
-    updateSplitCheck(eingezahlt, imBecher, total);
-  });
-
-  const overlay = document.getElementById("shift-overlay");
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) closeShiftDialog();
+    updateSplitCheck(eingezahlt, imBecher, gesamtTopf);
+    updateNeuerBecherbestand(imBecher);
   });
 }
 
