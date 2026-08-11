@@ -44,7 +44,7 @@ const APP_SEMVER = "0.5.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v28";
+const APP_VERSION = "v29";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -628,10 +628,26 @@ function saveShiftSummary() {
   const gesamtTopf = round2(vorherigerBecherbestand + heutigesSchichtTotal);
 
   const eingezahltRoh = parseFloat(document.getElementById("shift-paid-out").value);
-  // Bei ungültiger/leerer Eingabe gilt: nichts eingezahlt, alles im Becher.
-  // Der eingezahlte Betrag darf jetzt aus dem GESAMTEN Topf kommen (auch aus
-  // dem bisherigen Becherbestand), nicht nur aus der heutigen Schicht.
-  const eingezahlt = isNaN(eingezahltRoh) ? 0 : Math.min(Math.max(0, eingezahltRoh), gesamtTopf);
+  const imBecherRoh = parseFloat(document.getElementById("shift-in-cup").value);
+
+  // Beide Felder müssen gültige, nicht-negative Zahlen sein, die in Summe
+  // exakt dem Gesamttopf entsprechen (kleine Rundungstoleranz) - sonst
+  // Speichern verhindern statt eine inhaltlich unplausible Aufteilung zu
+  // übernehmen (z.B. negativer "Im Becher"-Wert -> negativer Becherbestand).
+  // min="0" auf den <input>-Feldern reicht allein nicht, weil mobile
+  // Browser das Tippen eines "-" trotzdem erlauben.
+  const TOLERANZ = 0.01;
+  const eingabeGueltig =
+    !isNaN(eingezahltRoh) && !isNaN(imBecherRoh) &&
+    eingezahltRoh >= 0 && imBecherRoh >= 0 &&
+    Math.abs(eingezahltRoh + imBecherRoh - gesamtTopf) <= TOLERANZ;
+
+  if (!eingabeGueltig) {
+    flashInvalid("split-check");
+    return;
+  }
+
+  const eingezahlt = round2(eingezahltRoh);
 
   // Wie viel von DIESER Schicht im Becher verbleibt. Das kann negativ sein,
   // wenn mehr eingezahlt wurde, als die Schicht allein hergibt - dann kam
@@ -1067,6 +1083,29 @@ function importBackup(jsonText) {
 
   if (!gueltig) {
     statusEl.textContent = "Datei hat nicht die erwartete Veeno-Backup-Struktur.";
+    return;
+  }
+
+  // Inhaltliche Plausibilitäts-Prüfung zusätzlich zur Struktur-Prüfung
+  // oben: pro Tagesabrechnung müssen paidOut/inCup nicht-negativ sein und
+  // sich exakt zu total aufsummieren (kleine Rundungstoleranz) - sonst
+  // würde z.B. ein Backup mit paidOut > total klaglos einen negativen
+  // Becherbestand importieren. Bei Verstoß: Import komplett ablehnen,
+  // keine teilweise Übernahme.
+  const TOLERANZ = 0.01;
+  const tagesabrechnungenPlausibel = Object.values(daten.tagesabrechnungen).every(
+    (tag) =>
+      tag &&
+      typeof tag.total === "number" &&
+      typeof tag.paidOut === "number" &&
+      typeof tag.inCup === "number" &&
+      tag.paidOut >= 0 &&
+      tag.inCup >= 0 &&
+      Math.abs(tag.paidOut + tag.inCup - tag.total) <= TOLERANZ
+  );
+
+  if (!tagesabrechnungenPlausibel) {
+    statusEl.textContent = "Datei enthält unplausible Tagesabrechnungen (negative Werte oder paidOut + inCup ≠ total) - Import abgebrochen.";
     return;
   }
 
