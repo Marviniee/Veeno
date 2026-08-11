@@ -30,9 +30,21 @@ const STORAGE_KEY_SUMMARIES = "veeno-tagesabrechnungen";
 const STORAGE_KEY_ZIEL = "veeno-sparziel-betrag";
 const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
 
-// Muss beim Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen
-// werden - zeigt nur die Versionsnummer im Einstellungen-Screen an.
-const APP_VERSION = "v17";
+// Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
+// wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
+// initSettings()), aber nur APP_SEMVER entspricht dem, was nach außen als
+// "Version" kommuniziert wird (z.B. in Release Notes).
+//
+// APP_SEMVER: die "echte" Versionsnummer nach SemVer, von Hand gepflegt.
+// Nur ändern, wenn ein neuer Git-Tag gesetzt wird (siehe Abschnitt 11 der
+// Technischen Referenz) - z.B. Tag "v0.4.0" -> APP_SEMVER = "0.4.0". NICHT
+// bei jedem Push hochzählen.
+const APP_SEMVER = "0.4.0";
+
+// APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
+// Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
+// bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
+const APP_VERSION = "v18";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1011,7 +1023,8 @@ function importBackup(jsonText) {
 }
 
 function initSettings() {
-  document.getElementById("settings-app-version").textContent = APP_VERSION;
+  document.getElementById("settings-app-semver").textContent = APP_SEMVER;
+  document.getElementById("settings-build-version").textContent = APP_VERSION;
 
   // 2. Farbmodus
   document.querySelectorAll("#settings-farbmodus-group .choice-btn").forEach((button) => {
