@@ -112,6 +112,93 @@ button,
 }
 
 /* ==========================================================================
+   Sparziel-Karte (Zielbetrag + Fortschritt, ganz oben auf dem Sparziel-Screen)
+   ========================================================================== */
+.goal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.goal-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.goal-card__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+/* Zeigt den aktuellen Zielbetrag an UND öffnet beim Antippen den
+   Bearbeiten-Dialog - Anzeige und Bedienelement in einem. */
+.goal-card__edit {
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 4px 2px;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+/* Zustand "kein Ziel gesetzt": ganze Fläche ist ein gestrichelter,
+   dezenter Aufruf zum Handeln statt eines normalen Buttons. */
+.goal-card__empty {
+  border: 1px dashed var(--color-border);
+  background: none;
+  border-radius: 12px;
+  padding: 14px;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  min-height: 44px;
+  cursor: pointer;
+}
+
+.goal-card__bar-track {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.goal-card__bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 6px;
+  transition: width 0.3s ease;
+}
+
+/* Ziel erreicht: Balken wechselt auf die zweite Akzentfarbe (Teal) als
+   klar erkennbarer "Erfolgs"-Ton, statt einer dritten neuen Farbe. */
+.goal-card__bar-fill--erreicht {
+  background: var(--color-accent-2);
+}
+
+.goal-card__meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.goal-card__celebrate {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-accent-2);
+}
+
+/* ==========================================================================
    Sparrücklage-Karte (auf dem Sparziel-Screen)
    ========================================================================== */
 .savings-card {

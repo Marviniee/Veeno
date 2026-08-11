@@ -14,17 +14,19 @@
 //   5. Tagessumme
 //   6. Bearbeiten-Dialog
 //   7. Schicht-Abrechnung (Becher-Logik) + Sparrücklage
-//   8. Backup/Export
-//   9. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
-//  10. Bottom-Nav / Screen-Umschaltung
-//  11. Motivations-Text
-//  12. Start
+//   8. Sparziel: Zielbetrag + Fortschritt
+//   9. Backup/Export
+//  10. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
+//  11. Bottom-Nav / Screen-Umschaltung
+//  12. Motivations-Text
+//  13. Start
 // ============================================================================
 
 // localStorage kann nur Text speichern -> wir benutzen feste "Schlüssel"
 // (Namen), unter denen unsere Daten abgelegt werden.
 const STORAGE_KEY = "trinkgeld-eintraege";
 const STORAGE_KEY_SUMMARIES = "veeno-tagesabrechnungen";
+const STORAGE_KEY_ZIEL = "veeno-sparziel-betrag";
 
 // "buffer" ist das, was der Nutzer gerade auf dem Haupt-Zahlenfeld eintippt,
 // z.B. "12" oder "0,10". Er ist immer nur EIN String (Text), den wir bei
@@ -38,6 +40,11 @@ let entries = loadEntries();
 // Tagesabrechnungen (Becher-Logik): ein Objekt, bei dem der Schlüssel das
 // Datum ist (z.B. "2026-08-10") und der Wert {total, paidOut, inCup} enthält.
 let dailySummaries = loadDailySummaries();
+
+// Zielbetrag fürs Sparziel - "null" bedeutet "noch kein Ziel gesetzt"
+// (nicht 0, damit wir "kein Ziel" und "Ziel ist 0€" sauber unterscheiden
+// könnten, auch wenn Letzteres in der Praxis nie vorkommen sollte).
+let sparzielBetrag = loadSparzielBetrag();
 
 
 // ============================================================================
@@ -76,6 +83,24 @@ function persistDailySummaries() {
   localStorage.setItem(STORAGE_KEY_SUMMARIES, JSON.stringify(dailySummaries));
 }
 
+function loadSparzielBetrag() {
+  const raw = localStorage.getItem(STORAGE_KEY_ZIEL);
+  if (!raw) return null;
+  try {
+    const zahl = JSON.parse(raw);
+    // > 0 statt nur "ist eine Zahl", damit ein versehentlich gespeicherter
+    // 0€-Wert genauso wie "kein Ziel" behandelt wird.
+    return typeof zahl === "number" && zahl > 0 ? zahl : null;
+  } catch (fehler) {
+    console.error("Konnte Sparziel nicht lesen:", fehler);
+    return null;
+  }
+}
+
+function persistSparzielBetrag() {
+  localStorage.setItem(STORAGE_KEY_ZIEL, JSON.stringify(sparzielBetrag));
+}
+
 
 // ============================================================================
 // 2. Zahlenfeld-Logik (die "Prefix-Logik" aus der Aufgabenstellung)
@@ -100,7 +125,10 @@ function persistDailySummaries() {
 // weitere Ziffern über der Grenze werden von applyDigit einfach ignoriert.
 const MAX_BETRAG = 9.99;
 
-function applyDigit(text, ziffer) {
+// "maxBetrag" ist optional und fällt standardmäßig auf MAX_BETRAG zurück -
+// das Sparziel (Abschnitt 7) braucht kein Limit und ruft applyDigit() mit
+// Infinity auf, statt eine eigene Kopie der ganzen Funktion zu schreiben.
+function applyDigit(text, ziffer, maxBetrag = MAX_BETRAG) {
   let kandidat;
 
   if (text === "") {
@@ -116,7 +144,7 @@ function applyDigit(text, ziffer) {
   }
 
   const zahl = parseFloat(kandidat.replace(",", "."));
-  if (!isNaN(zahl) && zahl > MAX_BETRAG) {
+  if (!isNaN(zahl) && zahl > maxBetrag) {
     return text; // Grenze erreicht -> Ziffer wird ignoriert, Text bleibt wie er war
   }
   return kandidat;
@@ -564,6 +592,7 @@ function saveShiftSummary() {
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();
+  renderSparziel();
 
   // Nach erfolgreicher Abrechnung direkt zeigen, wie sich die Sparrücklage
   // verändert hat - deshalb automatisch zum Sparziel-Tab wechseln.
@@ -576,6 +605,128 @@ function renderSavingsTotal() {
 
 function renderBecherBestand() {
   document.getElementById("becher-bestand-value").textContent = formatAmount(calcBecherBestand());
+}
+
+// ============================================================================
+// 8. Sparziel: Zielbetrag + Fortschritt
+//
+// Der Zielbetrag ist direkt auf dem Sparziel-Screen editierbar (noch kein
+// eigener Einstellungen-Screen). Die Karte wird komplett neu gerendert
+// (wie renderEntries()/renderVerlauf()) statt einzelne Elemente ein- und
+// auszublenden - je nach Zustand sieht sie ohnehin ganz unterschiedlich aus:
+// kein Ziel gesetzt / Ziel mit Fortschritt / Ziel erreicht.
+// ============================================================================
+
+function renderSparziel() {
+  const container = document.getElementById("goal-card");
+  const sparruecklage = calcSavingsTotal();
+
+  if (!sparzielBetrag) {
+    container.innerHTML = `
+      <div class="goal-card__header">
+        <span class="goal-card__label">Sparziel</span>
+      </div>
+      <button class="goal-card__empty" id="goal-empty-cta">
+        Noch kein Sparziel gesetzt – antippen, um eins festzulegen
+      </button>
+    `;
+    document.getElementById("goal-empty-cta").addEventListener("click", openGoalDialog);
+    return;
+  }
+
+  const erreicht = sparruecklage >= sparzielBetrag;
+  // Math.min(100, ...) verhindert einen über 100% hinauslaufenden Balken,
+  // wenn die Sparrücklage das Ziel überschreitet.
+  const prozent = Math.min(100, Math.round((sparruecklage / sparzielBetrag) * 100));
+
+  container.innerHTML = `
+    <div class="goal-card__header">
+      <span class="goal-card__label">Sparziel</span>
+      <button class="goal-card__edit" id="goal-edit-btn">✏️ ${formatAmount(sparzielBetrag)}</button>
+    </div>
+    <div class="goal-card__bar-track">
+      <div class="goal-card__bar-fill${erreicht ? " goal-card__bar-fill--erreicht" : ""}" style="width: ${prozent}%"></div>
+    </div>
+    <div class="goal-card__meta">
+      <span>${formatAmount(sparruecklage)} von ${formatAmount(sparzielBetrag)}</span>
+      <span>${prozent}%</span>
+    </div>
+    ${erreicht ? `<p class="goal-card__celebrate">Ziel erreicht! 🎉</p>` : ""}
+  `;
+  document.getElementById("goal-edit-btn").addEventListener("click", openGoalDialog);
+}
+
+// Eigener kleiner "buffer" fürs Sparziel-Zahlenfeld - genau wie buffer/
+// editBuffer, nur ohne MAX_BETRAG-Deckel (siehe applyDigit()-Aufruf unten).
+let zielBuffer = "";
+
+function updateGoalDisplay() {
+  const anzeige = document.getElementById("goal-display");
+  anzeige.textContent = (zielBuffer === "" ? "0" : zielBuffer) + " €";
+}
+
+function openGoalDialog() {
+  zielBuffer = sparzielBetrag ? amountToBuffer(sparzielBetrag) : "";
+  updateGoalDisplay();
+  document.getElementById("goal-overlay").hidden = false;
+}
+
+function closeGoalDialog() {
+  document.getElementById("goal-overlay").hidden = true;
+}
+
+function saveGoal() {
+  const betrag = bufferToAmount(zielBuffer);
+  if (betrag === null) {
+    flashInvalid("goal-display");
+    return;
+  }
+  sparzielBetrag = betrag;
+  persistSparzielBetrag();
+  renderSparziel();
+  closeGoalDialog();
+}
+
+function removeGoal() {
+  sparzielBetrag = null;
+  persistSparzielBetrag();
+  renderSparziel();
+  closeGoalDialog();
+}
+
+function initGoalDialog() {
+  const keypad = document.getElementById("goal-keypad");
+
+  // Infinity statt MAX_BETRAG: ein Sparziel darf (anders als ein einzelnes
+  // Trinkgeld) beliebig hoch sein.
+  keypad.querySelectorAll(".key[data-digit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      zielBuffer = applyDigit(zielBuffer, button.dataset.digit, Infinity);
+      updateGoalDisplay();
+    });
+  });
+
+  document.getElementById("goal-key-comma").addEventListener("click", () => {
+    zielBuffer = insertComma(zielBuffer);
+    updateGoalDisplay();
+  });
+  document.getElementById("goal-key-single-cent").addEventListener("click", () => {
+    zielBuffer = "0,0";
+    updateGoalDisplay();
+  });
+  document.getElementById("goal-key-delete-digit").addEventListener("click", () => {
+    zielBuffer = zielBuffer.slice(0, -1);
+    updateGoalDisplay();
+  });
+
+  document.getElementById("goal-save").addEventListener("click", saveGoal);
+  document.getElementById("goal-remove").addEventListener("click", removeGoal);
+  document.getElementById("goal-cancel").addEventListener("click", closeGoalDialog);
+
+  const overlay = document.getElementById("goal-overlay");
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeGoalDialog();
+  });
 }
 
 // Kleines Balkendiagramm: ein Balken pro Tag der letzten 7 Tage, Höhe
@@ -603,7 +754,7 @@ function renderSavingsChart() {
 }
 
 // ============================================================================
-// 8. Backup/Export
+// 9. Backup/Export
 //
 // iOS kann localStorage-Daten nach längerer App-Nichtnutzung automatisch
 // löschen (Intelligent Tracking Prevention). Das hier ist die einzige
@@ -677,7 +828,7 @@ function initShiftDialog() {
 
 
 // ============================================================================
-// 9. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
+// 10. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
 //
 // Anders als die "Letzte Einträge"-Liste auf dem Eintrag-Screen zeigt der
 // Verlauf ALLE Einträge, inklusive bereits abgerechneter (settled: true) -
@@ -767,7 +918,7 @@ function renderVerlauf() {
 
 
 // ============================================================================
-// 10. Bottom-Nav / Screen-Umschaltung
+// 11. Bottom-Nav / Screen-Umschaltung
 //
 // Jeder <main class="screen"> hat eine id nach dem Muster "screen-NAME".
 // Die passenden Nav-Buttons tragen das gleiche NAME in data-screen - so
@@ -793,7 +944,7 @@ function initBottomNav() {
 
 
 // ============================================================================
-// 11. Motivations-Text
+// 12. Motivations-Text
 // ============================================================================
 
 const MOTIVATIONSSPRUECHE = [
@@ -841,7 +992,7 @@ function initServiceWorker() {
 
 
 // ============================================================================
-// 12. Start
+// 13. Start
 // ============================================================================
 
 function init() {
@@ -852,11 +1003,13 @@ function init() {
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();
+  renderSparziel();
   renderMotivation();
 
   initKeypad();
   initEditDialog();
   initShiftDialog();
+  initGoalDialog();
   initExport();
   initBottomNav();
   initServiceWorker();

@@ -73,6 +73,14 @@
     <main id="screen-sparziel" class="screen" hidden>
       <h1 class="screen-title">Sparziel</h1>
 
+      <!-- Zielbetrag + Fortschritt - die Hauptaussage des Screens, deshalb
+           ganz oben. Wird komplett von app.js gerendert (renderSparziel),
+           weil der Inhalt je nach Zustand (kein Ziel / Fortschritt / Ziel
+           erreicht) sehr unterschiedlich aussieht. -->
+      <section class="goal-card" id="goal-card">
+        <!-- wird von app.js gefüllt -->
+      </section>
+
       <!-- Sparrücklage: laufende Gesamtsumme aller eingezahlten Beträge -->
       <section class="savings-card">
         <div class="savings-card__value" id="savings-total-value">0,00 €</div>
@@ -219,6 +227,49 @@
       <div class="modal__actions">
         <button class="key key--save modal__save-btn" id="edit-save-entry">Speichern</button>
         <button class="modal__delete-link" id="edit-delete-entry">Löschen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Dialog: Sparziel festlegen =================
+       Gleiches Zahlenfeld-Pattern wie beim Bearbeiten-Dialog (eigene
+       Buttons/IDs, aber dieselben applyDigit()/insertComma()-Funktionen in
+       app.js) - hier ohne MAX_BETRAG-Deckel, weil Sparziele größer sind. -->
+  <div class="modal-overlay" id="goal-overlay" hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <button class="modal__cancel" id="goal-cancel">Abbrechen</button>
+        <h2>Sparziel festlegen</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <div class="display" id="goal-display">0 €</div>
+
+      <div class="keypad keypad--compact" id="goal-keypad">
+        <button class="key" data-digit="1">1</button>
+        <button class="key" data-digit="2">2</button>
+        <button class="key" data-digit="3">3</button>
+
+        <button class="key" data-digit="4">4</button>
+        <button class="key" data-digit="5">5</button>
+        <button class="key" data-digit="6">6</button>
+
+        <button class="key" data-digit="7">7</button>
+        <button class="key" data-digit="8">8</button>
+        <button class="key" data-digit="9">9</button>
+
+        <button class="key key--muted" id="goal-key-comma">,</button>
+        <button class="key" data-digit="0">0</button>
+        <button class="key key--muted" id="goal-key-single-cent">0,0</button>
+
+        <button class="key key--action key--full-row" id="goal-key-delete-digit">⌫</button>
+      </div>
+
+      <!-- Speichern + "Ziel entfernen" als unauffälliger Link darunter,
+           gleiches Muster wie Speichern/Löschen im Bearbeiten-Dialog. -->
+      <div class="modal__actions">
+        <button class="key key--save modal__save-btn" id="goal-save">Speichern</button>
+        <button class="modal__delete-link" id="goal-remove">Ziel entfernen</button>
       </div>
     </div>
   </div>
