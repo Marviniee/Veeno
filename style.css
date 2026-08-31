@@ -749,21 +749,31 @@ button,
   color: var(--color-danger);
 }
 
-/* Ruhiger "Geldautomat"-Moment oben auf dem Einzahlung-Screen (bewusst kein
-   Foto/Icon-Set, nur ein Emoji + große Zahl - passend zum sonst reduzierten,
-   funktionalen Look). Der Betrag steht hier gleich groß+prominent da, statt
-   dass die Zahlentastatur im Weg ist - siehe screen-einzahlung in index.html. */
+/* Ruhiger "Geldautomat"-Moment oben auf dem Einzahlung-Screen (eigenes
+   Icon statt Emoji, siehe .deposit-hero__icon - passend zum sonst
+   reduzierten, funktionalen Look). Der Betrag steht hier gleich
+   groß+prominent da, statt dass die Zahlentastatur im Weg ist - siehe
+   screen-einzahlung in index.html.
+
+   flex:1 lässt diesen Block den gesamten Platz zwischen Kopfzeile und
+   Speichern-Button einnehmen (statt dass darunter nur Leerraum entsteht)
+   und zentriert Icon/Label/Betrag/Link vertikal darin - der Button bleibt
+   dadurch automatisch unten mit ordentlichem Abstand, statt direkt unter
+   dem Link zu kleben. */
 .deposit-hero {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 36px 0 20px;
+  justify-content: center;
+  gap: 14px;
+  min-height: 0;
 }
 
 .deposit-hero__icon {
-  font-size: 2.6rem;
-  margin-bottom: 4px;
+  width: 96px;
+  height: 96px;
+  object-fit: contain;
 }
 
 .deposit-hero__label {
@@ -788,7 +798,7 @@ button,
   font-size: 0.85rem;
   text-decoration: underline;
   padding: 4px;
-  margin-top: 4px;
+  margin-top: 6px;
   cursor: pointer;
 }
 
@@ -1320,10 +1330,12 @@ button,
   margin: 0;
 }
 
-/* #shift-save sitzt anders als das Haupt-Zahlenfeld nicht in der 60px-Grid-
-   Zeile von .keypad, sondern als freistehender Button - ohne eigene Größe
-   würde er sich nur an seinen Text anpassen und zu klein/gequetscht wirken. */
-#shift-save {
+/* #shift-save und #deposit-save sitzen anders als das Haupt-Zahlenfeld
+   nicht in der 60px-Grid-Zeile von .keypad, sondern als freistehende
+   Buttons - ohne eigene Größe würden sie sich nur an ihren Text anpassen
+   und zu klein/gequetscht wirken. */
+#shift-save,
+#deposit-save {
   padding: 16px 0;
   min-height: 56px;
 }

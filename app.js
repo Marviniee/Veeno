@@ -44,7 +44,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v34";
+const APP_VERSION = "v35";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -815,8 +815,16 @@ function initDepositDialog() {
 
   keypad.querySelectorAll(".key[data-digit]").forEach((button) => {
     button.addEventListener("click", () => {
+      const vorher = depositBuffer;
       depositBuffer = applyDigit(depositBuffer, button.dataset.digit, depositMax);
       updateDepositDisplay();
+      // applyDigit() gibt bei Überschreiten von depositMax den Text
+      // unverändert zurück (siehe dort) - genau dann kurz wackeln, statt
+      // die Eingabe wortlos zu ignorieren (gleiches Muster wie beim
+      // Haupt-Zahlenfeld bei "Speichern" mit ungültigem Betrag).
+      if (depositBuffer === vorher) {
+        flashInvalid("deposit-display");
+      }
     });
   });
 
