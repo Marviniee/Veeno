@@ -106,6 +106,48 @@ html, body {
   overflow: hidden;
 }
 
+/* Querformat-Sperre (siehe Kommentar bei #orientation-lock in index.html):
+   Das Layout ist komplett auf Hochformat ausgelegt (feste Tastatur-Raster,
+   #app als Flex-Spalte über die volle Höhe) und würde im Querformat
+   umbrechen/abgeschnitten wirken. Da iOS die Drehung einer Homescreen-
+   Web-App nicht zuverlässig sperrt, blenden wir #app im Querformat einfach
+   aus und zeigen stattdessen einen Hinweis. */
+#orientation-lock {
+  display: none;
+}
+
+@media (orientation: landscape) {
+  #app {
+    display: none;
+  }
+
+  #orientation-lock {
+    display: flex;
+    height: 100dvh;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 32px;
+    text-align: center;
+    background: var(--color-bg);
+    color: var(--color-text);
+  }
+
+  .orientation-lock__icon {
+    font-size: 48px;
+    /* Dreht das Handy-Emoji quer, damit es zur tatsächlichen Ausrichtung passt. */
+    transform: rotate(90deg);
+  }
+
+  .orientation-lock__text {
+    margin: 0;
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+  }
+}
+
 /* Verhindert, dass iOS schnelles Doppel-Tippen (z.B. auf dem Zahlenfeld)
    manchmal als Doppel-Tap-Zoom missversteht. Fast alle klickbaren Flächen
    in der App sind <button>-Elemente - deshalb reicht diese eine Regel für

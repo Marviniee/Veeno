@@ -44,7 +44,7 @@ const APP_SEMVER = "0.5.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v29";
+const APP_VERSION = "v30";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -313,6 +313,10 @@ function updateEntry(id, betrag, timestamp) {
   if (!eintrag) return;
   eintrag.amount = betrag;
   eintrag.timestamp = timestamp;
+  // Da sich die Uhrzeit geändert haben kann, muss die Liste neu nach
+  // "neueste zuerst" sortiert werden - sonst bleibt der Eintrag an seiner
+  // alten Position stehen (siehe Kommentar bei renderEntryList).
+  entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   persistEntries();
   renderEntries();
   renderDayTotal();

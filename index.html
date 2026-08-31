@@ -37,6 +37,20 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
+  <!-- Querformat-Sperre: iOS erlaubt es einer reinen Web-App (kein
+       natives Xcode-Projekt) nicht zuverlässig, die Drehung selbst zu
+       verhindern - "orientation":"portrait" im manifest.webmanifest wird
+       von iOS für Homescreen-Apps meist ignoriert. Deshalb stattdessen
+       diese Overlay-Lösung: bei Querformat wird #app per CSS komplett
+       ausgeblendet und dieser Hinweis stattdessen gezeigt (siehe
+       style.css, @media (orientation: landscape)). Kein kaputtes Layout
+       mehr sichtbar, die App-Daten/der Zustand bleiben dabei unangetastet. -->
+  <div id="orientation-lock">
+    <div class="orientation-lock__icon">📱</div>
+    <p class="orientation-lock__text">Veeno ist nur im Hochformat nutzbar.<br />Bitte drehe dein iPhone zurück.</p>
+  </div>
+
   <div id="app">
 
     <!-- ================= Bildschirm: Eintrag ================= -->
