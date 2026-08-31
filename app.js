@@ -44,7 +44,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v33";
+const APP_VERSION = "v34";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -771,17 +771,25 @@ function updateDepositDisplay() {
   document.getElementById("deposit-display").textContent = (depositBuffer === "" ? "0" : depositBuffer) + " €";
 }
 
+// Blendet die Zahlentastatur wieder aus und den "Betrag anpassen"-Link
+// wieder ein - der Ausgangszustand bei jedem Öffnen des Screens (Punkt 2 der
+// Aufgabe: Tastatur soll standardmäßig nicht im Weg stehen).
+function resetDepositAdjust() {
+  document.getElementById("deposit-keypad").hidden = true;
+  document.getElementById("deposit-adjust-toggle").hidden = false;
+}
+
 function openDepositDialog() {
   depositMax = calcAusstehend();
   if (depositMax <= 0) return; // Button ist ohnehin deaktiviert (renderPendingCard) - doppelte Absicherung
   depositBuffer = amountToBuffer(depositMax);
   updateDepositDisplay();
-  document.getElementById("deposit-hint").textContent = `Ausstehend: ${formatAmount(depositMax)}`;
-  document.getElementById("deposit-overlay").hidden = false;
+  resetDepositAdjust();
+  switchScreen("einzahlung");
 }
 
 function closeDepositDialog() {
-  document.getElementById("deposit-overlay").hidden = true;
+  switchScreen("sparziel");
 }
 
 function saveDeposit() {
@@ -825,14 +833,18 @@ function initDepositDialog() {
     updateDepositDisplay();
   });
 
+  // Seltener Fall Teil-Einzahlung: blendet die Tastatur ein, die vorher
+  // bewusst im Weg war (siehe Kommentar bei resetDepositAdjust). Einmal
+  // eingeblendet bleibt sie es für diesen Öffnungs-Durchgang - der volle
+  // Betrag steht ja schon im Feld, weiteres Ein-/Ausblenden bringt nichts.
+  document.getElementById("deposit-adjust-toggle").addEventListener("click", () => {
+    keypad.hidden = false;
+    document.getElementById("deposit-adjust-toggle").hidden = true;
+  });
+
   document.getElementById("deposit-save").addEventListener("click", saveDeposit);
   document.getElementById("deposit-cancel").addEventListener("click", closeDepositDialog);
   document.getElementById("deposit-open-btn").addEventListener("click", openDepositDialog);
-
-  const overlay = document.getElementById("deposit-overlay");
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay) closeDepositDialog();
-  });
 }
 
 // ============================================================================

@@ -749,13 +749,47 @@ button,
   color: var(--color-danger);
 }
 
-/* Hinweiszeile im Einzahlung-Dialog: zeigt den Ausstehend-Betrag, gegen den
-   der eingegebene Betrag validiert wird (siehe depositMax in app.js). */
-.deposit-hint {
-  text-align: center;
-  font-size: 0.85rem;
+/* Ruhiger "Geldautomat"-Moment oben auf dem Einzahlung-Screen (bewusst kein
+   Foto/Icon-Set, nur ein Emoji + große Zahl - passend zum sonst reduzierten,
+   funktionalen Look). Der Betrag steht hier gleich groß+prominent da, statt
+   dass die Zahlentastatur im Weg ist - siehe screen-einzahlung in index.html. */
+.deposit-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 36px 0 20px;
+}
+
+.deposit-hero__icon {
+  font-size: 2.6rem;
+  margin-bottom: 4px;
+}
+
+.deposit-hero__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--color-text-muted);
   margin: 0;
+}
+
+.deposit-hero__display {
+  padding: 0;
+}
+
+/* Unauffälliger Text-Link für den seltenen Teil-Einzahlung-Fall - gleiches
+   Muster wie .export-link, damit "Einzahlung bestätigen" unten klar die
+   Hauptaktion bleibt. */
+.deposit-hero__adjust {
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  padding: 4px;
+  margin-top: 4px;
+  cursor: pointer;
 }
 
 /* ==========================================================================
@@ -766,6 +800,14 @@ button,
   grid-template-columns: repeat(3, 1fr);
   grid-template-rows: repeat(4, minmax(56px, 1fr)) 60px;
   gap: 10px;
+}
+
+/* Ohne diese Regel würde ".keypad { display: grid }" oben das [hidden]-
+   Attribut überstimmen (gleiches Muster wie .screen[hidden]) - wird
+   gebraucht, weil #deposit-keypad standardmäßig versteckt startet und erst
+   über "Betrag anpassen" eingeblendet wird (siehe initDepositDialog()). */
+.keypad[hidden] {
+  display: none;
 }
 
 .key {
@@ -1020,13 +1062,15 @@ button,
   font-size: 1.05rem;
 }
 
-/* Konsistenz-Pass: der Schicht-Screen nutzt .modal__header (eigentlich für
-   die kompakten Bottom-Sheet-Dialoge gedacht) auch als Vollbild-Screen -
-   dort wirkte die kleine Dialog-Schrift neben "Verlauf"/"Sparziel"/
-   "Einstellungen" (alle .screen-title, 1.3rem) wie angeflanscht. Nur hier
-   gezielt vergrößert, die echten Dialoge (Eintrag bearbeiten, Sparziel
-   festlegen, Eingabe-Obergrenze) bleiben unverändert kompakt. */
-#screen-schicht .modal__header h2 {
+/* Konsistenz-Pass: der Schicht-Screen (und jetzt auch der Einzahlung-Screen)
+   nutzt .modal__header (eigentlich für die kompakten Bottom-Sheet-Dialoge
+   gedacht) auch als Vollbild-Screen - dort wirkte die kleine Dialog-Schrift
+   neben "Verlauf"/"Sparziel"/"Einstellungen" (alle .screen-title, 1.3rem)
+   wie angeflanscht. Nur hier gezielt vergrößert, die echten Dialoge
+   (Eintrag bearbeiten, Sparziel festlegen, Eingabe-Obergrenze) bleiben
+   unverändert kompakt. */
+#screen-schicht .modal__header h2,
+#screen-einzahlung .modal__header h2 {
   font-size: 1.15rem; /* etwas kleiner als screen-title (1.3rem), sonst bricht der Text
                          neben "Abbrechen" auf 375px-Breite in zwei Zeilen um */
   white-space: nowrap;
@@ -1035,7 +1079,8 @@ button,
 /* .screen liefert oben bereits 12px Padding - der geerbte .modal__header-
    Standardwert (6px) obendrauf wirkte in Summe zu großzügig für diesen
    Vollbild-Screen, deshalb hier knapper. */
-#screen-schicht .modal__header {
+#screen-schicht .modal__header,
+#screen-einzahlung .modal__header {
   padding-top: 2px;
 }
 
@@ -1043,7 +1088,8 @@ button,
    diesem reicht das nicht als Puffer zum Home-Indicator (siehe
    env(safe-area-inset-bottom) bei .bottom-nav, dieser Screen hat aber
    keine eigene Nav-Leiste als Puffer). */
-#screen-schicht {
+#screen-schicht,
+#screen-einzahlung {
   padding-bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
 }
 

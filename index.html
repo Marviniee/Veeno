@@ -155,7 +155,7 @@
            Schichten - "Ausstehend" ist Geld, das schon aus dem Becher
            entnommen, aber noch nicht am Bankautomaten eingezahlt wurde.
            Wächst mit jeder Schicht, sinkt nur über "Einzahlung erfassen"
-           (öffnet #deposit-overlay, siehe unten). -->
+           (öffnet #screen-einzahlung, eigener Vollbild-Screen weiter unten). -->
       <section class="pending-card">
         <div class="pending-card__row">
           <div class="pending-card__stat">
@@ -290,6 +290,62 @@
       <p class="shift-neuer-becher-summary" id="shift-neuer-becher-summary">Neuer Becherbestand: 0,00 €</p>
 
       <button class="key key--save" id="shift-save">Speichern</button>
+    </main>
+
+    <!-- ================= Bildschirm: Einzahlung erfassen =================
+         Wie der Schicht-Screen: kein eigener Tab, erreichbar über den
+         "Einzahlung erfassen"-Button auf dem Übersicht-Screen, per
+         switchScreen() wie die anderen Screens auch.
+
+         Bewusst zweistufig statt direkt mit voller Zahlentastatur: fast
+         immer entspricht die Einzahlung genau dem vollen Ausstehend-Betrag
+         (der Nutzer geht mit dem ganzen Geldbeutel-Inhalt zum Automaten) -
+         deshalb steht der Betrag erst groß und direkt bestätigbar da, die
+         Tastatur kommt nur für die seltene Teil-Einzahlung per "Betrag
+         anpassen" dazu (siehe initDepositDialog() in app.js). -->
+    <main id="screen-einzahlung" class="screen" hidden>
+      <div class="modal__header">
+        <button class="modal__cancel" id="deposit-cancel">Abbrechen</button>
+        <h2>Einzahlung erfassen</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <div class="deposit-hero">
+        <div class="deposit-hero__icon" aria-hidden="true">🏧</div>
+        <p class="deposit-hero__label">Ausstehend</p>
+        <div class="display deposit-hero__display" id="deposit-display">0 €</div>
+        <button class="deposit-hero__adjust" id="deposit-adjust-toggle">Betrag anpassen</button>
+      </div>
+
+      <!-- Standardmäßig ausgeblendet (siehe initDepositDialog()) - blendet
+           sich erst nach Antippen von "Betrag anpassen" ein, für den
+           seltenen Fall einer Teil-Einzahlung. Gleiches Zahlenfeld-Pattern/
+           dieselben IDs-Suffixe wie bei den anderen Dialogen, nur ohne
+           eigenes Overlay drumherum. Kein MAX_BETRAG-Deckel wie bei den
+           anderen Dialogen, sondern ein dynamischer (depositMax = Ausstehend
+           beim Öffnen), damit sich gar nicht erst mehr eintippen lässt, als
+           aussteht. -->
+      <div class="keypad keypad--compact" id="deposit-keypad" hidden>
+        <button class="key" data-digit="1">1</button>
+        <button class="key" data-digit="2">2</button>
+        <button class="key" data-digit="3">3</button>
+
+        <button class="key" data-digit="4">4</button>
+        <button class="key" data-digit="5">5</button>
+        <button class="key" data-digit="6">6</button>
+
+        <button class="key" data-digit="7">7</button>
+        <button class="key" data-digit="8">8</button>
+        <button class="key" data-digit="9">9</button>
+
+        <button class="key key--muted" id="deposit-key-comma">,</button>
+        <button class="key" data-digit="0">0</button>
+        <button class="key key--muted" id="deposit-key-single-cent">0,0</button>
+
+        <button class="key key--action key--full-row" id="deposit-key-delete-digit">⌫</button>
+      </div>
+
+      <button class="key key--save" id="deposit-save">Einzahlung bestätigen</button>
     </main>
 
     <!-- ================= Bildschirm: Einstellungen ================= -->
@@ -508,52 +564,6 @@
       <div class="modal__actions">
         <button class="key key--save modal__save-btn" id="goal-save">Speichern</button>
         <button class="modal__delete-link" id="goal-remove">Ziel entfernen</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ================= Dialog: Einzahlung erfassen =================
-       Gleiches Zahlenfeld-Pattern wie beim Sparziel-Dialog, aber mit dem
-       aktuellen Ausstehend-Betrag vorausgefüllt (siehe openDepositDialog()
-       in app.js) - der ist der Normalfall (Nutzer zahlt alles auf einmal
-       ein), lässt sich aber jederzeit auf einen Teilbetrag runtippen. Kein
-       MAX_BETRAG-Deckel wie bei den anderen Dialogen, sondern ein dynamischer
-       (depositMax = Ausstehend beim Öffnen), damit sich gar nicht erst mehr
-       eintippen lässt, als aussteht. -->
-  <div class="modal-overlay" id="deposit-overlay" hidden>
-    <div class="modal">
-      <div class="modal__header">
-        <button class="modal__cancel" id="deposit-cancel">Abbrechen</button>
-        <h2>Einzahlung erfassen</h2>
-        <span class="modal__spacer"></span>
-      </div>
-
-      <p class="deposit-hint" id="deposit-hint">Ausstehend: 0,00 €</p>
-
-      <div class="display" id="deposit-display">0 €</div>
-
-      <div class="keypad keypad--compact" id="deposit-keypad">
-        <button class="key" data-digit="1">1</button>
-        <button class="key" data-digit="2">2</button>
-        <button class="key" data-digit="3">3</button>
-
-        <button class="key" data-digit="4">4</button>
-        <button class="key" data-digit="5">5</button>
-        <button class="key" data-digit="6">6</button>
-
-        <button class="key" data-digit="7">7</button>
-        <button class="key" data-digit="8">8</button>
-        <button class="key" data-digit="9">9</button>
-
-        <button class="key key--muted" id="deposit-key-comma">,</button>
-        <button class="key" data-digit="0">0</button>
-        <button class="key key--muted" id="deposit-key-single-cent">0,0</button>
-
-        <button class="key key--action key--full-row" id="deposit-key-delete-digit">⌫</button>
-      </div>
-
-      <div class="modal__actions">
-        <button class="key key--save modal__save-btn" id="deposit-save">Einzahlung bestätigen</button>
       </div>
     </div>
   </div>
