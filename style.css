@@ -309,16 +309,6 @@ button,
   margin: 0;
 }
 
-.home-recent__all {
-  border: none;
-  background: none;
-  color: var(--color-accent);
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 4px 0;
-  cursor: pointer;
-}
-
 /* ==========================================================================
    Sparziel-Karte (Zielbetrag + Fortschritt, ganz oben auf dem Sparziel-Screen)
    ========================================================================== */
@@ -848,44 +838,6 @@ button,
   font-size: 0.9rem;
   text-align: center;
   margin: 8px 0;
-}
-
-/* ==========================================================================
-   Verlauf-Screen: alle Einträge, nach Tag gruppiert
-   ========================================================================== */
-.verlauf-groups {
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-}
-
-.verlauf-group__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 8px;
-}
-
-.verlauf-group__day {
-  font-size: 0.95rem;
-  font-weight: 700;
-}
-
-.verlauf-group__total {
-  font-size: 0.9rem;
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Abgerechnete Einträge bleiben hier als Historie sichtbar, sind aber nicht
-   mehr antippbar - ihr Betrag steckt schon in einer Tagesabrechnung
-   (dailySummaries), ein nachträgliches Ändern würde die durcheinanderbringen.
-   pointer-events:none verhindert Klick UND das :active-Aufleuchten beim
-   Antippen, damit es nicht so aussieht, als würde etwas passieren. */
-.entry--settled {
-  opacity: 0.55;
-  cursor: default;
-  pointer-events: none;
 }
 
 /* ==========================================================================

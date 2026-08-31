@@ -186,11 +186,10 @@
       </section>
 
       <!-- 5. Kompakte Vorschau der letzten Einträge (kein Duplikat der
-           vollen Liste vom Eintrag-Screen - nur 4, mit Link zum Verlauf). -->
+           vollen Liste vom Eintrag-Screen - nur die neuesten 4). -->
       <section class="home-recent">
         <div class="home-recent__header">
           <h2 class="home-recent__title">Letzte Einträge</h2>
-          <button class="home-recent__all" id="home-recent-all">Alle anzeigen ›</button>
         </div>
         <ul class="entries__list" id="home-recent-list">
           <!-- wird von app.js gefüllt -->
@@ -206,17 +205,6 @@
       <!-- 7. Backup: alle Daten als JSON-Datei herunterladen (Absicherung
            gegen iOS' automatische Datenbereinigung bei längerer Nichtnutzung). -->
       <button class="export-link" id="export-data">Daten exportieren</button>
-    </main>
-
-    <!-- ================= Bildschirm: Verlauf ================= -->
-    <main id="screen-verlauf" class="screen" hidden>
-      <h1 class="screen-title">Verlauf</h1>
-
-      <!-- Alle Einträge (auch bereits abgerechnete), nach Tag gruppiert -->
-      <div class="verlauf-groups" id="verlauf-groups">
-        <!-- wird von app.js gefüllt -->
-      </div>
-      <p class="entries__empty" id="verlauf-empty">Noch keine Einträge vorhanden.</p>
     </main>
 
     <!-- ================= Bildschirm: Schicht abschließen (Becher-Logik) =================
@@ -373,13 +361,6 @@
           <line x1="8" y1="12" x2="16" y2="12" />
         </svg>
         <span class="nav-btn__label">Eintrag</span>
-      </button>
-      <button class="nav-btn" data-screen="verlauf">
-        <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <polyline points="12 7 12 12 15.5 14" />
-        </svg>
-        <span class="nav-btn__label">Verlauf</span>
       </button>
       <button class="nav-btn" data-screen="sparziel">
         <svg class="nav-btn__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

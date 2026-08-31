@@ -17,10 +17,9 @@
 //   8. Sparziel: Zielbetrag + Fortschritt
 //   9. Einstellungen-Screen
 //  10. Backup/Export
-//  11. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
-//  12. Bottom-Nav / Screen-Umschaltung
-//  13. Motivations-Text
-//  14. Start
+//  11. Bottom-Nav / Screen-Umschaltung
+//  12. Motivations-Text
+//  13. Start
 // ============================================================================
 
 // localStorage kann nur Text speichern -> wir benutzen feste "Schlüssel"
@@ -44,7 +43,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v31";
+const APP_VERSION = "v32";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -297,7 +296,6 @@ function saveEntry() {
   clearBuffer();
   renderEntries();
   renderDayTotal();
-  renderVerlauf();
 }
 
 function deleteEntry(id) {
@@ -305,7 +303,6 @@ function deleteEntry(id) {
   persistEntries();
   renderEntries();
   renderDayTotal();
-  renderVerlauf();
 }
 
 function updateEntry(id, betrag, timestamp) {
@@ -320,7 +317,6 @@ function updateEntry(id, betrag, timestamp) {
   persistEntries();
   renderEntries();
   renderDayTotal();
-  renderVerlauf();
 }
 
 
@@ -687,7 +683,6 @@ function saveShiftSummary() {
   persistDailySummaries();
   renderEntries();
   renderDayTotal();
-  renderVerlauf();
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();
@@ -711,7 +706,7 @@ function renderBecherBestand() {
 //
 // Der Zielbetrag ist direkt auf dem Sparziel-Screen editierbar (noch kein
 // eigener Einstellungen-Screen). Die Karte wird komplett neu gerendert
-// (wie renderEntries()/renderVerlauf()) statt einzelne Elemente ein- und
+// (wie renderEntries()) statt einzelne Elemente ein- und
 // auszublenden - je nach Zustand sieht sie ohnehin ganz unterschiedlich aus:
 // kein Ziel gesetzt / Ziel mit Fortschritt / Ziel erreicht.
 // ============================================================================
@@ -1129,7 +1124,6 @@ function importBackup(jsonText) {
 
   renderEntries();
   renderDayTotal();
-  renderVerlauf();
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();
@@ -1230,7 +1224,7 @@ function initSettings() {
 
 
 // ============================================================================
-// 11. Backup/Export
+// 10. Backup/Export
 //
 // iOS kann localStorage-Daten nach längerer App-Nichtnutzung automatisch
 // löschen (Intelligent Tracking Prevention). Das hier ist die einzige
@@ -1261,13 +1255,6 @@ function exportData() {
 function initExport() {
   document.getElementById("export-data").addEventListener("click", exportData);
 }
-
-// "Alle anzeigen" bei der Letzte-Einträge-Vorschau auf der Übersichtsseite
-// springt zum Verlauf-Tab, statt die volle Liste hier zu duplizieren.
-function initHomeRecent() {
-  document.getElementById("home-recent-all").addEventListener("click", () => switchScreen("verlauf"));
-}
-
 
 // Liefert den aktuellen Gesamttopf (bisheriger Becherbestand + heutige,
 // noch nicht abgerechnete Schicht) - wird an mehreren Stellen im
@@ -1310,97 +1297,7 @@ function initShiftDialog() {
 
 
 // ============================================================================
-// 12. Verlauf-Screen (alle Einträge, nach Tag gruppiert)
-//
-// Anders als die "Letzte Einträge"-Liste auf dem Eintrag-Screen zeigt der
-// Verlauf ALLE Einträge, inklusive bereits abgerechneter (settled: true) -
-// die bleiben hier als Historie sichtbar, sind aber nicht mehr antippbar
-// (siehe openVerlaufEntry weiter unten): ihr Betrag steckt schon in einer
-// Tagesabrechnung (dailySummaries), ein nachträgliches Ändern würde die
-// durcheinanderbringen.
-// ============================================================================
-
-// Fasst eine flache Liste von Einträgen zu einem Objekt {datumsSchlüssel: [Einträge]}
-// zusammen. Reine Funktion (bekommt die Liste rein, verändert nichts).
-function groupEntriesByDay(liste) {
-  const gruppen = {};
-  for (const eintrag of liste) {
-    const schluessel = dateKey(new Date(eintrag.timestamp));
-    if (!gruppen[schluessel]) gruppen[schluessel] = [];
-    gruppen[schluessel].push(eintrag);
-  }
-  return gruppen;
-}
-
-// "Heute" / "Gestern" statt Datum, wo es das gibt - sonst "05.08.2026".
-function verlaufTagesLabel(datumsSchluessel) {
-  const gestern = new Date();
-  gestern.setDate(gestern.getDate() - 1);
-
-  if (datumsSchluessel === todayDateKey()) return "Heute";
-  if (datumsSchluessel === dateKey(gestern)) return "Gestern";
-
-  const [jahr, monat, tag] = datumsSchluessel.split("-");
-  return `${tag}.${monat}.${jahr}`;
-}
-
-function renderVerlauf() {
-  const container = document.getElementById("verlauf-groups");
-  const leerHinweis = document.getElementById("verlauf-empty");
-
-  container.innerHTML = "";
-  leerHinweis.style.display = entries.length === 0 ? "block" : "none";
-  if (entries.length === 0) return;
-
-  const gruppen = groupEntriesByDay(entries);
-
-  // Datums-Schlüssel sind "JJJJ-MM-TT" - als Text sortiert entspricht das
-  // automatisch der zeitlichen Reihenfolge. reverse() dreht das um, damit
-  // der neueste Tag zuerst kommt.
-  const tage = Object.keys(gruppen).sort().reverse();
-
-  for (const tag of tage) {
-    const eintraegeDesTages = gruppen[tag].slice().sort(
-      (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
-    );
-    const tagesSumme = eintraegeDesTages.reduce((summe, eintrag) => summe + eintrag.amount, 0);
-
-    const gruppenElement = document.createElement("section");
-    gruppenElement.className = "verlauf-group";
-    gruppenElement.innerHTML = `
-      <div class="verlauf-group__header">
-        <span class="verlauf-group__day">${verlaufTagesLabel(tag)}</span>
-        <span class="verlauf-group__total">${formatAmount(tagesSumme)}</span>
-      </div>
-      <ul class="entries__list"></ul>
-    `;
-
-    const liste = gruppenElement.querySelector("ul");
-    for (const eintrag of eintraegeDesTages) {
-      const li = document.createElement("li");
-      li.className = eintrag.settled ? "entry entry--settled" : "entry";
-      li.innerHTML = `
-        <div>
-          <div class="entry__amount">${formatAmount(eintrag.amount)}</div>
-          <div class="entry__time">${formatTime(eintrag.timestamp)}</div>
-        </div>
-        <span class="entry__hint">${eintrag.settled ? "" : "›"}</span>
-      `;
-      // Abgerechnete Einträge bekommen bewusst KEINEN Klick-Handler - siehe
-      // Kommentar am Anfang dieses Abschnitts.
-      if (!eintrag.settled) {
-        li.addEventListener("click", () => openEditDialog(eintrag.id));
-      }
-      liste.appendChild(li);
-    }
-
-    container.appendChild(gruppenElement);
-  }
-}
-
-
-// ============================================================================
-// 13. Bottom-Nav / Screen-Umschaltung
+// 11. Bottom-Nav / Screen-Umschaltung
 //
 // Jeder <main class="screen"> hat eine id nach dem Muster "screen-NAME".
 // Die passenden Nav-Buttons tragen das gleiche NAME in data-screen - so
@@ -1423,16 +1320,14 @@ function switchScreen(name) {
 }
 
 function initBottomNav() {
-  // ":not([disabled])" -> der "Verlauf"-Tab hat noch keinen Screen dahinter
-  // und bleibt deaktiviert, bis der gebaut ist.
-  document.querySelectorAll(".nav-btn:not([disabled])").forEach((button) => {
+  document.querySelectorAll(".nav-btn").forEach((button) => {
     button.addEventListener("click", () => switchScreen(button.dataset.screen));
   });
 }
 
 
 // ============================================================================
-// 14. Motivations-Text
+// 12. Motivations-Text
 // ============================================================================
 
 const MOTIVATIONSSPRUECHE = [
@@ -1494,7 +1389,7 @@ function initServiceWorker() {
 
 
 // ============================================================================
-// 15. Start
+// 13. Start
 // ============================================================================
 
 function init() {
@@ -1503,7 +1398,6 @@ function init() {
   updateDisplay();
   renderEntries();
   renderDayTotal();
-  renderVerlauf();
   renderSavingsTotal();
   renderSavingsChart();
   renderBecherBestand();
@@ -1517,7 +1411,6 @@ function init() {
   initShiftDialog();
   initGoalDialog();
   initExport();
-  initHomeRecent();
   initSettings();
   initMaxDialog();
   initBottomNav();
