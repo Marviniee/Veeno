@@ -151,6 +151,25 @@
         <div class="becher-card__label">Im Becher (aktuell)</div>
       </section>
 
+      <!-- 3b. Ausstehend / Eingezahlt (gesamt): unabhängig von einzelnen
+           Schichten - "Ausstehend" ist Geld, das schon aus dem Becher
+           entnommen, aber noch nicht am Bankautomaten eingezahlt wurde.
+           Wächst mit jeder Schicht, sinkt nur über "Einzahlung erfassen"
+           (öffnet #deposit-overlay, siehe unten). -->
+      <section class="pending-card">
+        <div class="pending-card__row">
+          <div class="pending-card__stat">
+            <div class="pending-card__value" id="pending-value">0,00 €</div>
+            <div class="pending-card__label">Ausstehend</div>
+          </div>
+          <div class="pending-card__stat">
+            <div class="pending-card__value pending-card__value--muted" id="deposited-value">0,00 €</div>
+            <div class="pending-card__label">Eingezahlt (gesamt)</div>
+          </div>
+        </div>
+        <button class="pending-card__button" id="deposit-open-btn">Einzahlung erfassen</button>
+      </section>
+
       <!-- 4. Sparrücklage: 7-Tage-Diagramm + zwei Wochen-Stat-Karten
            ("Diese Woche" vs. Vorwoche, "Stärkster Tag" als Wochentag mit
            historisch höchstem Durchschnitt - siehe renderWeekStats() in app.js). -->
@@ -219,8 +238,11 @@
       </div>
 
       <!-- Drei Kästen als Fluss: bisheriger Becherbestand + diese Schicht
-           ergeben den Topf, aus dem "Einzahlen" (unten) entnommen wird -
-           was übrig bleibt, ist der neue Becherbestand rechts. -->
+           ergeben den Topf, aus dem "Ausstehend" (unten) entnommen wird -
+           was übrig bleibt, ist der neue Becherbestand rechts. "Ausstehend"
+           heißt: aus dem Becher entnommen, aber noch nicht am Bankautomaten
+           eingezahlt - das passiert erst separat über "Einzahlung erfassen"
+           auf dem Übersicht-Screen. -->
       <div class="flow-cards">
         <div class="flow-card">
           <div class="flow-card__label">Bisher im Becher</div>
@@ -242,11 +264,11 @@
            gesamten Topf oben) - beide Werte lassen sich danach antippen und
            ändern, der "Neuer Becherbestand"-Kasten oben rechts folgt live mit. -->
       <div class="split-cards">
-        <label class="split-card split-card--paid">
-          <span class="split-card__icon" aria-hidden="true">💳</span>
-          <span class="split-card__label">Einzahlen</span>
+        <label class="split-card split-card--ausstehend">
+          <span class="split-card__icon" aria-hidden="true">👛</span>
+          <span class="split-card__label">Ausstehend</span>
           <span class="split-card__value-row">
-            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-paid-out" class="split-card__value" />
+            <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-ausstehend" class="split-card__value" />
             <span>€</span>
           </span>
         </label>
@@ -486,6 +508,52 @@
       <div class="modal__actions">
         <button class="key key--save modal__save-btn" id="goal-save">Speichern</button>
         <button class="modal__delete-link" id="goal-remove">Ziel entfernen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Dialog: Einzahlung erfassen =================
+       Gleiches Zahlenfeld-Pattern wie beim Sparziel-Dialog, aber mit dem
+       aktuellen Ausstehend-Betrag vorausgefüllt (siehe openDepositDialog()
+       in app.js) - der ist der Normalfall (Nutzer zahlt alles auf einmal
+       ein), lässt sich aber jederzeit auf einen Teilbetrag runtippen. Kein
+       MAX_BETRAG-Deckel wie bei den anderen Dialogen, sondern ein dynamischer
+       (depositMax = Ausstehend beim Öffnen), damit sich gar nicht erst mehr
+       eintippen lässt, als aussteht. -->
+  <div class="modal-overlay" id="deposit-overlay" hidden>
+    <div class="modal">
+      <div class="modal__header">
+        <button class="modal__cancel" id="deposit-cancel">Abbrechen</button>
+        <h2>Einzahlung erfassen</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <p class="deposit-hint" id="deposit-hint">Ausstehend: 0,00 €</p>
+
+      <div class="display" id="deposit-display">0 €</div>
+
+      <div class="keypad keypad--compact" id="deposit-keypad">
+        <button class="key" data-digit="1">1</button>
+        <button class="key" data-digit="2">2</button>
+        <button class="key" data-digit="3">3</button>
+
+        <button class="key" data-digit="4">4</button>
+        <button class="key" data-digit="5">5</button>
+        <button class="key" data-digit="6">6</button>
+
+        <button class="key" data-digit="7">7</button>
+        <button class="key" data-digit="8">8</button>
+        <button class="key" data-digit="9">9</button>
+
+        <button class="key key--muted" id="deposit-key-comma">,</button>
+        <button class="key" data-digit="0">0</button>
+        <button class="key key--muted" id="deposit-key-single-cent">0,0</button>
+
+        <button class="key key--action key--full-row" id="deposit-key-delete-digit">⌫</button>
+      </div>
+
+      <div class="modal__actions">
+        <button class="key key--save modal__save-btn" id="deposit-save">Einzahlung bestätigen</button>
       </div>
     </div>
   </div>

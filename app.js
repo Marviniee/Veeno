@@ -28,6 +28,7 @@ const STORAGE_KEY = "trinkgeld-eintraege";
 const STORAGE_KEY_SUMMARIES = "veeno-tagesabrechnungen";
 const STORAGE_KEY_ZIEL = "veeno-sparziel-betrag";
 const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
+const STORAGE_KEY_EINGEZAHLT = "veeno-eingezahlt-gesamt";
 
 // Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
 // wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
@@ -43,7 +44,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v32";
+const APP_VERSION = "v33";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -77,6 +78,12 @@ let sparzielBetrag = loadSparzielBetrag();
 // localStorage-Keys - einfacher zu laden/speichern, und neue Einstellungen
 // lassen sich später ergänzen, ohne bestehende Nutzerdaten zu brechen.
 let einstellungen = loadEinstellungen();
+
+// Kumulativer Betrag, der jemals per "Einzahlung erfassen" am Bankautomaten
+// eingezahlt wurde - unabhängig davon, aus welcher Schicht das Geld stammt.
+// 0 ist hier (anders als bei sparzielBetrag) ein normaler, gültiger
+// Startzustand, kein "nichts gesetzt"-Sonderfall.
+let eingezahltGesamt = loadEingezahltGesamt();
 
 
 // ============================================================================
@@ -113,6 +120,22 @@ function loadDailySummaries() {
 
 function persistDailySummaries() {
   localStorage.setItem(STORAGE_KEY_SUMMARIES, JSON.stringify(dailySummaries));
+}
+
+function loadEingezahltGesamt() {
+  const raw = localStorage.getItem(STORAGE_KEY_EINGEZAHLT);
+  if (!raw) return 0;
+  try {
+    const zahl = JSON.parse(raw);
+    return typeof zahl === "number" && zahl >= 0 ? zahl : 0;
+  } catch (fehler) {
+    console.error("Konnte eingezahlten Gesamtbetrag nicht lesen:", fehler);
+    return 0;
+  }
+}
+
+function persistEingezahltGesamt() {
+  localStorage.setItem(STORAGE_KEY_EINGEZAHLT, JSON.stringify(eingezahltGesamt));
 }
 
 function loadSparzielBetrag() {
@@ -523,9 +546,10 @@ function initEditDialog() {
 //
 // Konzept: Während der Schicht wird ganz normal über das Haupt-Zahlenfeld
 // eingetragen. Am Ende der Schicht sagt der Nutzer im Abrechnungs-Dialog,
-// wie viel er "eingezahlt" hat (volle Scheine) - der Rest gilt automatisch
-// als "im Becher gelassen" (Kleingeld). Das wird pro Tag in
-// dailySummaries gespeichert.
+// wie viel er aus dem Becher entnommen hat (volle Scheine) - der Rest gilt
+// automatisch als "im Becher gelassen" (Kleingeld). Das wird pro Tag in
+// dailySummaries gespeichert (Feld "paidOut" - historischer Name, siehe
+// unten).
 //
 // Beim Speichern werden alle heutigen, noch nicht abgerechneten Einträge
 // als "settled" markiert (Abschnitt 3/4/5) und dailySummaries[heute] wird
@@ -535,8 +559,17 @@ function initEditDialog() {
 //
 // Die Sparrücklage (savings_total) und der aktuelle Becher-Bestand
 // speichern wir NICHT als eigene Zahlen, sondern berechnen sie aus der
-// Summe aller "eingezahlt"- bzw. "im Becher"-Werte in dailySummaries. So
+// Summe aller "paidOut"- bzw. "im Becher"-Werte in dailySummaries. So
 // können die Zahlen nie auseinanderlaufen.
+//
+// WICHTIG (v1.0.0): Das Feld "paidOut" heißt aus historischen Gründen so,
+// bedeutet aber NICHT mehr "schon auf der Bank eingezahlt" - das Geld
+// wandert beim Schicht-Abschluss nur aus dem Becher in den Geldbeutel und
+// gilt ab dann als "Ausstehend" (calcAusstehend()). Erst die explizite
+// Aktion "Einzahlung erfassen" (siehe eingezahltGesamt weiter unten) markiert
+// einen Teil davon als wirklich am Bankautomaten eingezahlt. Die
+// Sparrücklage (calcSavingsTotal()) bleibt dabei rechnerisch unverändert -
+// sie ist weiterhin einfach Ausstehend + eingezahltGesamt.
 // ============================================================================
 
 function todayDateKey() {
@@ -558,6 +591,15 @@ function calcSavingsTotal() {
   return Object.values(dailySummaries).reduce((summe, tag) => summe + tag.paidOut, 0);
 }
 
+// Der Teil der Sparrücklage, der zwar schon aus dem Becher entnommen, aber
+// noch nicht am Bankautomaten eingezahlt wurde - siehe Erklärung oben.
+// eingezahltGesamt wächst NUR über saveDeposit() (Abschnitt "Einzahlung
+// erfassen" weiter unten), unabhängig davon, aus welcher Schicht das Geld
+// stammt.
+function calcAusstehend() {
+  return round2(calcSavingsTotal() - eingezahltGesamt);
+}
+
 // Summe aller inCup-Werte aus den Tagesabrechnungen - OHNE die manuelle
 // Korrektur (Punkt 4 im Einstellungen-Screen). Eigene kleine Funktion, weil
 // sowohl calcBecherBestand() als auch das Setzen einer neuen Korrektur
@@ -577,27 +619,28 @@ function calcBecherBestand() {
 }
 
 // Automatische Aufteilung beim Öffnen: so viel wie möglich in vollen
-// Scheinen (Rundungsgröße aus den Einstellungen, Default 5€) einzahlen,
-// der Rest (Münzen, krumme Beträge) bleibt im Becher.
-// Beispiel: 22,35 € Topf, Rundung 5€ -> 20 € einzahlen, 2,35 € im Becher.
+// Scheinen (Rundungsgröße aus den Einstellungen, Default 5€) aus dem Becher
+// entnehmen (-> wird "Ausstehend"), der Rest (Münzen, krumme Beträge)
+// bleibt im Becher.
+// Beispiel: 22,35 € Topf, Rundung 5€ -> 20 € entnehmen, 2,35 € im Becher.
 // "Topf" ist NICHT nur die aktuelle Schicht, sondern Schicht + bisheriger
 // Becherbestand zusammen (siehe openShiftDialog) - so ergeben sich über
 // mehrere Schichten hinweg wieder volle Scheine, statt dass sich Kleingeld
 // im Becher anhäuft, weil jede Schicht für sich isoliert betrachtet wird.
 function calcAutoSplit(topf) {
   const rundung = einstellungen.rundung;
-  const eingezahlt = Math.floor(topf / rundung) * rundung;
-  return { eingezahlt, imBecher: round2(topf - eingezahlt) };
+  const ausstehend = Math.floor(topf / rundung) * rundung;
+  return { ausstehend, imBecher: round2(topf - ausstehend) };
 }
 
 // Aktualisiert die Bestätigungs-Zeile "20,00 € + 2,35 € = 22,35 €"
-function updateSplitCheck(eingezahlt, imBecher, topf) {
+function updateSplitCheck(ausstehend, imBecher, topf) {
   document.getElementById("split-check").innerHTML =
-    `${formatAmount(eingezahlt)} + ${formatAmount(imBecher)} = <strong>${formatAmount(topf)}</strong>`;
+    `${formatAmount(ausstehend)} + ${formatAmount(imBecher)} = <strong>${formatAmount(topf)}</strong>`;
 }
 
 // Der "Im Becher"-Wert IST der neue Becherbestand nach dieser Abrechnung
-// (Topf minus Einzahlen) - die Zusammenfassungszeile über dem Speichern-
+// (Topf minus Ausstehend) - die Zusammenfassungszeile über dem Speichern-
 // Button bekommt diesen Wert live mit.
 function updateNeuerBecherbestand(imBecher) {
   document.getElementById("shift-neuer-becher-summary").textContent =
@@ -608,16 +651,16 @@ function openShiftDialog() {
   const heutigesSchichtTotal = calcDayTotal();
   const vorherigerBecherbestand = calcBecherBestand();
   const gesamtTopf = round2(vorherigerBecherbestand + heutigesSchichtTotal);
-  const { eingezahlt, imBecher } = calcAutoSplit(gesamtTopf);
+  const { ausstehend, imBecher } = calcAutoSplit(gesamtTopf);
 
   document.getElementById("shift-bisher-becher-value").textContent = formatAmount(vorherigerBecherbestand);
   document.getElementById("shift-schicht-value").textContent = formatAmount(heutigesSchichtTotal);
   document.getElementById("shift-gesamt-value").textContent = formatAmount(gesamtTopf);
   updateNeuerBecherbestand(imBecher);
 
-  document.getElementById("shift-paid-out").value = eingezahlt.toFixed(2);
+  document.getElementById("shift-ausstehend").value = ausstehend.toFixed(2);
   document.getElementById("shift-in-cup").value = imBecher.toFixed(2);
-  updateSplitCheck(eingezahlt, imBecher, gesamtTopf);
+  updateSplitCheck(ausstehend, imBecher, gesamtTopf);
 
   switchScreen("schicht");
 }
@@ -627,7 +670,7 @@ function saveShiftSummary() {
   const vorherigerBecherbestand = calcBecherBestand();
   const gesamtTopf = round2(vorherigerBecherbestand + heutigesSchichtTotal);
 
-  const eingezahltRoh = parseFloat(document.getElementById("shift-paid-out").value);
+  const ausstehendRoh = parseFloat(document.getElementById("shift-ausstehend").value);
   const imBecherRoh = parseFloat(document.getElementById("shift-in-cup").value);
 
   // Beide Felder müssen gültige, nicht-negative Zahlen sein, die in Summe
@@ -638,24 +681,24 @@ function saveShiftSummary() {
   // Browser das Tippen eines "-" trotzdem erlauben.
   const TOLERANZ = 0.01;
   const eingabeGueltig =
-    !isNaN(eingezahltRoh) && !isNaN(imBecherRoh) &&
-    eingezahltRoh >= 0 && imBecherRoh >= 0 &&
-    Math.abs(eingezahltRoh + imBecherRoh - gesamtTopf) <= TOLERANZ;
+    !isNaN(ausstehendRoh) && !isNaN(imBecherRoh) &&
+    ausstehendRoh >= 0 && imBecherRoh >= 0 &&
+    Math.abs(ausstehendRoh + imBecherRoh - gesamtTopf) <= TOLERANZ;
 
   if (!eingabeGueltig) {
     flashInvalid("split-check");
     return;
   }
 
-  const eingezahlt = round2(eingezahltRoh);
+  const ausstehend = round2(ausstehendRoh);
 
   // Wie viel von DIESER Schicht im Becher verbleibt. Das kann negativ sein,
-  // wenn mehr eingezahlt wurde, als die Schicht allein hergibt - dann kam
+  // wenn mehr entnommen wurde, als die Schicht allein hergibt - dann kam
   // der Rest aus dem alten Becherbestand. Genau deshalb wird das zum
   // bestehenden Tageseintrag ADDIERT statt gleichgesetzt: nur so ergibt
   // calcBecherBestand() (Summe aller inCup-Werte) am Ende wieder exakt
   // neuerBecherbestand.
-  const inCupDelta = round2(heutigesSchichtTotal - eingezahlt);
+  const inCupDelta = round2(heutigesSchichtTotal - ausstehend);
 
   // Alle heutigen, noch nicht abgerechneten Einträge gehören jetzt zu dieser
   // Abrechnung -> als "erledigt" markieren. Dadurch verschwinden sie aus der
@@ -670,11 +713,13 @@ function saveShiftSummary() {
   // Wurde am selben Tag schon einmal abgerechnet, addieren wir die neuen
   // Werte zum bestehenden Tageseintrag, statt ihn zu überschreiben - sonst
   // wären die Sparrücklagen-Beträge der ersten Abrechnung verloren.
+  // "paidOut" heißt aus historischen Gründen so, ist aber ab jetzt Teil von
+  // "Ausstehend" (siehe calcAusstehend()), nicht automatisch "eingezahlt".
   const heute = todayDateKey();
   const bisherigerEintrag = dailySummaries[heute] || { total: 0, paidOut: 0, inCup: 0 };
   dailySummaries[heute] = {
     total: round2(bisherigerEintrag.total + heutigesSchichtTotal),
-    paidOut: round2(bisherigerEintrag.paidOut + eingezahlt),
+    paidOut: round2(bisherigerEintrag.paidOut + ausstehend),
     inCup: round2(bisherigerEintrag.inCup + inCupDelta),
     closedAt: new Date().toISOString(),
   };
@@ -687,6 +732,7 @@ function saveShiftSummary() {
   renderSavingsChart();
   renderBecherBestand();
   renderSparziel();
+  renderPendingCard();
 
   // Nach erfolgreicher Abrechnung direkt zeigen, wie sich die Sparrücklage
   // verändert hat - deshalb automatisch zum Sparziel-Tab wechseln.
@@ -699,6 +745,94 @@ function renderSavingsTotal() {
 
 function renderBecherBestand() {
   document.getElementById("becher-bestand-value").textContent = formatAmount(calcBecherBestand());
+}
+
+// ============================================================================
+// "Ausstehend" / "Eingezahlt (gesamt)" - siehe Erklärung im Abschnitts-
+// Kommentar oben. Eigener kleiner Block, weil er konzeptionell unabhängig
+// von einzelnen Schichten ist (kann Wochen nach der Schicht passieren).
+// ============================================================================
+
+function renderPendingCard() {
+  const ausstehend = calcAusstehend();
+  document.getElementById("pending-value").textContent = formatAmount(ausstehend);
+  document.getElementById("deposited-value").textContent = formatAmount(eingezahltGesamt);
+  document.getElementById("deposit-open-btn").disabled = ausstehend <= 0;
+}
+
+// Eigener kleiner "buffer" fürs Einzahlung-Zahlenfeld, wie zielBuffer/
+// editBuffer. depositMax merkt sich den Ausstehend-Betrag beim Öffnen, damit
+// applyDigit() das Tippen eines zu hohen Betrags von vornherein verhindert
+// (Punkt 3 der Aufgabe: darf nicht größer als Ausstehend sein).
+let depositBuffer = "";
+let depositMax = 0;
+
+function updateDepositDisplay() {
+  document.getElementById("deposit-display").textContent = (depositBuffer === "" ? "0" : depositBuffer) + " €";
+}
+
+function openDepositDialog() {
+  depositMax = calcAusstehend();
+  if (depositMax <= 0) return; // Button ist ohnehin deaktiviert (renderPendingCard) - doppelte Absicherung
+  depositBuffer = amountToBuffer(depositMax);
+  updateDepositDisplay();
+  document.getElementById("deposit-hint").textContent = `Ausstehend: ${formatAmount(depositMax)}`;
+  document.getElementById("deposit-overlay").hidden = false;
+}
+
+function closeDepositDialog() {
+  document.getElementById("deposit-overlay").hidden = true;
+}
+
+function saveDeposit() {
+  const betrag = bufferToAmount(depositBuffer);
+  // Zusätzlich zur depositMax-Deckelung beim Tippen (siehe initDepositDialog)
+  // hier nochmal geprüft - falls sich depositMax seit dem Öffnen geändert
+  // haben sollte, wird nie mehr als das aktuelle Ausstehend abgezogen.
+  const aktuellesAusstehend = calcAusstehend();
+  if (betrag === null || betrag > aktuellesAusstehend + 0.01) {
+    flashInvalid("deposit-display");
+    return;
+  }
+
+  eingezahltGesamt = round2(eingezahltGesamt + Math.min(betrag, aktuellesAusstehend));
+  persistEingezahltGesamt();
+  renderPendingCard();
+  renderSparziel();
+  closeDepositDialog();
+}
+
+function initDepositDialog() {
+  const keypad = document.getElementById("deposit-keypad");
+
+  keypad.querySelectorAll(".key[data-digit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      depositBuffer = applyDigit(depositBuffer, button.dataset.digit, depositMax);
+      updateDepositDisplay();
+    });
+  });
+
+  document.getElementById("deposit-key-comma").addEventListener("click", () => {
+    depositBuffer = insertComma(depositBuffer);
+    updateDepositDisplay();
+  });
+  document.getElementById("deposit-key-single-cent").addEventListener("click", () => {
+    depositBuffer = "0,0";
+    updateDepositDisplay();
+  });
+  document.getElementById("deposit-key-delete-digit").addEventListener("click", () => {
+    depositBuffer = depositBuffer.slice(0, -1);
+    updateDepositDisplay();
+  });
+
+  document.getElementById("deposit-save").addEventListener("click", saveDeposit);
+  document.getElementById("deposit-cancel").addEventListener("click", closeDepositDialog);
+  document.getElementById("deposit-open-btn").addEventListener("click", openDepositDialog);
+
+  const overlay = document.getElementById("deposit-overlay");
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeDepositDialog();
+  });
 }
 
 // ============================================================================
@@ -844,8 +978,8 @@ const WOCHENTAGS_KUERZEL = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
 const WOCHENTAGE_VOLL = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
 
 // Kleines Balkendiagramm: ein Balken pro Tag der letzten 7 Tage, Höhe
-// zeigt, wie viel an dem Tag eingezahlt wurde (0, wenn der Tag noch nicht
-// abgerechnet wurde), mit Wochentags-Kürzel darunter.
+// zeigt, wie viel an dem Tag zur Sparrücklage dazukam (paidOut, 0 wenn der
+// Tag noch nicht abgerechnet wurde), mit Wochentags-Kürzel darunter.
 function renderSavingsChart() {
   const container = document.getElementById("savings-chart");
   container.innerHTML = "";
@@ -1108,6 +1242,26 @@ function importBackup(jsonText) {
     return;
   }
 
+  // eingezahltGesamt gab es vor v1.0.0 noch nicht - ein älteres Backup ohne
+  // dieses Feld ist trotzdem gültig, fällt dann einfach auf 0 zurück (alles
+  // noch "Ausstehend"). Ist das Feld da, muss es eine nicht-negative Zahl
+  // sein, die nicht größer als die importierte Sparrücklage ist - sonst
+  // würde calcAusstehend() nach dem Import negativ werden.
+  const importierteSparruecklage = Object.values(daten.tagesabrechnungen).reduce(
+    (summe, tag) => summe + tag.paidOut, 0
+  );
+  const hatEingezahltFeld = daten.eingezahltGesamt !== undefined;
+  const eingezahltGueltig =
+    !hatEingezahltFeld ||
+    (typeof daten.eingezahltGesamt === "number" &&
+      daten.eingezahltGesamt >= 0 &&
+      daten.eingezahltGesamt <= importierteSparruecklage + TOLERANZ);
+
+  if (!eingezahltGueltig) {
+    statusEl.textContent = "Datei enthält einen unplausiblen eingezahlten Gesamtbetrag - Import abgebrochen.";
+    return;
+  }
+
   const zeitpunkt = daten.exportiertAm
     ? new Date(daten.exportiertAm).toLocaleString("de-DE")
     : "unbekanntem Zeitpunkt";
@@ -1119,8 +1273,10 @@ function importBackup(jsonText) {
 
   entries = daten.eintraege;
   dailySummaries = daten.tagesabrechnungen;
+  eingezahltGesamt = hatEingezahltFeld ? daten.eingezahltGesamt : 0;
   persistEntries();
   persistDailySummaries();
+  persistEingezahltGesamt();
 
   renderEntries();
   renderDayTotal();
@@ -1128,6 +1284,7 @@ function importBackup(jsonText) {
   renderSavingsChart();
   renderBecherBestand();
   renderSparziel();
+  renderPendingCard();
   renderSettings();
 
   statusEl.textContent = "Backup erfolgreich eingespielt.";
@@ -1196,6 +1353,7 @@ function initSettings() {
     localStorage.removeItem(STORAGE_KEY_SUMMARIES);
     localStorage.removeItem(STORAGE_KEY_ZIEL);
     localStorage.removeItem(STORAGE_KEY_EINSTELLUNGEN);
+    localStorage.removeItem(STORAGE_KEY_EINGEZAHLT);
     location.reload();
   });
 
@@ -1236,6 +1394,7 @@ function exportData() {
     exportiertAm: new Date().toISOString(),
     eintraege: entries,
     tagesabrechnungen: dailySummaries,
+    eingezahltGesamt: eingezahltGesamt,
   };
 
   // Ein Blob ist eine "Datei im Speicher" - wir erzeugen daraus eine
@@ -1268,19 +1427,19 @@ function initShiftDialog() {
   document.getElementById("shift-cancel").addEventListener("click", () => switchScreen("eintrag"));
   document.getElementById("shift-save").addEventListener("click", saveShiftSummary);
 
-  const eingezahltFeld = document.getElementById("shift-paid-out");
+  const ausstehendFeld = document.getElementById("shift-ausstehend");
   const becherFeld = document.getElementById("shift-in-cup");
 
   // Die beiden Felder sind gekoppelt: sobald eins geändert wird, berechnet
   // sich das andere automatisch (Gesamttopf - eins = das andere), und die
   // Check-Zeile plus der "Neuer Becherbestand"-Kasten werden mit aktualisiert.
-  eingezahltFeld.addEventListener("input", () => {
+  ausstehendFeld.addEventListener("input", () => {
     const gesamtTopf = calcGesamtTopf();
-    const roh = parseFloat(eingezahltFeld.value);
-    const eingezahlt = isNaN(roh) ? 0 : Math.max(0, roh);
-    const imBecher = Math.max(0, round2(gesamtTopf - eingezahlt));
+    const roh = parseFloat(ausstehendFeld.value);
+    const ausstehend = isNaN(roh) ? 0 : Math.max(0, roh);
+    const imBecher = Math.max(0, round2(gesamtTopf - ausstehend));
     becherFeld.value = imBecher.toFixed(2);
-    updateSplitCheck(eingezahlt, imBecher, gesamtTopf);
+    updateSplitCheck(ausstehend, imBecher, gesamtTopf);
     updateNeuerBecherbestand(imBecher);
   });
 
@@ -1288,9 +1447,9 @@ function initShiftDialog() {
     const gesamtTopf = calcGesamtTopf();
     const roh = parseFloat(becherFeld.value);
     const imBecher = isNaN(roh) ? 0 : Math.max(0, roh);
-    const eingezahlt = Math.max(0, round2(gesamtTopf - imBecher));
-    eingezahltFeld.value = eingezahlt.toFixed(2);
-    updateSplitCheck(eingezahlt, imBecher, gesamtTopf);
+    const ausstehend = Math.max(0, round2(gesamtTopf - imBecher));
+    ausstehendFeld.value = ausstehend.toFixed(2);
+    updateSplitCheck(ausstehend, imBecher, gesamtTopf);
     updateNeuerBecherbestand(imBecher);
   });
 }
@@ -1402,6 +1561,7 @@ function init() {
   renderSavingsChart();
   renderBecherBestand();
   renderSparziel();
+  renderPendingCard();
   renderHomeGreeting();
   renderMotivation();
   renderSettings();
@@ -1410,6 +1570,7 @@ function init() {
   initEditDialog();
   initShiftDialog();
   initGoalDialog();
+  initDepositDialog();
   initExport();
   initSettings();
   initMaxDialog();

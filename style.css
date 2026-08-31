@@ -607,6 +607,69 @@ button,
   color: var(--color-text-muted);
 }
 
+/* Ausstehend/Eingezahlt-Karte: zwei Stat-Spalten (gleiches Muster wie
+   .becher-card) nebeneinander, darunter ein Button für die einzige Aktion
+   dieser Karte ("Einzahlung erfassen"). */
+.pending-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.pending-card__row {
+  display: flex;
+}
+
+.pending-card__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.pending-card__value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.pending-card__value--muted {
+  color: var(--color-text-muted);
+}
+
+.pending-card__label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.pending-card__button {
+  border: none;
+  border-radius: 12px;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 10px;
+  cursor: pointer;
+}
+
+/* Ausgegraut statt versteckt, wenn nichts aussteht - macht sichtbar, dass
+   die Aktion aktuell keinen Sinn ergibt, statt sie einfach verschwinden zu
+   lassen (gleiches Muster wie .nav-btn:disabled). */
+.pending-card__button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 /* Unauffälliger Text-Link, unten auf dem Sparziel-Screen. Kein Button-Look,
    das ist eine Absicherungs-Funktion, keine Haupt-Aktion des Screens. */
 .export-link {
@@ -684,6 +747,15 @@ button,
 .display--invalid {
   animation: display-shake 250ms ease-in-out;
   color: var(--color-danger);
+}
+
+/* Hinweiszeile im Einzahlung-Dialog: zeigt den Ausstehend-Betrag, gegen den
+   der eingegebene Betrag validiert wird (siehe depositMax in app.js). */
+.deposit-hint {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin: 0;
 }
 
 /* ==========================================================================
@@ -1091,7 +1163,7 @@ button,
   flex-shrink: 0;
 }
 
-/* Zwei nebeneinanderliegende Karten: links "Einzahlen" (Teal), rechts
+/* Zwei nebeneinanderliegende Karten: links "Ausstehend" (Teal), rechts
    "Im Becher" (Orange), dazwischen ein kleines Pfeil-Icon als Verbindung.
    flex:1 auf .split-cards lässt sie den auf dem Schicht-Screen übrig
    bleibenden Platz füllen (statt darunter ungenutzt zu bleiben) - die
@@ -1118,7 +1190,7 @@ button,
   background: var(--color-surface);
 }
 
-.split-card--paid {
+.split-card--ausstehend {
   border-color: var(--color-accent-2);
 }
 
@@ -1157,8 +1229,8 @@ button,
   outline: none;
 }
 
-.split-card--paid .split-card__value,
-.split-card--paid .split-card__value-row span {
+.split-card--ausstehend .split-card__value,
+.split-card--ausstehend .split-card__value-row span {
   color: var(--color-accent-2);
 }
 
@@ -1173,7 +1245,7 @@ button,
   align-self: center;
 }
 
-/* Bestätigungs-Zeile: zeigt, dass Einzahlen + Becher wieder die Tagessumme
+/* Bestätigungs-Zeile: zeigt, dass Ausstehend + Becher wieder die Tagessumme
    ergeben - gleiche dezente Rahmenlinie wie die Karten darüber, aber
    bewusst flacher/ruhiger (dünnerer Rand, kein Akzent), da sie nur zur
    Kontrolle dient statt zur Eingabe. */
@@ -1193,7 +1265,7 @@ button,
 }
 
 /* Zusammenfassungszeile direkt über dem Speichern-Button: der tatsächliche
-   neue Becherbestand (Topf minus Einzahlen), live aktualisiert. */
+   neue Becherbestand (Topf minus Ausstehend), live aktualisiert. */
 .shift-neuer-becher-summary {
   text-align: center;
   font-size: 0.9rem;
