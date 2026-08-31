@@ -44,7 +44,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v36";
+const APP_VERSION = "v37";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -730,6 +730,7 @@ function saveShiftSummary() {
   renderDayTotal();
   renderSavingsTotal();
   renderSavingsChart();
+  renderGrowthChart();
   renderBecherBestand();
   renderSparziel();
   renderPendingCard();
@@ -1125,6 +1126,144 @@ function renderStrongestWeekday() {
   avgEl.textContent = `Ø +${formatAmount(round2(bestDurchschnitt))}`;
 }
 
+// Wachstumskurve: kumulierte Sparrücklage über Zeit (30 Tage / 6 Monate /
+// 1 Jahr), zusätzlich zum 7-Tage-Balken oben. Anders als der Balken (Zuwachs
+// PRO Tag) zeigt diese Kurve den "Kontostand" - also die Summe aller
+// bisherigen paidOut-Werte bis zu jedem Zeitpunkt, aufsteigend. Reines
+// SVG-Polyline, keine neue Dependency, alles aus dailySummaries berechnet.
+let growthChartRange = "30d";
+
+// Summe aller paidOut-Werte bis (inklusive) zu einem Datumsschlüssel - der
+// "Kontostand" der Sparrücklage an diesem Tag. String-Vergleich reicht, weil
+// dateKey() immer "JJJJ-MM-TT" liefert (zero-padded, also auch chronologisch
+// als Text sortierbar).
+function calcSavingsCumulativeBis(datumsSchluessel) {
+  let summe = 0;
+  for (const [schluessel, tag] of Object.entries(dailySummaries)) {
+    if (schluessel <= datumsSchluessel) summe += tag.paidOut;
+  }
+  return round2(summe);
+}
+
+// Liefert die Stichtage (älteste zuerst) für einen Zeitraum: ein Punkt pro
+// Tag (30 Tage), Woche (6 Monate) oder Monat (1 Jahr) - so wirkt die Kurve
+// bei keinem der drei Zeiträume überladen.
+function growthChartStichtage(range) {
+  const heute = new Date();
+  const stichtage = [];
+
+  if (range === "30d") {
+    for (let i = 29; i >= 0; i--) {
+      const tag = new Date(heute);
+      tag.setDate(tag.getDate() - i);
+      stichtage.push(tag);
+    }
+  } else if (range === "6m") {
+    for (let i = 25; i >= 0; i--) {
+      const tag = new Date(heute);
+      tag.setDate(tag.getDate() - i * 7);
+      stichtage.push(tag);
+    }
+  } else {
+    // "1y": 12 Monatsenden - der aktuelle Monat endet dabei erst heute
+    // (nicht am Monatsletzten, der sonst in der Zukunft läge).
+    for (let i = 11; i >= 0; i--) {
+      let monat = heute.getMonth() - i;
+      let jahr = heute.getFullYear();
+      while (monat < 0) {
+        monat += 12;
+        jahr -= 1;
+      }
+      let stichtag = new Date(jahr, monat + 1, 0); // Tag 0 des Folgemonats = letzter Tag dieses Monats
+      if (stichtag > heute) stichtag = heute;
+      stichtage.push(stichtag);
+    }
+  }
+
+  return stichtage;
+}
+
+function formatGrowthChartLabel(datum, range) {
+  if (range === "1y") {
+    return datum.toLocaleDateString("de-DE", { month: "short", year: "2-digit" });
+  }
+  return datum.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+}
+
+function renderGrowthChart() {
+  const wrap = document.getElementById("growth-chart-wrap");
+
+  // Leerzustand: noch nie eine Schicht abgerechnet -> keine Grundlage für
+  // eine sinnvolle Kurve, statt einer leeren/kaputten Grafik ein Hinweistext.
+  const alleSchluessel = Object.keys(dailySummaries).sort();
+  if (alleSchluessel.length === 0) {
+    wrap.innerHTML = `<p class="growth-chart__empty">Noch keine Daten für eine Wachstumskurve - schließe deine erste Schicht ab.</p>`;
+    return;
+  }
+
+  const frueheste = alleSchluessel[0];
+
+  // Nie weiter zurückgehen als der tatsächlich vorhandene Verlauf - sonst
+  // würde z.B. bei "1 Jahr" kurz nach dem ersten Start ein Großteil der
+  // Kurve nur einen flachen Nullstrich vor der eigentlichen ersten Nutzung
+  // zeigen (kein Fake-Zeitraum).
+  const stichtage = growthChartStichtage(growthChartRange).filter(
+    (tag) => dateKey(tag) >= frueheste
+  );
+
+  // Nach dem Filtern könnte nur ein einzelner Punkt übrig sein (z.B. ganz
+  // frische Nutzung + "1 Jahr" gewählt) - verdoppelt ihn zu einer kurzen
+  // flachen Linie, damit trotzdem etwas Sichtbares gezeichnet wird.
+  if (stichtage.length === 1) stichtage.unshift(stichtage[0]);
+
+  const werte = stichtage.map((tag) => calcSavingsCumulativeBis(dateKey(tag)));
+  const maxWert = Math.max(...werte, 1); // min. 1, sonst Division durch 0
+
+  // Feste Koordinatenbox (0-300 x 0-100), per viewBox unabhängig von der
+  // tatsächlichen Breite auf dem Bildschirm - CSS skaliert das SVG über
+  // width:100%. Etwas Puffer oben/unten, damit die Linie nicht am Rand klebt.
+  const breite = 300;
+  const hoehe = 100;
+  const puffer = 10;
+  const xSchritt = stichtage.length > 1 ? breite / (stichtage.length - 1) : 0;
+
+  const punkte = werte.map((wert, i) => ({
+    x: i * xSchritt,
+    y: hoehe - puffer - (wert / maxWert) * (hoehe - 2 * puffer),
+  }));
+
+  const punkteAttr = punkte.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  // Fläche unter der Linie: gleiche Punkte, unten am Rand geschlossen - rein
+  // optische Ergänzung (dezente Füllung), keine zusätzlichen Daten.
+  const flaecheAttr = `0,${hoehe} ${punkteAttr} ${breite},${hoehe}`;
+
+  const ersterLabel = formatGrowthChartLabel(stichtage[0], growthChartRange);
+  const letzterLabel = formatGrowthChartLabel(stichtage[stichtage.length - 1], growthChartRange);
+
+  wrap.innerHTML = `
+    <svg class="growth-chart__svg" viewBox="0 0 ${breite} ${hoehe}" preserveAspectRatio="none" aria-hidden="true">
+      <polygon class="growth-chart__area" points="${flaecheAttr}"></polygon>
+      <polyline class="growth-chart__line" points="${punkteAttr}"></polyline>
+    </svg>
+    <div class="growth-chart__labels">
+      <span>${ersterLabel}</span>
+      <span>${letzterLabel}</span>
+    </div>
+  `;
+}
+
+function initGrowthChart() {
+  document.querySelectorAll("#growth-range-group .choice-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      growthChartRange = button.dataset.range;
+      document.querySelectorAll("#growth-range-group .choice-btn").forEach((b) =>
+        b.classList.toggle("choice-btn--active", b === button)
+      );
+      renderGrowthChart();
+    });
+  });
+}
+
 // ============================================================================
 // 9. Einstellungen-Screen
 //
@@ -1322,6 +1461,7 @@ function importBackup(jsonText) {
   renderDayTotal();
   renderSavingsTotal();
   renderSavingsChart();
+  renderGrowthChart();
   renderBecherBestand();
   renderSparziel();
   renderPendingCard();
@@ -1599,6 +1739,7 @@ function init() {
   renderDayTotal();
   renderSavingsTotal();
   renderSavingsChart();
+  renderGrowthChart();
   renderBecherBestand();
   renderSparziel();
   renderPendingCard();
@@ -1614,6 +1755,7 @@ function init() {
   initExport();
   initSettings();
   initMaxDialog();
+  initGrowthChart();
   initBottomNav();
   initServiceWorker();
 }

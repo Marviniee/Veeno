@@ -548,6 +548,66 @@ button,
   color: var(--color-text-muted);
 }
 
+/* Wachstumskurve: kumulierte Sparrücklage über Zeit, siehe
+   renderGrowthChart() in app.js. Der Umschalter darüber (.growth-chart__range)
+   ist eine ganz normale .choice-group/.choice-btn (siehe Einstellungen-
+   Screen) - keine eigenen Regeln nötig, nur etwas kompakter (siehe unten). */
+.growth-chart {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.growth-chart__range {
+  margin-bottom: 8px;
+}
+
+/* Etwas kompakter als die reguläre .choice-btn-Höhe (40px) - hier nur ein
+   Sub-Umschalter innerhalb der Karte, keine Einstellungen-Screen-Sektion. */
+.growth-chart__range .choice-btn {
+  min-height: 32px;
+  font-size: 0.75rem;
+}
+
+.growth-chart__wrap {
+  width: 100%;
+}
+
+.growth-chart__svg {
+  display: block;
+  width: 100%;
+  height: 72px;
+}
+
+.growth-chart__area {
+  fill: var(--color-accent);
+  opacity: 0.12;
+  stroke: none;
+}
+
+.growth-chart__line {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.growth-chart__labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
+
+.growth-chart__empty {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  text-align: center;
+  margin: 12px 0;
+}
+
 /* Zwei Stat-Karten unter dem Diagramm (angelehnt an Homescreen-V4-Mockup):
    "Diese Woche" vs. Vorwoche + "Stärkster Tag" (Wochentag mit historisch
    höchstem Durchschnitt, siehe renderWeekStats() in app.js). */

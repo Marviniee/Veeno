@@ -178,6 +178,22 @@
         <div class="savings-card__label">Sparrücklage</div>
         <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
 
+        <!-- Wachstumskurve: kumulierte Sparrücklage über Zeit (im
+             Gegensatz zum 7-Tage-Balken oben, der nur den Tages-Zuwachs
+             zeigt) - siehe renderGrowthChart() in app.js. Umschalter
+             wiederverwendet .choice-group/.choice-btn (gleiches Muster wie
+             Farbmodus/Rundung im Einstellungen-Screen). -->
+        <div class="growth-chart">
+          <div class="choice-group growth-chart__range" id="growth-range-group">
+            <button class="choice-btn choice-btn--active" data-range="30d">30 Tage</button>
+            <button class="choice-btn" data-range="6m">6 Monate</button>
+            <button class="choice-btn" data-range="1y">1 Jahr</button>
+          </div>
+          <div class="growth-chart__wrap" id="growth-chart-wrap">
+            <!-- wird von app.js gefüllt -->
+          </div>
+        </div>
+
         <div class="week-stats">
           <div class="week-stat-card">
             <div class="week-stat-card__icon-wrap week-stat-card__icon-wrap--teal">
