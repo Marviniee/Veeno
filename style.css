@@ -362,24 +362,42 @@ button,
   cursor: pointer;
 }
 
+/* display:flex + overflow:hidden: die beiden Segmente (Eingezahlt/
+   Ausstehend, siehe renderSparziel()) sitzen als direkte Flex-Kinder flush
+   nebeneinander, die Track-Rundung schneidet nur die äußeren Ecken ab -
+   die Segmente selbst haben deshalb bewusst KEINE eigene border-radius,
+   sonst entstünde eine sichtbare "Kerbe" an der Nahtstelle. */
 .goal-card__bar-track {
   height: 12px;
   border-radius: 6px;
   background: var(--color-border);
   overflow: hidden;
+  display: flex;
 }
 
 .goal-card__bar-fill {
   height: 100%;
-  background: var(--color-accent);
-  border-radius: 6px;
+  flex-shrink: 0;
   transition: width 0.3s ease;
 }
 
-/* Ziel erreicht: Balken wechselt auf die zweite Akzentfarbe (Teal) als
-   klar erkennbarer "Erfolgs"-Ton, statt einer dritten neuen Farbe. */
-.goal-card__bar-fill--erreicht {
+/* Teal = "sicher angekommen" (schon am Automaten eingezahlt), Orange =
+   bisheriger Balkenton, jetzt für "noch im Geldbeutel/ausstehend". */
+.goal-card__bar-fill--eingezahlt {
   background: var(--color-accent-2);
+}
+
+.goal-card__bar-fill--ausstehend {
+  background: var(--color-accent);
+}
+
+/* Ziel erreicht: statt den Balken (der jetzt Eingezahlt/Ausstehend zeigt)
+   auf eine dritte Farbe umzufärben und damit diese Information zu
+   verdecken, bekommt der Track stattdessen einen Teal-Ring als eigene
+   "Erfolgs"-Optik - die Aufteilung bleibt dabei weiter ablesbar, auch wenn
+   das Ziel schon erreicht ist, aber noch nicht alles eingezahlt wurde. */
+.goal-card__bar-track--erreicht {
+  box-shadow: 0 0 0 2px var(--color-accent-2);
 }
 
 .goal-card__meta {
@@ -387,6 +405,38 @@ button,
   justify-content: space-between;
   font-size: 0.85rem;
   color: var(--color-text-muted);
+}
+
+/* Kleine Legende unter der "X von Y €"-Zeile, damit die beiden Balken-
+   Farben nicht nur bunt, sondern auch verständlich sind - ein Punkt in
+   der jeweiligen Segment-Farbe vor dem Wort erklärt die Zuordnung. */
+.goal-card__legend {
+  display: flex;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.goal-card__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.goal-card__legend-item::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.goal-card__legend-item--eingezahlt::before {
+  background: var(--color-accent-2);
+}
+
+.goal-card__legend-item--ausstehend::before {
+  background: var(--color-accent);
 }
 
 /* "Hero"-Variante auf der neuen Übersichtsseite: gleiche Balken-Lösung wie

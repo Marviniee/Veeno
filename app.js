@@ -44,7 +44,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v35";
+const APP_VERSION = "v36";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -887,17 +887,37 @@ function renderSparziel() {
   // wenn die Sparrücklage das Ziel überschreitet.
   const prozent = Math.min(100, Math.round((sparruecklage / sparzielBetrag) * 100));
 
+  // Der Balken zeigt zwei Segmente statt einer Farbe: Eingezahlt (Teal, schon
+  // wirklich am Automaten eingezahlt) und Ausstehend (Orange, noch im
+  // Geldbeutel). Roh-Prozentsätze können in Summe über 100% liegen (Ziel
+  // überschritten) - dann anteilig auf beide Segmente herunterskalieren,
+  // statt nur eins zu kappen, damit das Verhältnis zwischen ihnen erhalten
+  // bleibt (gleiches Prinzip wie das bestehende Math.min(100, ...) oben,
+  // nur auf zwei Segmente verteilt).
+  const ausstehend = calcAusstehend();
+  const rohEingezahltProzent = (eingezahltGesamt / sparzielBetrag) * 100;
+  const rohAusstehendProzent = (ausstehend / sparzielBetrag) * 100;
+  const rohGesamtProzent = rohEingezahltProzent + rohAusstehendProzent;
+  const skalierung = rohGesamtProzent > 100 ? 100 / rohGesamtProzent : 1;
+  const eingezahltProzent = Math.round(rohEingezahltProzent * skalierung);
+  const ausstehendProzent = Math.round(rohAusstehendProzent * skalierung);
+
   container.innerHTML = `
     <div class="goal-card__header">
       <span class="goal-card__label">Sparziel</span>
       <button class="goal-card__edit" id="goal-edit-btn">✏️ ${formatAmount(sparzielBetrag)}</button>
     </div>
-    <div class="goal-card__bar-track">
-      <div class="goal-card__bar-fill${erreicht ? " goal-card__bar-fill--erreicht" : ""}" style="width: ${prozent}%"></div>
+    <div class="goal-card__bar-track${erreicht ? " goal-card__bar-track--erreicht" : ""}">
+      <div class="goal-card__bar-fill goal-card__bar-fill--eingezahlt" style="width: ${eingezahltProzent}%"></div>
+      <div class="goal-card__bar-fill goal-card__bar-fill--ausstehend" style="width: ${ausstehendProzent}%"></div>
     </div>
     <div class="goal-card__meta">
       <span>${formatAmount(sparruecklage)} von ${formatAmount(sparzielBetrag)}</span>
       <span>${prozent}%</span>
+    </div>
+    <div class="goal-card__legend">
+      <span class="goal-card__legend-item goal-card__legend-item--eingezahlt">Eingezahlt ${formatAmount(eingezahltGesamt)}</span>
+      <span class="goal-card__legend-item goal-card__legend-item--ausstehend">Ausstehend ${formatAmount(ausstehend)}</span>
     </div>
     ${erreicht ? `<p class="goal-card__celebrate">Ziel erreicht! 🎉</p>` : ""}
   `;
