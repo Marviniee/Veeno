@@ -860,6 +860,69 @@ button,
   cursor: default;
 }
 
+/* ==========================================================================
+   Meine Meilensteine (Abzeichen-Galerie, Apple-Watch-Stil)
+   ========================================================================== */
+.badges-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.badges-card__header {
+  display: flex;
+  align-items: center;
+}
+
+.badges-card__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.badges-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 8px;
+}
+
+.badge-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.badge-item__img {
+  width: 56px;
+  height: 56px;
+  transition: filter 0.3s ease, opacity 0.3s ease;
+}
+
+/* Gesperrt: Graustufen + reduzierte Deckkraft statt einem eigenen
+   Silhouetten-Bild pro Abzeichen - dieselbe Bilddatei dient für beide
+   Zustände, freigeschaltet einfach ohne Filter. */
+.badge-item--locked .badge-item__img {
+  filter: grayscale(1) brightness(0.85);
+  opacity: 0.45;
+}
+
+.badge-item__label {
+  font-size: 0.65rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.badge-item--locked .badge-item__label {
+  opacity: 0.6;
+}
+
 /* Unauffälliger Text-Link, unten auf dem Sparziel-Screen. Kein Button-Look,
    das ist eine Absicherungs-Funktion, keine Haupt-Aktion des Screens. */
 .export-link {
@@ -1353,6 +1416,103 @@ button,
   font-size: 1.1rem;
   font-weight: 600;
 }
+
+/* ==========================================================================
+   Feiermoment: Abzeichen freigeschaltet (siehe zeigeFeier() in app.js)
+   Nutzt .modal-overlay als Basis (dunkler Schleier, position:fixed), aber
+   zentriert statt Bottom-Sheet - eine kurze, mittige Zwischenmeldung statt
+   eines bedienbaren Dialogs.
+   ========================================================================== */
+.badge-celebration {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.badge-celebration__card {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  background: var(--color-surface);
+  border-radius: 20px;
+  padding: 28px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.badge-celebration__img {
+  width: 88px;
+  height: 88px;
+  margin-bottom: 6px;
+}
+
+.badge-celebration__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.badge-celebration__text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Pop-Animation für das Icon - gleiches Reflow-Muster wie flashInvalid()
+   (Klasse entfernen/neu setzen), damit sie bei mehreren Abzeichen
+   hintereinander (siehe feierWarteschlange) jedes Mal neu abspielt. */
+@keyframes badge-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  65% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.badge-celebration__card--feiern .badge-celebration__img {
+  animation: badge-pop 450ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Konfetti: ein paar farbige Rechtecke, die von oben ins Bild fallen und
+   dabei rotieren/verblassen - rein CSS, kein Partikel-Framework. Jedes
+   span hat eine eigene Position/Farbe/Verzögerung (nth-child unten). */
+.badge-celebration__confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.badge-celebration__confetti span {
+  position: absolute;
+  top: -10%;
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  opacity: 0;
+}
+
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(140px) rotate(360deg); opacity: 0; }
+}
+
+.badge-celebration__card--feiern .badge-celebration__confetti span {
+  animation: confetti-fall 1100ms ease-in forwards;
+}
+
+.badge-celebration__confetti span:nth-child(1) { left: 8%; background: var(--color-accent); animation-delay: 0ms; }
+.badge-celebration__confetti span:nth-child(2) { left: 20%; background: var(--color-accent-2); animation-delay: 90ms; }
+.badge-celebration__confetti span:nth-child(3) { left: 34%; background: var(--color-accent); animation-delay: 40ms; }
+.badge-celebration__confetti span:nth-child(4) { left: 48%; background: var(--color-accent-2); animation-delay: 160ms; }
+.badge-celebration__confetti span:nth-child(5) { left: 60%; background: var(--color-accent); animation-delay: 60ms; }
+.badge-celebration__confetti span:nth-child(6) { left: 72%; background: var(--color-accent-2); animation-delay: 130ms; }
+.badge-celebration__confetti span:nth-child(7) { left: 84%; background: var(--color-accent); animation-delay: 20ms; }
+.badge-celebration__confetti span:nth-child(8) { left: 92%; background: var(--color-accent-2); animation-delay: 110ms; }
 
 /* ==========================================================================
    Formularfelder in der Schicht-Abrechnung

@@ -29,6 +29,7 @@ const STORAGE_KEY_SUMMARIES = "veeno-tagesabrechnungen";
 const STORAGE_KEY_ZIEL = "veeno-sparziel-betrag";
 const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
 const STORAGE_KEY_EINGEZAHLT = "veeno-eingezahlt-gesamt";
+const STORAGE_KEY_BADGES = "veeno-badges";
 
 // Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
 // wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
@@ -44,7 +45,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v38";
+const APP_VERSION = "v39";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -84,6 +85,11 @@ let einstellungen = loadEinstellungen();
 // 0 ist hier (anders als bei sparzielBetrag) ein normaler, gültiger
 // Startzustand, kein "nichts gesetzt"-Sonderfall.
 let eingezahltGesamt = loadEingezahltGesamt();
+
+// Liste der bereits freigeschalteten Abzeichen-IDs (siehe BADGES weiter
+// unten), z.B. ["starter", "50", "100"]. Reihenfolge spielt keine Rolle,
+// nur Zugehörigkeit zählt (includes()).
+let freigeschalteteBadges = loadBadges();
 
 
 // ============================================================================
@@ -136,6 +142,22 @@ function loadEingezahltGesamt() {
 
 function persistEingezahltGesamt() {
   localStorage.setItem(STORAGE_KEY_EINGEZAHLT, JSON.stringify(eingezahltGesamt));
+}
+
+function loadBadges() {
+  const raw = localStorage.getItem(STORAGE_KEY_BADGES);
+  if (!raw) return [];
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr.filter((id) => typeof id === "string") : [];
+  } catch (fehler) {
+    console.error("Konnte Abzeichen nicht lesen:", fehler);
+    return [];
+  }
+}
+
+function persistBadges() {
+  localStorage.setItem(STORAGE_KEY_BADGES, JSON.stringify(freigeschalteteBadges));
 }
 
 function loadSparzielBetrag() {
@@ -745,6 +767,7 @@ function saveShiftSummary() {
   // Nach erfolgreicher Abrechnung direkt zeigen, wie sich die Sparrücklage
   // verändert hat - deshalb automatisch zum Sparziel-Tab wechseln.
   switchScreen("sparziel");
+  checkBadges(); // NACH dem Screen-Wechsel, damit der Feiermoment über der Übersicht erscheint
 }
 
 function renderSavingsTotal() {
@@ -816,6 +839,7 @@ function saveDeposit() {
   renderPendingCard();
   renderSparziel();
   closeDepositDialog();
+  checkBadges(); // NACH dem Screen-Wechsel, damit der Feiermoment über der Übersicht erscheint
 }
 
 function initDepositDialog() {
@@ -1310,6 +1334,128 @@ function initGrowthChart() {
 }
 
 // ============================================================================
+// 8b. Meine Meilensteine (Abzeichen-Sammlung, Apple-Watch-Stil)
+//
+// Zwei Freischalt-Regeln:
+//   - "starter": bei der ALLERERSTEN "Einzahlung erfassen"-Aktion, egal wie
+//     hoch der Betrag war. eingezahltGesamt > 0 bildet das exakt ab - sowohl
+//     live direkt nach saveDeposit() als auch rückwirkend für Bestandsnutzer
+//     (siehe checkBadges()).
+//   - Beträge (50 € bis 3.000 €): nach der Sparrücklage-GESAMTSUMME
+//     (calcSavingsTotal() = Ausstehend + Eingezahlt), nicht nur nach dem
+//     eingezahlten Teil - ein großer Schicht-Abschluss kann also allein
+//     schon ein Betrags-Abzeichen freischalten, auch ohne Einzahlung.
+//
+// Da beide Bedingungen jederzeit aus calcSavingsTotal()/eingezahltGesamt neu
+// berechnet werden können (beide wachsen nur, nie rückwärts), braucht es
+// KEINE separate "erreicht am Datum X"-Logik - checkBadges() vergleicht bei
+// jedem Aufruf einfach den aktuellen Stand gegen freigeschalteteBadges und
+// schaltet frei, was fehlt. Das liefert die geforderte Rückwirkung für
+// Bestandsnutzer kostenlos mit: nach dem Update reicht ein einziger
+// checkBadges()-Aufruf beim Start, um alle längst verdienten Abzeichen
+// nachzutragen (ohne Feiermoment, siehe init()).
+// ============================================================================
+
+const BADGES = [
+  { id: "starter", schwelle: null, label: "Erste Einzahlung", beschreibung: "Deine erste Einzahlung am Automaten erfasst" },
+  { id: "50", schwelle: 50, label: "50 €", beschreibung: "50 € Sparrücklage erreicht" },
+  { id: "100", schwelle: 100, label: "100 €", beschreibung: "100 € Sparrücklage erreicht" },
+  { id: "250", schwelle: 250, label: "250 €", beschreibung: "250 € Sparrücklage erreicht" },
+  { id: "500", schwelle: 500, label: "500 €", beschreibung: "500 € Sparrücklage erreicht" },
+  { id: "750", schwelle: 750, label: "750 €", beschreibung: "750 € Sparrücklage erreicht" },
+  { id: "1000", schwelle: 1000, label: "1.000 €", beschreibung: "1.000 € Sparrücklage erreicht" },
+  { id: "1500", schwelle: 1500, label: "1.500 €", beschreibung: "1.500 € Sparrücklage erreicht" },
+  { id: "2000", schwelle: 2000, label: "2.000 €", beschreibung: "2.000 € Sparrücklage erreicht" },
+  { id: "2500", schwelle: 2500, label: "2.500 €", beschreibung: "2.500 € Sparrücklage erreicht" },
+  { id: "3000", schwelle: 3000, label: "3.000 €", beschreibung: "3.000 € Sparrücklage erreicht" },
+];
+
+function istBadgeErreicht(badge) {
+  if (badge.id === "starter") return eingezahltGesamt > 0;
+  return calcSavingsTotal() >= badge.schwelle;
+}
+
+// Schaltet alle neu erreichten Abzeichen frei, speichert sie und rendert die
+// Galerie neu. feiern=false unterdrückt den Feiermoment (App-Start, Backup-
+// Import) - dort wäre ein Konfetti-Overlay für längst vergangene
+// Erfolge irritierend statt erfreulich.
+function checkBadges(feiern = true) {
+  const neuFreigeschaltet = BADGES.filter(
+    (badge) => !freigeschalteteBadges.includes(badge.id) && istBadgeErreicht(badge)
+  );
+
+  if (neuFreigeschaltet.length === 0) return;
+
+  freigeschalteteBadges.push(...neuFreigeschaltet.map((b) => b.id));
+  persistBadges();
+  renderBadges();
+
+  if (feiern) feierBadges(neuFreigeschaltet.map((b) => b.id));
+}
+
+function renderBadges() {
+  const grid = document.getElementById("badges-grid");
+  if (!grid) return; // Screen evtl. noch nicht im DOM (defensiv, wie sonst im Code üblich)
+
+  grid.innerHTML = BADGES.map((badge) => {
+    const frei = freigeschalteteBadges.includes(badge.id);
+    return `
+      <div class="badge-item${frei ? "" : " badge-item--locked"}">
+        <img class="badge-item__img" src="icons/badge-${badge.id}.png" alt="${frei ? badge.label : "Gesperrt"}" />
+        <span class="badge-item__label">${badge.label}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+// Kleine Warteschlange statt direktem Anzeigen: schaltet ein großer
+// Schicht-Abschluss oder Sparziel-Sprung mehrere Abzeichen auf einmal frei,
+// werden sie nacheinander gefeiert statt sich zu überlappen.
+let feierWarteschlange = [];
+let feierTimeout = null;
+
+function feierBadges(ids) {
+  const warSchonAmLaufen = feierWarteschlange.length > 0;
+  feierWarteschlange.push(...ids);
+  if (!warSchonAmLaufen) naechsteFeier();
+}
+
+function naechsteFeier() {
+  if (feierWarteschlange.length === 0) return;
+  const id = feierWarteschlange.shift();
+  const badge = BADGES.find((b) => b.id === id);
+  if (!badge) {
+    naechsteFeier();
+    return;
+  }
+
+  const overlay = document.getElementById("badge-celebration");
+  document.getElementById("badge-celebration-img").src = `icons/badge-${badge.id}.png`;
+  document.getElementById("badge-celebration-text").textContent = badge.beschreibung;
+  overlay.hidden = false;
+
+  // Reflow erzwingen wie bei flashInvalid(), damit die Konfetti-/Pop-
+  // Animation bei mehreren Abzeichen hintereinander jedes Mal neu startet.
+  const karte = overlay.querySelector(".badge-celebration__card");
+  karte.classList.remove("badge-celebration__card--feiern");
+  void karte.offsetWidth;
+  karte.classList.add("badge-celebration__card--feiern");
+
+  clearTimeout(feierTimeout);
+  feierTimeout = setTimeout(schliesseFeier, 2600);
+}
+
+function schliesseFeier() {
+  clearTimeout(feierTimeout);
+  document.getElementById("badge-celebration").hidden = true;
+  naechsteFeier();
+}
+
+function initBadgeCelebration() {
+  document.getElementById("badge-celebration").addEventListener("click", schliesseFeier);
+}
+
+// ============================================================================
 // 9. Einstellungen-Screen
 //
 // Alle 9 Einstellungen leben in einem gemeinsamen Objekt (einstellungen,
@@ -1498,9 +1644,18 @@ function importBackup(jsonText) {
   entries = daten.eintraege;
   dailySummaries = daten.tagesabrechnungen;
   eingezahltGesamt = hatEingezahltFeld ? daten.eingezahltGesamt : 0;
+  // badges gab es vor v1.0.0 noch nicht - unbekannte/kaputte IDs werden
+  // einfach rausgefiltert statt den ganzen Import abzulehnen (rein additiv,
+  // kein Betrag, der etwas kaputt machen könnte). Fehlt das Feld komplett,
+  // holt checkBadges(false) gleich danach alles nach, was sich aus den
+  // importierten Beträgen bereits ergibt - kein manuelles Nachtragen nötig.
+  freigeschalteteBadges = Array.isArray(daten.badges)
+    ? daten.badges.filter((id) => typeof id === "string" && BADGES.some((b) => b.id === id))
+    : [];
   persistEntries();
   persistDailySummaries();
   persistEingezahltGesamt();
+  persistBadges();
 
   renderEntries();
   renderDayTotal();
@@ -1510,7 +1665,9 @@ function importBackup(jsonText) {
   renderBecherBestand();
   renderSparziel();
   renderPendingCard();
+  renderBadges();
   renderSettings();
+  checkBadges(false); // rückwirkend nachtragen, ohne Feiermoment für längst vergangene Erfolge
 
   statusEl.textContent = "Backup erfolgreich eingespielt.";
 }
@@ -1579,6 +1736,7 @@ function initSettings() {
     localStorage.removeItem(STORAGE_KEY_ZIEL);
     localStorage.removeItem(STORAGE_KEY_EINSTELLUNGEN);
     localStorage.removeItem(STORAGE_KEY_EINGEZAHLT);
+    localStorage.removeItem(STORAGE_KEY_BADGES);
     location.reload();
   });
 
@@ -1620,6 +1778,7 @@ function exportData() {
     eintraege: entries,
     tagesabrechnungen: dailySummaries,
     eingezahltGesamt: eingezahltGesamt,
+    badges: freigeschalteteBadges,
   };
 
   // Ein Blob ist eine "Datei im Speicher" - wir erzeugen daraus eine
@@ -1788,6 +1947,7 @@ function init() {
   renderBecherBestand();
   renderSparziel();
   renderPendingCard();
+  renderBadges();
   renderHomeGreeting();
   renderMotivation();
   renderSettings();
@@ -1801,8 +1961,13 @@ function init() {
   initSettings();
   initMaxDialog();
   initGrowthChart();
+  initBadgeCelebration();
   initBottomNav();
   initServiceWorker();
+
+  // Rückwirkend nachtragen für Bestandsnutzer (siehe Abschnitt 8b) - ohne
+  // Feiermoment, ein App-Start soll nicht wie eine Konfetti-Kaskade wirken.
+  checkBadges(false);
 }
 
 document.addEventListener("DOMContentLoaded", init);

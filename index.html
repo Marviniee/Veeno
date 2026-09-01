@@ -220,6 +220,22 @@
         </div>
       </section>
 
+      <!-- 4b. Meine Meilensteine: Abzeichen-Galerie (Apple-Watch-Stil) -
+           gesperrte Abzeichen grau/entsättigt (CSS-Filter, siehe
+           .badge-item--locked in style.css), freigeschaltete in Farbe. Ein
+           Bild pro Stufe (icons/badge-<id>.png, aktuell Platzhalter),
+           dieselbe Datei wird nur per Filter umgeschaltet statt zwei
+           Varianten zu brauchen. Freischalt-Logik in checkBadges()/
+           renderBadges() in app.js. -->
+      <section class="badges-card">
+        <div class="badges-card__header">
+          <span class="badges-card__label">Meine Meilensteine</span>
+        </div>
+        <div class="badges-grid" id="badges-grid">
+          <!-- wird von app.js gefüllt -->
+        </div>
+      </section>
+
       <!-- 5. Kompakte Vorschau der letzten Einträge (kein Duplikat der
            vollen Liste vom Eintrag-Screen - nur die neuesten 4). -->
       <section class="home-recent">
@@ -618,6 +634,25 @@
       </div>
 
       <button class="key key--save" id="max-save">Speichern</button>
+    </div>
+  </div>
+
+  <!-- ================= Feiermoment: Abzeichen freigeschaltet =================
+       Kein Dialog zum Bedienen, nur ein kurzer Zwischenmoment - schließt sich
+       automatisch (siehe zeigeFeier()/schliesseFeier() in app.js), lässt sich
+       aber auch antippen zum sofortigen Weiterklicken. Bei mehreren neu
+       freigeschalteten Abzeichen auf einmal (z.B. nach einem großen
+       Schicht-Abschluss) läuft eine kleine Warteschlange, eins nach dem
+       anderen, statt alle gleichzeitig zu überlappen. -->
+  <div class="modal-overlay badge-celebration" id="badge-celebration" hidden>
+    <div class="badge-celebration__card">
+      <div class="badge-celebration__confetti" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+      </div>
+      <img class="badge-celebration__img" id="badge-celebration-img" src="" alt="" />
+      <p class="badge-celebration__title">Abzeichen freigeschaltet! 🎉</p>
+      <p class="badge-celebration__text" id="badge-celebration-text"></p>
     </div>
   </div>
 
