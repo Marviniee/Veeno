@@ -45,7 +45,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v40";
+const APP_VERSION = "v41";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -934,6 +934,15 @@ function renderSparziel() {
   const eingezahltProzent = Math.round(rohEingezahltProzent * skalierung);
   const ausstehendProzent = Math.round(rohAusstehendProzent * skalierung);
 
+  // Konsistenz-Pass (Punkt 2): der aktuelle Sparrücklage-Betrag steht schon
+  // groß in der Verlauf-Karte weiter unten - hier deshalb bewusst NICHT
+  // nochmal "X € von Y €" (identischer Betrag, nur wiederholt), sondern die
+  // Restdistanz zum Ziel. Bei erreichtem Ziel wäre "Noch 0,00 €" seltsam,
+  // deshalb dort stattdessen ein kurzer Bestätigungstext (die ausführliche
+  // Feier steht schon in .goal-card__celebrate darunter).
+  const rest = round2(Math.max(0, sparzielBetrag - sparruecklage));
+  const restText = erreicht ? "Ziel erreicht" : `Noch ${formatAmount(rest)} bis zum Ziel`;
+
   container.innerHTML = `
     <div class="goal-card__header">
       <span class="goal-card__label">Sparziel</span>
@@ -944,7 +953,7 @@ function renderSparziel() {
       <div class="goal-card__bar-fill goal-card__bar-fill--ausstehend" style="width: ${ausstehendProzent}%"></div>
     </div>
     <div class="goal-card__meta">
-      <span>${formatAmount(sparruecklage)} von ${formatAmount(sparzielBetrag)}</span>
+      <span>${restText}</span>
       <span>${prozent}%</span>
     </div>
     <div class="goal-card__legend">
@@ -1397,11 +1406,20 @@ function renderBadges() {
   const grid = document.getElementById("badges-grid");
   if (!grid) return; // Screen evtl. noch nicht im DOM (defensiv, wie sonst im Code üblich)
 
+  // Konsistenz-Pass (Punkt 5): Wert zuerst, Label danach - wie
+  // becher-card/pending-card, statt umgekehrt.
+  const countEl = document.getElementById("badges-count");
+  if (countEl) countEl.textContent = `${freigeschalteteBadges.length} / ${BADGES.length}`;
+
   grid.innerHTML = BADGES.map((badge) => {
     const frei = freigeschalteteBadges.includes(badge.id);
+    // Gesperrt zeigt ein gemeinsames Schloss-Bild statt einer entsättigten
+    // Vorschau des eigentlichen Abzeichens - der Inhalt bleibt bis zum
+    // Freischalten eine Überraschung (icons/badge-locked.png).
+    const bildId = frei ? badge.id : "locked";
     return `
       <div class="badge-item${frei ? "" : " badge-item--locked"}">
-        <img class="badge-item__img" src="icons/badge-${badge.id}.png" alt="${frei ? badge.label : "Gesperrt"}" />
+        <img class="badge-item__img" src="icons/badge-${bildId}.png" alt="${frei ? badge.label : "Gesperrt"}" />
         <span class="badge-item__label">${badge.label}</span>
       </div>
     `;

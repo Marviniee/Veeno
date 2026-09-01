@@ -143,7 +143,27 @@
         <!-- wird von app.js gefüllt -->
       </section>
 
-      <!-- 3. Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher
+      <!-- 3. Meine Meilensteine: Abzeichen-Galerie (Apple-Watch-Stil) - bewusst
+           direkt nach der Zielkarte statt weiter unten (Konsistenz-Pass,
+           Punkt 8: frisch freigeschaltete Erfolge sollen auffallen, nicht
+           unter Becher/Verlauf untergehen). Gesperrte Abzeichen zeigen ein
+           gemeinsames Schloss-Icon (icons/badge-locked.png) statt einer
+           entsättigten Vorschau des eigentlichen Bildes - der Inhalt bleibt
+           bis zum Freischalten bewusst eine Überraschung. Ein Bild pro Stufe
+           (icons/badge-<id>.png), Freischalt-Logik in checkBadges()/
+           renderBadges() in app.js. Gleiches Wert-zuerst/Label-danach-Muster
+           wie becher-card/pending-card (Konsistenz-Pass, Punkt 5). -->
+      <section class="badges-card">
+        <div class="badges-card__summary">
+          <span class="badges-card__count" id="badges-count">0 / 0</span>
+          <span class="badges-card__label">Meilensteine freigeschaltet</span>
+        </div>
+        <div class="badges-grid" id="badges-grid">
+          <!-- wird von app.js gefüllt -->
+        </div>
+      </section>
+
+      <!-- 4. Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher
            liegt. Bewusst kompakt/nachrangig - die Zielkarte oben ist die
            eigentlich wichtige Fläche. -->
       <section class="becher-card">
@@ -151,7 +171,7 @@
         <div class="becher-card__label">Im Becher (aktuell)</div>
       </section>
 
-      <!-- 3b. Ausstehend / Eingezahlt (gesamt): unabhängig von einzelnen
+      <!-- 4b. Ausstehend / Eingezahlt (gesamt): unabhängig von einzelnen
            Schichten - "Ausstehend" ist Geld, das schon aus dem Becher
            entnommen, aber noch nicht am Bankautomaten eingezahlt wurde.
            Wächst mit jeder Schicht, sinkt nur über "Einzahlung erfassen"
@@ -170,74 +190,83 @@
         <button class="pending-card__button" id="deposit-open-btn">Einzahlung erfassen</button>
       </section>
 
-      <!-- 4. Sparrücklage: 7-Tage-Diagramm + zwei Wochen-Stat-Karten
-           ("Diese Woche" vs. Vorwoche, "Stärkster Tag" als Wochentag mit
-           historisch höchstem Durchschnitt - siehe renderWeekStats() in app.js). -->
+      <!-- 5. Verlauf: bündelt drei zeitbezogene Ansichten der Sparrücklage
+           unter einer gemeinsamen Überschrift statt sie als separate,
+           ähnlich aussehende Karten aneinanderzureihen (Konsistenz-Pass,
+           Punkt 3+4) - jede mit eigenem kleinem Zwischentitel und durch
+           .verlauf-card__divider klar voneinander abgegrenzt:
+             a) 7-Tage-Balken (Tages-Zuwachs)
+             b) Wachstumskurve (kumulierter Kontostand, Zeitraum wählbar)
+             c) Wochenvergleich + "Stärkster Tag"
+           Die große Sparrücklage-Zahl lebt jetzt NUR hier (nicht mehr
+           zusätzlich in der Zielkarte, siehe deren "Noch X € bis zum Ziel" -
+           Konsistenz-Pass, Punkt 2) - das macht sie zur einzigen Quelle für
+           "wie viel habe ich insgesamt", unabhängig davon, ob ein Sparziel
+           gesetzt ist. -->
       <section class="savings-card">
         <div class="savings-card__value" id="savings-total-value">0,00 €</div>
-        <div class="savings-card__label">Sparrücklage</div>
-        <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
+        <div class="savings-card__label">Verlauf</div>
+
+        <div class="verlauf-card__section">
+          <span class="verlauf-card__section-title">Letzte 7 Tage</span>
+          <div class="savings-card__chart" id="savings-chart"><!-- wird von app.js gefüllt --></div>
+        </div>
+
+        <div class="verlauf-card__divider"></div>
 
         <!-- Wachstumskurve: kumulierte Sparrücklage über Zeit (im
              Gegensatz zum 7-Tage-Balken oben, der nur den Tages-Zuwachs
              zeigt) - siehe renderGrowthChart() in app.js. Umschalter
              wiederverwendet .choice-group/.choice-btn (gleiches Muster wie
              Farbmodus/Rundung im Einstellungen-Screen). -->
-        <div class="growth-chart">
-          <div class="choice-group growth-chart__range" id="growth-range-group">
-            <button class="choice-btn choice-btn--active" data-range="30d">30 Tage</button>
-            <button class="choice-btn" data-range="6m">6 Monate</button>
-            <button class="choice-btn" data-range="1y">1 Jahr</button>
-          </div>
-          <div class="growth-chart__wrap" id="growth-chart-wrap">
-            <!-- wird von app.js gefüllt -->
+        <div class="verlauf-card__section">
+          <div class="growth-chart">
+            <div class="choice-group growth-chart__range" id="growth-range-group">
+              <button class="choice-btn choice-btn--active" data-range="30d">30 Tage</button>
+              <button class="choice-btn" data-range="6m">6 Monate</button>
+              <button class="choice-btn" data-range="1y">1 Jahr</button>
+            </div>
+            <div class="growth-chart__wrap" id="growth-chart-wrap">
+              <!-- wird von app.js gefüllt -->
+            </div>
           </div>
         </div>
 
-        <div class="week-stats">
-          <div class="week-stat-card">
-            <div class="week-stat-card__icon-wrap week-stat-card__icon-wrap--teal">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polyline points="4 15 10 9 14 13 20 6" />
-                <polyline points="14 6 20 6 20 12" />
-              </svg>
-            </div>
-            <div class="week-stat-card__label">Diese Woche</div>
-            <div class="week-stat-card__value" id="week-stat-diff">+0,00 €</div>
-            <div class="week-stat-card__sub">vs. Vorwoche</div>
-          </div>
+        <div class="verlauf-card__divider"></div>
 
-          <div class="week-stat-card">
-            <div class="week-stat-card__icon-wrap week-stat-card__icon-wrap--accent">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <polygon points="12 3 14.6 8.6 20.8 9.3 16.2 13.4 17.5 19.5 12 16.3 6.5 19.5 7.8 13.4 3.2 9.3 9.4 8.6" />
-              </svg>
+        <div class="verlauf-card__section">
+          <div class="week-stats">
+            <div class="week-stat-card">
+              <div class="week-stat-card__icon-wrap week-stat-card__icon-wrap--teal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="4 15 10 9 14 13 20 6" />
+                  <polyline points="14 6 20 6 20 12" />
+                </svg>
+              </div>
+              <div class="week-stat-card__label">Diese Woche</div>
+              <div class="week-stat-card__value" id="week-stat-diff">+0,00 €</div>
+              <div class="week-stat-card__sub">vs. Vorwoche</div>
             </div>
-            <div class="week-stat-card__label">Stärkster Tag</div>
-            <div class="week-stat-card__value week-stat-card__value--accent" id="week-stat-day">–</div>
-            <div class="week-stat-card__sub" id="week-stat-day-avg"></div>
+
+            <div class="week-stat-card">
+              <div class="week-stat-card__icon-wrap week-stat-card__icon-wrap--accent">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="12 3 14.6 8.6 20.8 9.3 16.2 13.4 17.5 19.5 12 16.3 6.5 19.5 7.8 13.4 3.2 9.3 9.4 8.6" />
+                </svg>
+              </div>
+              <div class="week-stat-card__label">Stärkster Tag</div>
+              <div class="week-stat-card__value week-stat-card__value--accent" id="week-stat-day">–</div>
+              <div class="week-stat-card__sub" id="week-stat-day-avg"></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- 4b. Meine Meilensteine: Abzeichen-Galerie (Apple-Watch-Stil) -
-           gesperrte Abzeichen grau/entsättigt (CSS-Filter, siehe
-           .badge-item--locked in style.css), freigeschaltete in Farbe. Ein
-           Bild pro Stufe (icons/badge-<id>.png, aktuell Platzhalter),
-           dieselbe Datei wird nur per Filter umgeschaltet statt zwei
-           Varianten zu brauchen. Freischalt-Logik in checkBadges()/
-           renderBadges() in app.js. -->
-      <section class="badges-card">
-        <div class="badges-card__header">
-          <span class="badges-card__label">Meine Meilensteine</span>
-        </div>
-        <div class="badges-grid" id="badges-grid">
-          <!-- wird von app.js gefüllt -->
-        </div>
-      </section>
-
-      <!-- 5. Kompakte Vorschau der letzten Einträge (kein Duplikat der
-           vollen Liste vom Eintrag-Screen - nur die neuesten 4). -->
+      <!-- 6. Kompakte Vorschau der letzten Einträge (kein Duplikat der
+           vollen Liste vom Eintrag-Screen - nur die neuesten 4). Eigener
+           Abstand nach oben (siehe .home-recent in style.css) markiert den
+           Wechsel von der "Sparfortschritt"-Kartengruppe oben zur
+           "Aktivität"-Gruppe hier (Konsistenz-Pass, Punkt 7). -->
       <section class="home-recent">
         <div class="home-recent__header">
           <h2 class="home-recent__title">Letzte Einträge</h2>
@@ -248,12 +277,12 @@
         <p class="entries__empty" id="home-recent-empty">Noch keine Einträge heute.</p>
       </section>
 
-      <!-- 6. Motivationstext (bestehender Mechanismus/Einstellung, siehe
+      <!-- 7. Motivationstext (bestehender Mechanismus/Einstellung, siehe
            renderMotivation() - jetzt auch hier statt nur auf dem
            Eintrag-Screen, wie in den Homescreen-Mockups ganz unten). -->
       <p class="motivation-text" id="home-motivation-text"></p>
 
-      <!-- 7. Backup: alle Daten als JSON-Datei herunterladen (Absicherung
+      <!-- 8. Backup: alle Daten als JSON-Datei herunterladen (Absicherung
            gegen iOS' automatische Datenbereinigung bei längerer Nichtnutzung). -->
       <button class="export-link" id="export-data">Daten exportieren</button>
     </main>

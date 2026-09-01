@@ -294,11 +294,25 @@ button,
 /* ==========================================================================
    Übersichtsseite: kompakte Vorschau der letzten Einträge
    ========================================================================== */
+/* Konsistenz-Pass, Punkt 1: bekommt jetzt dieselbe Card-Behandlung wie
+   jeder andere Abschnitt der Seite (war komplett ungestylt, schwebte ohne
+   Fläche/Radius auf dem Seitenhintergrund). Zusätzlicher margin-top (kommt
+   zum normalen .screen-gap oben drauf statt es zu ersetzen) markiert den
+   Wechsel von der "Sparfortschritt"-Kartengruppe zur "Aktivität"-Gruppe
+   (Konsistenz-Pass, Punkt 7). */
+.home-recent {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
+  margin-top: 12px;
+}
+
 .home-recent__header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin: 4px 0 8px;
+  margin: 0 0 8px;
 }
 
 .home-recent__title {
@@ -459,8 +473,11 @@ button,
   align-items: baseline;
 }
 
+/* Etwas kleiner als früher (war 1.4rem) - seit dem Konsistenz-Pass steht
+   hier ein ganzer Satz ("Noch X € bis zum Ziel") statt einer kurzen Zahl,
+   bei 1.4rem/800 wäre das auf 375px-Breite zu breit/bricht um. */
 .goal-card--hero .goal-card__meta span:first-child {
-  font-size: 1.4rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: var(--color-text);
 }
@@ -489,7 +506,7 @@ button,
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px;
-  padding: 18px 16px;
+  padding: 16px; /* Konsistenz-Pass, Punkt 6: einheitlich 16px (war 18px 16px) */
   text-align: center;
 }
 
@@ -505,6 +522,31 @@ button,
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
+}
+
+/* Konsistenz-Pass, Punkt 3+4: bündelt 7-Tage-Balken, Wachstumskurve und
+   Wochenvergleich als drei klar getrennte Unterabschnitte EINER Karte statt
+   sie unmarkiert aneinanderzureihen. */
+.verlauf-card__section {
+  width: 100%;
+}
+
+.verlauf-card__section-title {
+  display: block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-muted);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.verlauf-card__divider {
+  width: 100%;
+  height: 1px;
+  background: var(--color-border);
+  margin: 16px 0 4px;
 }
 
 /* Ganz einfaches Balkendiagramm: 7 Balken für die letzten 7 Tage, je einer
@@ -779,7 +821,7 @@ button,
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px; /* Konsistenz-Pass: an savings-card/goal-card angeglichen (war 14px) */
-  padding: 12px 16px;
+  padding: 16px; /* Konsistenz-Pass, Punkt 6: einheitlich 16px (war 12px 16px) */
   text-align: center;
 }
 
@@ -807,7 +849,7 @@ button,
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px;
-  padding: 14px 16px;
+  padding: 16px; /* Konsistenz-Pass, Punkt 6: einheitlich 16px (war 14px 16px) */
 }
 
 .pending-card__row {
@@ -870,16 +912,28 @@ button,
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 16px;
-  padding: 14px 16px;
+  padding: 16px;
 }
 
-.badges-card__header {
+/* Wert zuerst, Label danach - gleiches Muster wie becher-card/pending-card
+   (Konsistenz-Pass, Punkt 5), statt umgekehrt wie zuvor. */
+.badges-card__summary {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.badges-card__count {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .badges-card__label {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--color-text-muted);
@@ -902,15 +956,6 @@ button,
 .badge-item__img {
   width: 56px;
   height: 56px;
-  transition: filter 0.3s ease, opacity 0.3s ease;
-}
-
-/* Gesperrt: Graustufen + reduzierte Deckkraft statt einem eigenen
-   Silhouetten-Bild pro Abzeichen - dieselbe Bilddatei dient für beide
-   Zustände, freigeschaltet einfach ohne Filter. */
-.badge-item--locked .badge-item__img {
-  filter: grayscale(1) brightness(0.85);
-  opacity: 0.45;
 }
 
 .badge-item__label {

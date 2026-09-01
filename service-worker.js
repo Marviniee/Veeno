@@ -12,7 +12,7 @@
 // willst, dass installierte Nutzer die neue Version bekommen.
 // ============================================================================
 
-const CACHE_NAME = "veeno-v40";
+const CACHE_NAME = "veeno-v41";
 
 const APP_SHELL_DATEIEN = [
   "./",
@@ -24,6 +24,7 @@ const APP_SHELL_DATEIEN = [
   "./icons/icon-512.png",
   "./icons/apple-touch-icon.png",
   "./icons/einzahlung-icon.png",
+  "./icons/badge-locked.png",
   "./icons/badge-starter.png",
   "./icons/badge-50.png",
   "./icons/badge-100.png",
