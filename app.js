@@ -45,7 +45,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v39";
+const APP_VERSION = "v40";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1430,6 +1430,13 @@ function naechsteFeier() {
   }
 
   const overlay = document.getElementById("badge-celebration");
+  // Defensiv statt einfach zuzugreifen: ein fehlendes Overlay (z.B. durch
+  // eine veraltete zwischengespeicherte Version der Seite) soll den
+  // Feiermoment nur stumm ausfallen lassen, statt den kompletten
+  // Freischalt-Ablauf (checkBadges() -> saveShiftSummary()/saveDeposit())
+  // mit einem Fehler abzubrechen.
+  if (!overlay) return;
+
   document.getElementById("badge-celebration-img").src = `icons/badge-${badge.id}.png`;
   document.getElementById("badge-celebration-text").textContent = badge.beschreibung;
   overlay.hidden = false;
@@ -1447,12 +1454,20 @@ function naechsteFeier() {
 
 function schliesseFeier() {
   clearTimeout(feierTimeout);
-  document.getElementById("badge-celebration").hidden = true;
+  const overlay = document.getElementById("badge-celebration");
+  if (overlay) overlay.hidden = true;
   naechsteFeier();
 }
 
+// Defensiver Null-Check statt direktem Zugriff: ein fehlendes Overlay-
+// Element (z.B. durch eine veraltete zwischengespeicherte Version der
+// Seite) soll nur diese eine Funktion stumm überspringen, statt init()
+// mitten in der Init-Kette abstürzen zu lassen und die nachfolgenden
+// initBottomNav()/initServiceWorker()-Aufrufe zu verhindern.
 function initBadgeCelebration() {
-  document.getElementById("badge-celebration").addEventListener("click", schliesseFeier);
+  const overlay = document.getElementById("badge-celebration");
+  if (!overlay) return;
+  overlay.addEventListener("click", schliesseFeier);
 }
 
 // ============================================================================
