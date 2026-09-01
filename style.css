@@ -60,6 +60,15 @@
   --color-accent-2: #06B6D4;
 }
 
+/* Gold - dritte Markenfarbe (siehe Branding-Doku), bisher nirgends im UI
+   verwendet. Erster Einsatz: die "Gravur"-Rückseite im Abzeichen-Detail
+   (Punkt "Belohnungssystem") - passt zum Medaillen-Charakter dort besser
+   als Orange/Teal. Gleiches Muster wie --color-accent-2: ein Wert für
+   hell/dunkel, kein Override nötig. */
+:root {
+  --color-gold: #FBBF24;
+}
+
 /* ==========================================================================
    Grundgerüst
    ========================================================================== */
@@ -152,9 +161,11 @@ html, body {
    manchmal als Doppel-Tap-Zoom missversteht. Fast alle klickbaren Flächen
    in der App sind <button>-Elemente - deshalb reicht diese eine Regel für
    praktisch alles (Zahlenfeld, Menüleiste, Dialog-Buttons, Export-Link...).
-   .entry ist die einzige Ausnahme (ein anklickbares <li>). */
+   .entry und .badge-item sind die Ausnahmen (anklickbare <li>/<div> ohne
+   eigenes <button>). */
 button,
-.entry {
+.entry,
+.badge-item {
   touch-action: manipulation;
 }
 
@@ -951,6 +962,7 @@ button,
   align-items: center;
   gap: 4px;
   text-align: center;
+  cursor: pointer;
 }
 
 .badge-item__img {
@@ -1558,6 +1570,132 @@ button,
 .badge-celebration__confetti span:nth-child(6) { left: 72%; background: var(--color-accent-2); animation-delay: 130ms; }
 .badge-celebration__confetti span:nth-child(7) { left: 84%; background: var(--color-accent); animation-delay: 20ms; }
 .badge-celebration__confetti span:nth-child(8) { left: 92%; background: var(--color-accent-2); animation-delay: 110ms; }
+
+/* ==========================================================================
+   Abzeichen-Detail (Antippen eines Abzeichens in der Galerie öffnet dieses
+   Overlay, siehe openBadgeDetail() in app.js). Gleiche Basis wie
+   .badge-celebration (zentriertes .modal-overlay statt Bottom-Sheet), aber
+   bedienbar statt nur ein Zwischenmoment: schließbar per X oder Tap
+   außerhalb, freigeschaltete Abzeichen per Tap auf die Medaille umdrehbar
+   (3D-Flip zur "Gravur" mit Freischalt-Datum auf der Rückseite).
+   ========================================================================== */
+.badge-detail {
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.badge-detail__card {
+  position: relative;
+  width: 100%;
+  max-width: 280px;
+  background: var(--color-surface);
+  border-radius: 20px;
+  padding: 28px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.badge-detail__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* perspective auf dem äußeren Stage-Container (nicht auf .badge-detail__flipper
+   selbst) - so bleibt der 3D-Effekt konsistent, egal wie tief die Medaille
+   "hineingedreht" wird. */
+.badge-detail__stage {
+  width: 160px;
+  height: 160px;
+  margin: 4px 0 10px;
+  perspective: 900px;
+}
+
+.badge-detail__flipper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
+  transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d; /* iOS Safari braucht das Präfix für 3D-Flips zuverlässig */
+}
+
+.badge-detail__flipper--flippable {
+  cursor: pointer;
+}
+
+.badge-detail__flipper--flipped {
+  transform: rotateY(180deg);
+}
+
+.badge-detail__face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden; /* iOS Safari braucht das Präfix, sonst bleibt die Rückseite sichtbar */
+}
+
+.badge-detail__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Die "Gravur"-Rückseite - Gold statt Orange/Teal, damit der
+   Medaillen-Charakter dieses einen Moments erkennbar eigenständig wirkt
+   (dritte Markenfarbe, siehe --color-gold weiter oben). */
+.badge-detail__face--back {
+  transform: rotateY(180deg);
+  background: var(--color-bg);
+  border: 3px solid var(--color-gold);
+  gap: 4px;
+  padding: 12px;
+}
+
+.badge-detail__back-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.badge-detail__back-date {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.badge-detail__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--color-text);
+}
+
+.badge-detail__hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
 
 /* ==========================================================================
    Formularfelder in der Schicht-Abrechnung

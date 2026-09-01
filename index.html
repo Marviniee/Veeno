@@ -685,6 +685,36 @@
     </div>
   </div>
 
+  <!-- ================= Abzeichen-Detail =================
+       Öffnet sich beim Antippen eines Abzeichens in der "Meine
+       Meilensteine"-Galerie (siehe openBadgeDetail()/initBadgeDetail() in
+       app.js). Freigeschaltete Abzeichen lassen sich per Tap auf die
+       Medaille umdrehen (3D-Flip zur Rückseite mit Freischalt-Datum),
+       gesperrte zeigen nur badge-locked.png + "Noch nicht freigeschaltet"
+       ohne Flip-Möglichkeit (kein Datum vorhanden). Schließen per X-Button
+       oder Tap außerhalb der Karte (gleiches Muster wie die anderen
+       .modal-overlay-Dialoge). -->
+  <div class="modal-overlay badge-detail" id="badge-detail" hidden>
+    <div class="badge-detail__card">
+      <button class="badge-detail__close" id="badge-detail-close" aria-label="Schließen">✕</button>
+
+      <div class="badge-detail__stage">
+        <div class="badge-detail__flipper" id="badge-detail-flipper">
+          <div class="badge-detail__face badge-detail__face--front">
+            <img class="badge-detail__img" id="badge-detail-img" src="" alt="" />
+          </div>
+          <div class="badge-detail__face badge-detail__face--back">
+            <span class="badge-detail__back-label">Freigeschaltet am</span>
+            <span class="badge-detail__back-date" id="badge-detail-date"></span>
+          </div>
+        </div>
+      </div>
+
+      <p class="badge-detail__title" id="badge-detail-title"></p>
+      <p class="badge-detail__hint" id="badge-detail-hint"></p>
+    </div>
+  </div>
+
   <script src="app.js"></script>
 </body>
 </html>

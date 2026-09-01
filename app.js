@@ -45,7 +45,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v41";
+const APP_VERSION = "v42";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -144,12 +144,38 @@ function persistEingezahltGesamt() {
   localStorage.setItem(STORAGE_KEY_EINGEZAHLT, JSON.stringify(eingezahltGesamt));
 }
 
+// Wandelt rohe Badge-Einträge (aus localStorage oder einem Backup) ins
+// aktuelle Format {id, freigeschaltetAm} um - akzeptiert dabei auch das
+// alte Format (reine ID-Strings ohne Datum, aus v41 und früher) und
+// ergänzt dafür "jetzt" als Ersatzwert, weil das echte Freischalt-Datum
+// rückwirkend nicht mehr rekonstruierbar ist. Prüft absichtlich NICHT
+// gegen BADGES - dieses const ist an dieser Stelle in der Datei noch nicht
+// initialisiert, wenn loadBadges() ganz oben beim Start aufgerufen wird.
+// Eine unbekannte ID bleibt dadurch einfach ein ungenutzter Eintrag
+// (taucht in keiner BADGES.map()-Ausgabe auf), richtet aber keinen Schaden an.
+function normalisiereBadges(roh) {
+  if (!Array.isArray(roh)) return [];
+  return roh
+    .map((eintrag) => {
+      if (typeof eintrag === "string" && eintrag) {
+        return { id: eintrag, freigeschaltetAm: new Date().toISOString() };
+      }
+      if (eintrag && typeof eintrag.id === "string" && eintrag.id) {
+        return {
+          id: eintrag.id,
+          freigeschaltetAm: typeof eintrag.freigeschaltetAm === "string" ? eintrag.freigeschaltetAm : new Date().toISOString(),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
+}
+
 function loadBadges() {
   const raw = localStorage.getItem(STORAGE_KEY_BADGES);
   if (!raw) return [];
   try {
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.filter((id) => typeof id === "string") : [];
+    return normalisiereBadges(JSON.parse(raw));
   } catch (fehler) {
     console.error("Konnte Abzeichen nicht lesen:", fehler);
     return [];
@@ -1384,18 +1410,32 @@ function istBadgeErreicht(badge) {
   return calcSavingsTotal() >= badge.schwelle;
 }
 
+// Kleine Helfer statt .includes()/.find() überall direkt zu wiederholen -
+// freigeschalteteBadges besteht seit dem Abzeichen-Detail-Overlay aus
+// {id, freigeschaltetAm}-Objekten (für die "Gravur" auf der Rückseite),
+// nicht mehr aus reinen ID-Strings wie ursprünglich.
+function istBadgeFreigeschaltet(id) {
+  return freigeschalteteBadges.some((eintrag) => eintrag.id === id);
+}
+
+function holeBadgeFreischaltDatum(id) {
+  const eintrag = freigeschalteteBadges.find((e) => e.id === id);
+  return eintrag ? eintrag.freigeschaltetAm : null;
+}
+
 // Schaltet alle neu erreichten Abzeichen frei, speichert sie und rendert die
 // Galerie neu. feiern=false unterdrückt den Feiermoment (App-Start, Backup-
 // Import) - dort wäre ein Konfetti-Overlay für längst vergangene
 // Erfolge irritierend statt erfreulich.
 function checkBadges(feiern = true) {
   const neuFreigeschaltet = BADGES.filter(
-    (badge) => !freigeschalteteBadges.includes(badge.id) && istBadgeErreicht(badge)
+    (badge) => !istBadgeFreigeschaltet(badge.id) && istBadgeErreicht(badge)
   );
 
   if (neuFreigeschaltet.length === 0) return;
 
-  freigeschalteteBadges.push(...neuFreigeschaltet.map((b) => b.id));
+  const jetzt = new Date().toISOString();
+  freigeschalteteBadges.push(...neuFreigeschaltet.map((b) => ({ id: b.id, freigeschaltetAm: jetzt })));
   persistBadges();
   renderBadges();
 
@@ -1412,13 +1452,16 @@ function renderBadges() {
   if (countEl) countEl.textContent = `${freigeschalteteBadges.length} / ${BADGES.length}`;
 
   grid.innerHTML = BADGES.map((badge) => {
-    const frei = freigeschalteteBadges.includes(badge.id);
+    const frei = istBadgeFreigeschaltet(badge.id);
     // Gesperrt zeigt ein gemeinsames Schloss-Bild statt einer entsättigten
     // Vorschau des eigentlichen Abzeichens - der Inhalt bleibt bis zum
     // Freischalten eine Überraschung (icons/badge-locked.png).
     const bildId = frei ? badge.id : "locked";
+    // Antippbar (öffnet das Detail-Overlay, siehe initBadgeDetail()) - ein
+    // <div> statt <button>, gleiches Muster wie .entry (anklickbares <li>
+    // ohne <button>-Reset-CSS), siehe touch-action-Regel weiter oben.
     return `
-      <div class="badge-item${frei ? "" : " badge-item--locked"}">
+      <div class="badge-item${frei ? "" : " badge-item--locked"}" data-badge-id="${badge.id}">
         <img class="badge-item__img" src="icons/badge-${bildId}.png" alt="${frei ? badge.label : "Gesperrt"}" />
         <span class="badge-item__label">${badge.label}</span>
       </div>
@@ -1486,6 +1529,74 @@ function initBadgeCelebration() {
   const overlay = document.getElementById("badge-celebration");
   if (!overlay) return;
   overlay.addEventListener("click", schliesseFeier);
+}
+
+// Abzeichen-Detail: öffnet sich beim Antippen eines Abzeichens in der
+// Galerie (siehe renderBadges()). Freigeschaltete Abzeichen sind per Tap
+// auf die Medaille umdrehbar (3D-Flip zur "Gravur"-Rückseite mit
+// Freischalt-Datum), gesperrte zeigen nur das gemeinsame Schloss-Bild ohne
+// Flip-Möglichkeit - es gibt schließlich noch kein Datum zum Eingravieren.
+function openBadgeDetail(id) {
+  const badge = BADGES.find((b) => b.id === id);
+  const overlay = document.getElementById("badge-detail");
+  if (!badge || !overlay) return;
+
+  const frei = istBadgeFreigeschaltet(id);
+  const flipper = document.getElementById("badge-detail-flipper");
+  // Immer unaufgedeckt/vorderseitig öffnen, nicht im Zustand vom letzten
+  // Mal - sonst könnte ein Abzeichen "umgedreht" wirken, obwohl man es
+  // gerade erst antippt.
+  flipper.classList.remove("badge-detail__flipper--flipped");
+  flipper.classList.toggle("badge-detail__flipper--flippable", frei);
+
+  const bildId = frei ? badge.id : "locked";
+  document.getElementById("badge-detail-img").src = `icons/badge-${bildId}.png`;
+  document.getElementById("badge-detail-img").alt = frei ? badge.label : "Gesperrt";
+  document.getElementById("badge-detail-title").textContent = badge.label;
+
+  if (frei) {
+    const datum = holeBadgeFreischaltDatum(id);
+    document.getElementById("badge-detail-date").textContent = datum
+      ? new Date(datum).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })
+      : "–";
+    document.getElementById("badge-detail-hint").textContent = "Zum Umdrehen antippen";
+  } else {
+    document.getElementById("badge-detail-hint").textContent = "Noch nicht freigeschaltet";
+  }
+
+  overlay.hidden = false;
+}
+
+function closeBadgeDetail() {
+  const overlay = document.getElementById("badge-detail");
+  if (overlay) overlay.hidden = true;
+}
+
+function initBadgeDetail() {
+  const overlay = document.getElementById("badge-detail");
+  if (!overlay) return;
+
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) closeBadgeDetail();
+  });
+  document.getElementById("badge-detail-close")?.addEventListener("click", closeBadgeDetail);
+
+  const flipper = document.getElementById("badge-detail-flipper");
+  flipper?.addEventListener("click", () => {
+    if (flipper.classList.contains("badge-detail__flipper--flippable")) {
+      flipper.classList.toggle("badge-detail__flipper--flipped");
+    }
+  });
+
+  // Delegation statt Listener pro Abzeichen: renderBadges() baut
+  // #badges-grid bei jeder Änderung komplett neu (innerHTML) - ein
+  // Listener direkt hier am Grid-Container übersteht das, einer an den
+  // einzelnen .badge-item-Elementen würde bei jedem Rerender verloren gehen.
+  const grid = document.getElementById("badges-grid");
+  grid?.addEventListener("click", (event) => {
+    const item = event.target.closest(".badge-item");
+    if (item) openBadgeDetail(item.dataset.badgeId);
+  });
 }
 
 // ============================================================================
@@ -1677,14 +1788,16 @@ function importBackup(jsonText) {
   entries = daten.eintraege;
   dailySummaries = daten.tagesabrechnungen;
   eingezahltGesamt = hatEingezahltFeld ? daten.eingezahltGesamt : 0;
-  // badges gab es vor v1.0.0 noch nicht - unbekannte/kaputte IDs werden
-  // einfach rausgefiltert statt den ganzen Import abzulehnen (rein additiv,
-  // kein Betrag, der etwas kaputt machen könnte). Fehlt das Feld komplett,
-  // holt checkBadges(false) gleich danach alles nach, was sich aus den
-  // importierten Beträgen bereits ergibt - kein manuelles Nachtragen nötig.
-  freigeschalteteBadges = Array.isArray(daten.badges)
-    ? daten.badges.filter((id) => typeof id === "string" && BADGES.some((b) => b.id === id))
-    : [];
+  // badges gab es vor v1.0.0 noch nicht - unbekannte/kaputte Einträge
+  // werden einfach rausgefiltert statt den ganzen Import abzulehnen (rein
+  // additiv, kein Betrag, der etwas kaputt machen könnte). normalisiereBadges()
+  // versteht dabei auch das alte Format (v41, reine ID-Strings ohne
+  // Freischalt-Datum). Fehlt das Feld komplett, holt checkBadges(false)
+  // gleich danach alles nach, was sich aus den importierten Beträgen
+  // bereits ergibt - kein manuelles Nachtragen nötig.
+  freigeschalteteBadges = normalisiereBadges(daten.badges).filter((eintrag) =>
+    BADGES.some((b) => b.id === eintrag.id)
+  );
   persistEntries();
   persistDailySummaries();
   persistEingezahltGesamt();
@@ -1995,6 +2108,7 @@ function init() {
   initMaxDialog();
   initGrowthChart();
   initBadgeCelebration();
+  initBadgeDetail();
   initBottomNav();
   initServiceWorker();
 
