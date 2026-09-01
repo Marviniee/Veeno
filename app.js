@@ -44,7 +44,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v37";
+const APP_VERSION = "v38";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -352,6 +352,13 @@ function formatAmount(zahl) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }) + " €";
+}
+
+// Kompakte Variante ohne Nachkommastellen, nur für die schmalen
+// Y-Achsen-Labels der Wachstumskurve - Cent-Genauigkeit ist für eine
+// Achsenskala nicht nötig und würde den Platz sprengen.
+function formatAmountKompakt(zahl) {
+  return Math.round(zahl).toLocaleString("de-DE") + " €";
 }
 
 function formatTime(isoString) {
@@ -1217,38 +1224,76 @@ function renderGrowthChart() {
   if (stichtage.length === 1) stichtage.unshift(stichtage[0]);
 
   const werte = stichtage.map((tag) => calcSavingsCumulativeBis(dateKey(tag)));
-  const maxWert = Math.max(...werte, 1); // min. 1, sonst Division durch 0
+
+  // WICHTIG: Die Y-Achse zoomt auf den tatsächlichen Wertebereich DIESES
+  // Zeitraums (Min/Max der sichtbaren Punkte), nicht von 0 aus - sonst
+  // wirkt jedes Wachstum, das klein ist im Vergleich zur Gesamtsumme
+  // (z.B. +300€ Zuwachs bei 3.200€ Bestand), optisch fast wie eine gerade
+  // Linie, obwohl es relativ gesehen deutlich ist.
+  const minWertRoh = Math.min(...werte);
+  const maxWertRoh = Math.max(...werte);
+  const spanne = maxWertRoh - minWertRoh;
+  // 10% Polster oben/unten, damit die Linie nicht exakt am Rand klebt. Bei
+  // einer komplett flachen Kurve (spanne === 0, z.B. noch kein Zuwachs in
+  // diesem Zeitraum) gäbe es ohne Sonderfall nichts zum Polstern - dann
+  // ein kleiner fester Puffer statt einer Division durch 0.
+  const polster = spanne > 0 ? spanne * 0.1 : Math.max(5, maxWertRoh * 0.05);
+  const yMin = minWertRoh - polster;
+  const yMax = maxWertRoh + polster;
+  const yRange = yMax - yMin;
 
   // Feste Koordinatenbox (0-300 x 0-100), per viewBox unabhängig von der
   // tatsächlichen Breite auf dem Bildschirm - CSS skaliert das SVG über
-  // width:100%. Etwas Puffer oben/unten, damit die Linie nicht am Rand klebt.
+  // width:100%.
   const breite = 300;
   const hoehe = 100;
-  const puffer = 10;
   const xSchritt = stichtage.length > 1 ? breite / (stichtage.length - 1) : 0;
+  // y ist zugleich eine 0-100-Prozentangabe (hoehe === 100) - dadurch lässt
+  // sie sich unten 1:1 als CSS "top: X%" für die Start-/End-Markierungen
+  // wiederverwenden, ohne zweite Umrechnung.
+  const yPos = (wert) => hoehe - ((wert - yMin) / yRange) * hoehe;
 
-  const punkte = werte.map((wert, i) => ({
-    x: i * xSchritt,
-    y: hoehe - puffer - (wert / maxWert) * (hoehe - 2 * puffer),
-  }));
-
+  const punkte = werte.map((wert, i) => ({ x: i * xSchritt, y: yPos(wert) }));
   const punkteAttr = punkte.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
   // Fläche unter der Linie: gleiche Punkte, unten am Rand geschlossen - rein
   // optische Ergänzung (dezente Füllung), keine zusätzlichen Daten.
   const flaecheAttr = `0,${hoehe} ${punkteAttr} ${breite},${hoehe}`;
 
+  const startWert = werte[0];
+  const endWert = werte[werte.length - 1];
+  const zuwachs = round2(endWert - startWert);
+  // Gestrichelte Hilfslinie beim Startwert - macht den Zuwachs bis zum
+  // Endpunkt der Linie optisch greifbar, ohne dass man die Achsenlabels
+  // erst gedanklich subtrahieren muss.
+  const startLinieY = yPos(startWert).toFixed(1);
+
   const ersterLabel = formatGrowthChartLabel(stichtage[0], growthChartRange);
   const letzterLabel = formatGrowthChartLabel(stichtage[stichtage.length - 1], growthChartRange);
 
   wrap.innerHTML = `
-    <svg class="growth-chart__svg" viewBox="0 0 ${breite} ${hoehe}" preserveAspectRatio="none" aria-hidden="true">
-      <polygon class="growth-chart__area" points="${flaecheAttr}"></polygon>
-      <polyline class="growth-chart__line" points="${punkteAttr}"></polyline>
-    </svg>
+    <div class="growth-chart__plot">
+      <div class="growth-chart__y-axis">
+        <span class="growth-chart__y-label">${formatAmountKompakt(maxWertRoh)}</span>
+        <span class="growth-chart__y-label">${formatAmountKompakt(minWertRoh)}</span>
+      </div>
+      <div class="growth-chart__svg-wrap">
+        <svg class="growth-chart__svg" viewBox="0 0 ${breite} ${hoehe}" preserveAspectRatio="none" aria-hidden="true">
+          <polygon class="growth-chart__area" points="${flaecheAttr}"></polygon>
+          <line class="growth-chart__start-line" x1="0" y1="${startLinieY}" x2="${breite}" y2="${startLinieY}"></line>
+          <polyline class="growth-chart__line" points="${punkteAttr}"></polyline>
+        </svg>
+        <div class="growth-chart__marker growth-chart__marker--start" style="top: ${yPos(startWert).toFixed(1)}%"></div>
+        <div class="growth-chart__marker growth-chart__marker--end" style="top: ${yPos(endWert).toFixed(1)}%"></div>
+      </div>
+    </div>
     <div class="growth-chart__labels">
       <span>${ersterLabel}</span>
       <span>${letzterLabel}</span>
     </div>
+    <p class="growth-chart__summary">
+      Start: ${formatAmount(startWert)} · Zuwachs:
+      <strong class="growth-chart__summary-delta">+${formatAmount(zuwachs)}</strong>
+    </p>
   `;
 }
 

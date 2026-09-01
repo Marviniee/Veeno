@@ -572,10 +572,45 @@ button,
   width: 100%;
 }
 
+/* Y-Achsen-Labels links, Kurve rechts - stretch statt center, damit die
+   Labels exakt so hoch wie .growth-chart__svg-wrap sind (siehe dort) und
+   sich per justify-content:space-between oben/unten daran ausrichten. */
+.growth-chart__plot {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.growth-chart__y-axis {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: right;
+  padding: 2px 0;
+}
+
+.growth-chart__y-label {
+  font-size: 0.62rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* position:relative als Bezugsrahmen für die Start-/End-Markierungen
+   (.growth-chart__marker) - deren "top: X%" bezieht sich auf genau diese
+   Höhe, dieselbe 0-100-Skala wie die SVG-viewBox (siehe yPos() in app.js). */
+.growth-chart__svg-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 72px;
+}
+
 .growth-chart__svg {
   display: block;
   width: 100%;
-  height: 72px;
+  height: 100%;
 }
 
 .growth-chart__area {
@@ -593,12 +628,57 @@ button,
   vector-effect: non-scaling-stroke;
 }
 
+/* Gestrichelte Hilfslinie beim Startwert des Zeitraums - macht sichtbar,
+   wie weit die Kurve seither gestiegen ist. */
+.growth-chart__start-line {
+  stroke: var(--color-text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Start-/End-Punkt als eigene HTML-Elemente statt SVG-<circle> - die SVG
+   nutzt preserveAspectRatio="none" (füllt die Karte unabhängig vom
+   Seitenverhältnis der viewBox), wodurch ein Kreis IN der SVG zur Ellipse
+   verzerrt würde. Als normales, undehnbares HTML-Element bleibt er rund. */
+.growth-chart__marker {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.growth-chart__marker--start {
+  left: 0;
+}
+
+.growth-chart__marker--end {
+  left: 100%;
+}
+
 .growth-chart__labels {
   display: flex;
   justify-content: space-between;
   font-size: 0.65rem;
   color: var(--color-text-muted);
-  margin-top: 2px;
+  margin: 4px 0 0;
+}
+
+.growth-chart__summary {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  margin: 6px 0 0;
+}
+
+.growth-chart__summary-delta {
+  color: var(--color-accent);
+  font-weight: 700;
 }
 
 .growth-chart__empty {
