@@ -1672,15 +1672,19 @@ button,
 }
 
 .badge-detail__back-label {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
+  font-weight: 400;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
   color: var(--color-text-muted);
 }
 
 .badge-detail__back-date {
-  font-size: 1rem;
-  font-weight: 800;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0.03em;
   color: var(--color-text);
 }
 

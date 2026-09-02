@@ -45,7 +45,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v42";
+const APP_VERSION = "v43";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -903,9 +903,14 @@ function initDepositDialog() {
   // bewusst im Weg war (siehe Kommentar bei resetDepositAdjust). Einmal
   // eingeblendet bleibt sie es für diesen Öffnungs-Durchgang - der volle
   // Betrag steht ja schon im Feld, weiteres Ein-/Ausblenden bringt nichts.
+  // Feld wird dabei auf 0,00€ zurückgesetzt: wer "Betrag anpassen" antippt,
+  // will erkennbar einen eigenen (abweichenden) Betrag eintragen und sonst
+  // müsste er den vorbefüllten vollen Betrag erst manuell löschen.
   document.getElementById("deposit-adjust-toggle").addEventListener("click", () => {
     keypad.hidden = false;
     document.getElementById("deposit-adjust-toggle").hidden = true;
+    depositBuffer = "";
+    updateDepositDisplay();
   });
 
   document.getElementById("deposit-save").addEventListener("click", saveDeposit);
@@ -1192,12 +1197,15 @@ function renderStrongestWeekday() {
   avgEl.textContent = `Ø +${formatAmount(round2(bestDurchschnitt))}`;
 }
 
-// Wachstumskurve: kumulierte Sparrücklage über Zeit (30 Tage / 6 Monate /
-// 1 Jahr), zusätzlich zum 7-Tage-Balken oben. Anders als der Balken (Zuwachs
-// PRO Tag) zeigt diese Kurve den "Kontostand" - also die Summe aller
-// bisherigen paidOut-Werte bis zu jedem Zeitpunkt, aufsteigend. Reines
+// Wachstumskurve: kumulierte Sparrücklage über Zeit (1 Monat / 3 Monate /
+// 6 Monate), zusätzlich zum 7-Tage-Balken oben. Anders als der Balken
+// (Zuwachs PRO Tag) zeigt diese Kurve den "Kontostand" - also die Summe
+// aller bisherigen paidOut-Werte bis zu jedem Zeitpunkt, aufsteigend. Reines
 // SVG-Polyline, keine neue Dependency, alles aus dailySummaries berechnet.
-let growthChartRange = "30d";
+let growthChartRange = "1m";
+
+// Anzahl Tage, die ein Zeitraum insgesamt abdeckt.
+const GROWTH_CHART_TAGE = { "1m": 30, "3m": 90, "6m": 180 };
 
 // Summe aller paidOut-Werte bis (inklusive) zu einem Datumsschlüssel - der
 // "Kontostand" der Sparrücklage an diesem Tag. String-Vergleich reicht, weil
@@ -1211,48 +1219,27 @@ function calcSavingsCumulativeBis(datumsSchluessel) {
   return round2(summe);
 }
 
-// Liefert die Stichtage (älteste zuerst) für einen Zeitraum: ein Punkt pro
-// Tag (30 Tage), Woche (6 Monate) oder Monat (1 Jahr) - so wirkt die Kurve
+// Liefert die Stichtage (älteste zuerst) für einen Zeitraum. Alle drei
+// Zeiträume nutzen immer genau 30 Stichtage, nur der Abstand dazwischen
+// wächst (täglich / alle 3 Tage / alle 6 Tage) - so deckt "6 Monate"
+// tatsächlich ca. 180 Tage ab statt nur ein paar Wochen, und die Kurve ist
 // bei keinem der drei Zeiträume überladen.
 function growthChartStichtage(range) {
   const heute = new Date();
+  const gesamtTage = GROWTH_CHART_TAGE[range] ?? GROWTH_CHART_TAGE["1m"];
+  const schrittTage = gesamtTage / 30;
   const stichtage = [];
 
-  if (range === "30d") {
-    for (let i = 29; i >= 0; i--) {
-      const tag = new Date(heute);
-      tag.setDate(tag.getDate() - i);
-      stichtage.push(tag);
-    }
-  } else if (range === "6m") {
-    for (let i = 25; i >= 0; i--) {
-      const tag = new Date(heute);
-      tag.setDate(tag.getDate() - i * 7);
-      stichtage.push(tag);
-    }
-  } else {
-    // "1y": 12 Monatsenden - der aktuelle Monat endet dabei erst heute
-    // (nicht am Monatsletzten, der sonst in der Zukunft läge).
-    for (let i = 11; i >= 0; i--) {
-      let monat = heute.getMonth() - i;
-      let jahr = heute.getFullYear();
-      while (monat < 0) {
-        monat += 12;
-        jahr -= 1;
-      }
-      let stichtag = new Date(jahr, monat + 1, 0); // Tag 0 des Folgemonats = letzter Tag dieses Monats
-      if (stichtag > heute) stichtag = heute;
-      stichtage.push(stichtag);
-    }
+  for (let i = 29; i >= 0; i--) {
+    const tag = new Date(heute);
+    tag.setDate(tag.getDate() - Math.round(i * schrittTage));
+    stichtage.push(tag);
   }
 
   return stichtage;
 }
 
-function formatGrowthChartLabel(datum, range) {
-  if (range === "1y") {
-    return datum.toLocaleDateString("de-DE", { month: "short", year: "2-digit" });
-  }
+function formatGrowthChartLabel(datum) {
   return datum.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
 }
 
@@ -1326,8 +1313,8 @@ function renderGrowthChart() {
   // erst gedanklich subtrahieren muss.
   const startLinieY = yPos(startWert).toFixed(1);
 
-  const ersterLabel = formatGrowthChartLabel(stichtage[0], growthChartRange);
-  const letzterLabel = formatGrowthChartLabel(stichtage[stichtage.length - 1], growthChartRange);
+  const ersterLabel = formatGrowthChartLabel(stichtage[0]);
+  const letzterLabel = formatGrowthChartLabel(stichtage[stichtage.length - 1]);
 
   wrap.innerHTML = `
     <div class="growth-chart__plot">
