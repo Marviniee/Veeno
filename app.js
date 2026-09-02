@@ -52,7 +52,7 @@ const APP_SEMVER = "0.9.2";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v46";
+const APP_VERSION = "v47";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -2203,11 +2203,21 @@ function initBottomNav() {
 // ============================================================================
 
 const MOTIVATIONSSPRUECHE = [
-  "Weiter so – jeder Cent zählt! 💪",
-  "Kleine Beträge, große Wirkung. 🌱",
-  "Dein Becher füllt sich, deine Rücklage auch. 🐷",
-  "Gute Schicht, gutes Sparen. ✨",
-  "Ein Trinkgeld nach dem anderen. 😊",
+  "Jede Schicht bringt dich näher ans Ziel. 🚀",
+  "Dein zukünftiges Ich sagt schon mal Danke. 🙌",
+  "Kleines Trinkgeld, große Zukunft. 🌟",
+  "Nicht ausgeben, was du nicht siehst – smart gemacht. 🧠",
+  "Sparen ist die leiseste Art, gewinnen. 🤫",
+  "Dein Sparschwein wächst schneller als du denkst. 🐷",
+  "Ein guter Tag im Job, ein guter Tag fürs Sparziel. ☀️",
+  "Kleinvieh macht auch Mist – aber dein Kleingeld macht Zukunft. 💰",
+  "Schritt für Schritt, Cent für Cent. 👣",
+  "Dein Konto merkt sich jede gute Schicht. 📈",
+  "Heute sparen, morgen frei entscheiden. 🔓",
+  "Du baust dir gerade dein eigenes Polster. 🛋️",
+  "Nicht viel, aber konstant – genau das zählt. ⏳",
+  "Dein Trinkgeldbecher ist der Anfang von etwas Größerem. 🫙",
+  "Freiheit fängt mit dem ersten gesparten Euro an. 🧭",
 ];
 
 // Zwei Stellen zeigen den Motivationstext: der Eintrag-Screen (#motivation-text)
