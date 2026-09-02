@@ -143,26 +143,6 @@
         <!-- wird von app.js gefüllt -->
       </section>
 
-      <!-- 3. Meine Meilensteine: Abzeichen-Galerie (Apple-Watch-Stil) - bewusst
-           direkt nach der Zielkarte statt weiter unten (Konsistenz-Pass,
-           Punkt 8: frisch freigeschaltete Erfolge sollen auffallen, nicht
-           unter Becher/Verlauf untergehen). Gesperrte Abzeichen zeigen ein
-           gemeinsames Schloss-Icon (icons/badge-locked.png) statt einer
-           entsättigten Vorschau des eigentlichen Bildes - der Inhalt bleibt
-           bis zum Freischalten bewusst eine Überraschung. Ein Bild pro Stufe
-           (icons/badge-<id>.png), Freischalt-Logik in checkBadges()/
-           renderBadges() in app.js. Gleiches Wert-zuerst/Label-danach-Muster
-           wie becher-card/pending-card (Konsistenz-Pass, Punkt 5). -->
-      <section class="badges-card">
-        <div class="badges-card__summary">
-          <span class="badges-card__count" id="badges-count">0 / 0</span>
-          <span class="badges-card__label">Meilensteine freigeschaltet</span>
-        </div>
-        <div class="badges-grid" id="badges-grid">
-          <!-- wird von app.js gefüllt -->
-        </div>
-      </section>
-
       <!-- 4. Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher
            liegt. Bewusst kompakt/nachrangig - die Zielkarte oben ist die
            eigentlich wichtige Fläche. -->
@@ -259,6 +239,27 @@
               <div class="week-stat-card__sub" id="week-stat-day-avg"></div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <!-- Meine Meilensteine: Abzeichen-Galerie (Apple-Watch-Stil) - jetzt
+           hier direkt vor "Letzte Einträge" statt oben unter der Zielkarte
+           (Layout-Anpassung: die Karten zum aktuellen Sparfortschritt
+           bleiben oben zusammen, die Erfolgs-Galerie rutscht als Übergang
+           zur "Aktivität"-Gruppe nach unten). Gesperrte Abzeichen zeigen ein
+           gemeinsames Schloss-Icon (icons/badge-locked.png) statt einer
+           entsättigten Vorschau des eigentlichen Bildes - der Inhalt bleibt
+           bis zum Freischalten bewusst eine Überraschung. Ein Bild pro Stufe
+           (icons/badge-<id>.png), Freischalt-Logik in checkBadges()/
+           renderBadges() in app.js. Gleiches Wert-zuerst/Label-danach-Muster
+           wie becher-card/pending-card (Konsistenz-Pass, Punkt 5). -->
+      <section class="badges-card">
+        <div class="badges-card__summary">
+          <span class="badges-card__count" id="badges-count">0 / 0</span>
+          <span class="badges-card__label">Meilensteine freigeschaltet</span>
+        </div>
+        <div class="badges-grid" id="badges-grid">
+          <!-- wird von app.js gefüllt -->
         </div>
       </section>
 
