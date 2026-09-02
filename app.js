@@ -45,7 +45,7 @@ const APP_SEMVER = "0.9.1";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v43";
+const APP_VERSION = "v44";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1523,6 +1523,16 @@ function initBadgeCelebration() {
 // auf die Medaille umdrehbar (3D-Flip zur "Gravur"-Rückseite mit
 // Freischalt-Datum), gesperrte zeigen nur das gemeinsame Schloss-Bild ohne
 // Flip-Möglichkeit - es gibt schließlich noch kein Datum zum Eingravieren.
+// Welcher Metallic-Ton die Plaketten-Rückseite bekommt, gestaffelt nach
+// Abzeichen-Stufe (niedrige Stufen silbern, mittlere teal, hohe golden) -
+// passend zum bestehenden dreiteiligen Markenfarbschema.
+function badgeDetailMetallKlasse(badge) {
+  const schwelle = badge.schwelle ?? 0;
+  if (schwelle >= 750) return "badge-detail__face--back-gold";
+  if (schwelle >= 250) return "badge-detail__face--back-teal";
+  return "badge-detail__face--back-silber";
+}
+
 function openBadgeDetail(id) {
   const badge = BADGES.find((b) => b.id === id);
   const overlay = document.getElementById("badge-detail");
@@ -1543,9 +1553,12 @@ function openBadgeDetail(id) {
 
   if (frei) {
     const datum = holeBadgeFreischaltDatum(id);
-    document.getElementById("badge-detail-date").textContent = datum
-      ? new Date(datum).toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })
+    const monatJahr = datum
+      ? new Date(datum).toLocaleDateString("de-DE", { month: "long", year: "numeric" })
       : "–";
+    document.getElementById("badge-detail-date").textContent = `Im ${monatJahr}`;
+    document.getElementById("badge-detail-back").className =
+      `badge-detail__face badge-detail__face--back ${badgeDetailMetallKlasse(badge)}`;
     document.getElementById("badge-detail-hint").textContent = "Zum Umdrehen antippen";
   } else {
     document.getElementById("badge-detail-hint").textContent = "Noch nicht freigeschaltet";
