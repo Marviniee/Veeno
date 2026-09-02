@@ -52,4 +52,4 @@ Persönliches Projekt, kein Open-Source-Lizenz – alle Rechte vorbehalten.
 
 ## Version
 
-v0.9.2
+v1.0.0

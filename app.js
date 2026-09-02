@@ -47,12 +47,12 @@ const BACKUP_SCHEMA_VERSION = 1;
 // Nur ändern, wenn ein neuer Git-Tag gesetzt wird (siehe Abschnitt 11 der
 // Technischen Referenz) - z.B. Tag "v0.5.0" -> APP_SEMVER = "0.5.0". NICHT
 // bei jedem Push hochzählen.
-const APP_SEMVER = "0.9.2";
+const APP_SEMVER = "1.0.0";
 
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v47";
+const APP_VERSION = "v48";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
