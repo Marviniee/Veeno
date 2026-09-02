@@ -1955,6 +1955,10 @@ button,
   font-size: 0.8rem;
   color: var(--color-text-muted);
   margin: 0;
+  /* Backup-Import kann mehrere Hinweise gleichzeitig melden (reparierte
+     Tage, geklemmte Becher-Korrektur, Kontrollwert-Warnung usw.), jeweils
+     als eigene Zeile (siehe importBackup() in app.js). */
+  white-space: pre-line;
 }
 
 /* Zeigt einen Wert an UND öffnet beim Antippen den Bearbeiten-Dialog -

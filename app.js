@@ -31,6 +31,13 @@ const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
 const STORAGE_KEY_EINGEZAHLT = "veeno-eingezahlt-gesamt";
 const STORAGE_KEY_BADGES = "veeno-badges";
 
+// Version des Backup-Dateiformats (siehe exportData()/importBackup()) -
+// unabhängig von APP_SEMVER/APP_VERSION. Nur hochzählen, wenn sich die
+// STRUKTUR eines Backups ändert (neues/entferntes Feld, anderer Aufbau),
+// damit importBackup() künftig gezielt zwischen Formaten unterscheiden
+// kann, statt wie bisher per Ad-hoc-Heuristik ("hat das Feld X?").
+const BACKUP_SCHEMA_VERSION = 1;
+
 // Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
 // wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
 // initSettings()), aber nur APP_SEMVER entspricht dem, was nach außen als
@@ -45,7 +52,7 @@ const APP_SEMVER = "0.9.2";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v45";
+const APP_VERSION = "v46";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -96,11 +103,30 @@ let freigeschalteteBadges = loadBadges();
 // 1. Speichern / Laden aus localStorage
 // ============================================================================
 
+// Entfernt Einträge, die bereits in einer Tagesabrechnung stecken
+// (früher am Feld settled:true erkennbar). Sobald eine Schicht abgerechnet
+// ist, liest nirgends im Code mehr jemand die Einzeleinträge dazu - nur
+// noch die aggregierte Tagesabrechnung zählt (siehe saveShiftSummary()).
+// Genutzt sowohl beim normalen Laden (einmalige Aufräum-Migration für
+// Alt-Bestände aus Versionen vor diesem Umbau) als auch beim Backup-Import
+// (falls die importierte Datei noch aus einer solchen Alt-Version stammt).
+function ohneAbgerechneteEintraege(liste) {
+  return Array.isArray(liste) ? liste.filter((eintrag) => !eintrag.settled) : [];
+}
+
 function loadEntries() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return [];
   try {
-    return JSON.parse(raw);
+    const geladen = JSON.parse(raw);
+    const bereinigt = ohneAbgerechneteEintraege(geladen);
+    // Migration nur einmal wirklich nötig: wenn sich durchs Filtern etwas
+    // geändert hat, gleich zurückschreiben, damit lokal wirklich nichts
+    // Totes liegen bleibt (nicht nur bei jedem Laden erneut weggefiltert).
+    if (bereinigt.length !== (Array.isArray(geladen) ? geladen.length : 0)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(bereinigt));
+    }
+    return bereinigt;
   } catch (fehler) {
     // Falls die gespeicherten Daten mal kaputt sein sollten, starten wir
     // lieber leer, statt die App abstürzen zu lassen.
@@ -204,15 +230,31 @@ function persistSparzielBetrag() {
   localStorage.setItem(STORAGE_KEY_ZIEL, JSON.stringify(sparzielBetrag));
 }
 
+// Wandelt rohe Einstellungen (aus localStorage oder einem Backup) in ein
+// vollständiges, geprüftes Einstellungen-Objekt um: fehlende oder
+// unplausible Felder (falscher Typ, Wert außerhalb der erlaubten Optionen)
+// fallen einzeln auf den jeweiligen Default zurück, statt gleich das ganze
+// Objekt zu verwerfen - so bleiben z.B. alle anderen Einstellungen gültig,
+// auch wenn nur ein einzelnes Feld in einer alten/manuell bearbeiteten
+// Backup-Datei kaputt ist.
+function normalisiereEinstellungen(roh) {
+  if (!roh || typeof roh !== "object") return { ...EINSTELLUNGEN_DEFAULT };
+  const gueltigeRundungen = [5, 10, 20];
+  const gueltigeFarbmodi = ["system", "hell", "dunkel"];
+  return {
+    maxBetrag: typeof roh.maxBetrag === "number" && roh.maxBetrag > 0 ? roh.maxBetrag : EINSTELLUNGEN_DEFAULT.maxBetrag,
+    farbmodus: gueltigeFarbmodi.includes(roh.farbmodus) ? roh.farbmodus : EINSTELLUNGEN_DEFAULT.farbmodus,
+    rundung: gueltigeRundungen.includes(roh.rundung) ? roh.rundung : EINSTELLUNGEN_DEFAULT.rundung,
+    becherKorrektur: typeof roh.becherKorrektur === "number" ? roh.becherKorrektur : EINSTELLUNGEN_DEFAULT.becherKorrektur,
+    motivationAn: typeof roh.motivationAn === "boolean" ? roh.motivationAn : EINSTELLUNGEN_DEFAULT.motivationAn,
+  };
+}
+
 function loadEinstellungen() {
   const raw = localStorage.getItem(STORAGE_KEY_EINSTELLUNGEN);
   if (!raw) return { ...EINSTELLUNGEN_DEFAULT };
   try {
-    const gespeichert = JSON.parse(raw);
-    // Mit den Defaults zusammenführen statt nur das Gespeicherte zu nehmen -
-    // falls später neue Einstellungen dazukommen, haben ältere gespeicherte
-    // Objekte die noch nicht und bekommen sonst automatisch den Default.
-    return { ...EINSTELLUNGEN_DEFAULT, ...gespeichert };
+    return normalisiereEinstellungen(JSON.parse(raw));
   } catch (fehler) {
     console.error("Konnte Einstellungen nicht lesen:", fehler);
     return { ...EINSTELLUNGEN_DEFAULT };
@@ -426,7 +468,9 @@ function renderEntryList(listeId, leerHinweisId, limit) {
   const liste = document.getElementById(listeId);
   const leerHinweis = document.getElementById(leerHinweisId);
 
-  const letzteEintraege = entries.filter((eintrag) => !eintrag.settled).slice(0, limit);
+  // entries enthält nur noch die laufende, noch nicht abgerechnete Schicht
+  // (siehe saveShiftSummary()) - kein Filtern nach "settled" mehr nötig.
+  const letzteEintraege = entries.slice(0, limit);
 
   liste.innerHTML = "";
   leerHinweis.style.display = letzteEintraege.length === 0 ? "block" : "none";
@@ -479,10 +523,11 @@ function isToday(isoString) {
 }
 
 function calcDayTotal() {
-  // Bereits abgerechnete Einträge (settled: true) zählen nicht mehr mit -
-  // die stecken schon in einer früheren Tagesabrechnung (Abschnitt 7).
+  // Bereits abgerechnete Einträge stecken nicht mehr in entries (werden
+  // beim Schicht-Abschluss entfernt, siehe saveShiftSummary()) - hier
+  // zählt nur noch, was heute noch offen ist.
   return entries
-    .filter((eintrag) => isToday(eintrag.timestamp) && !eintrag.settled)
+    .filter((eintrag) => isToday(eintrag.timestamp))
     .reduce((gesamt, eintrag) => gesamt + eintrag.amount, 0);
 }
 
@@ -606,11 +651,14 @@ function initEditDialog() {
 // dailySummaries gespeichert (Feld "paidOut" - historischer Name, siehe
 // unten).
 //
-// Beim Speichern werden alle heutigen, noch nicht abgerechneten Einträge
-// als "settled" markiert (Abschnitt 3/4/5) und dailySummaries[heute] wird
-// AUFADDIERT statt überschrieben - so kann man mehrmals am selben Tag
-// abrechnen (z.B. nach einer zweiten Schicht), ohne dass frühere Beträge
-// verloren gehen.
+// Beim Speichern werden alle heutigen Einträge aus entries entfernt
+// (Abschnitt 3/4/5) - sie stecken danach nur noch aggregiert in
+// dailySummaries[heute], das AUFADDIERT statt überschrieben wird, so kann
+// man mehrmals am selben Tag abrechnen (z.B. nach einer zweiten Schicht),
+// ohne dass frühere Beträge verloren gehen. Die Einzeleinträge selbst
+// werden bewusst nicht dauerhaft aufbewahrt (auch nicht markiert und
+// behalten) - sobald eine Schicht abgerechnet ist, liest sie nirgends mehr
+// jemand einzeln, nur die aggregierten Werte zählen noch.
 //
 // Die Sparrücklage (savings_total) und der aktuelle Becher-Bestand
 // speichern wir NICHT als eigene Zahlen, sondern berechnen sie aus der
@@ -755,15 +803,13 @@ function saveShiftSummary() {
   // neuerBecherbestand.
   const inCupDelta = round2(heutigesSchichtTotal - ausstehend);
 
-  // Alle heutigen, noch nicht abgerechneten Einträge gehören jetzt zu dieser
-  // Abrechnung -> als "erledigt" markieren. Dadurch verschwinden sie aus der
-  // Einträge-Liste und zählen nicht mehr in calcDayTotal() mit, tauchen also
-  // nicht bei der nächsten Schicht-Abrechnung desselben Tages erneut auf.
-  entries.forEach((eintrag) => {
-    if (isToday(eintrag.timestamp) && !eintrag.settled) {
-      eintrag.settled = true;
-    }
-  });
+  // Alle heutigen Einträge gehören jetzt zu dieser Abrechnung und stecken ab
+  // sofort nur noch aggregiert in dailySummaries (siehe Kommentar oben) ->
+  // aus entries entfernen statt nur zu markieren. Dadurch verschwinden sie
+  // aus der Einträge-Liste, zählen nicht mehr in calcDayTotal() mit und
+  // tauchen nicht bei der nächsten Schicht-Abrechnung desselben Tages
+  // erneut auf - ganz ohne dauerhaften Ballast in entries/im Backup.
+  entries = entries.filter((eintrag) => !isToday(eintrag.timestamp));
 
   // Wurde am selben Tag schon einmal abgerechnet, addieren wir die neuen
   // Werte zum bestehenden Tageseintrag, statt ihn zu überschreiben - sonst
@@ -1710,6 +1756,47 @@ function initMaxDialog() {
 // und ersetzt die aktuellen Daten damit - nach grober Struktur-Prüfung und
 // einer expliziten Bestätigung, weil das nicht rückgängig zu machen ist.
 
+// Formatiert einen dateKey()-Schlüssel ("2026-03-12") als kurzes deutsches
+// Datum ohne Jahr ("12.03.") - für die Liste reparierter Tage in der
+// Erfolgsmeldung, siehe importBackup().
+function formatiereKurzdatum(datumsSchluessel) {
+  const [, monat, tag] = datumsSchluessel.split("-");
+  return `${tag}.${monat}.`;
+}
+
+// Prüft eine einzelne importierte Tagesabrechnung und repariert sie bei
+// Bedarf, statt den kompletten Import abzulehnen: negative paidOut/inCup-
+// Werte (z.B. aus einem Backup von vor dem Negativ-Fix, Commit f01b579 -
+// "Verhindere negativen Becherbestand") werden auf 0 geklemmt, total wird
+// passend nachgezogen, damit paidOut + inCup wieder exakt total ergibt.
+// Gibt { tag, geflickt } zurück - geflickt zeigt an, ob überhaupt etwas
+// korrigiert wurde (für die Liste in der Erfolgsmeldung).
+function repariereTagesabrechnung(roh) {
+  const TOLERANZ = 0.01;
+  const paidOutRoh = typeof roh?.paidOut === "number" ? roh.paidOut : 0;
+  const inCupRoh = typeof roh?.inCup === "number" ? roh.inCup : 0;
+
+  const warPlausibel =
+    roh &&
+    typeof roh.total === "number" &&
+    typeof roh.paidOut === "number" &&
+    typeof roh.inCup === "number" &&
+    paidOutRoh >= 0 &&
+    inCupRoh >= 0 &&
+    Math.abs(paidOutRoh + inCupRoh - roh.total) <= TOLERANZ;
+
+  if (warPlausibel) return { tag: roh, geflickt: false };
+
+  const paidOut = round2(Math.max(0, paidOutRoh));
+  const inCup = round2(Math.max(0, inCupRoh));
+  return {
+    // ...roh übernimmt z.B. closedAt unverändert, falls vorhanden - nur
+    // die drei Zahlenfelder werden korrigiert.
+    tag: { ...roh, total: round2(paidOut + inCup), paidOut, inCup },
+    geflickt: true,
+  };
+}
+
 function importBackup(jsonText) {
   const statusEl = document.getElementById("settings-restore-status");
 
@@ -1722,6 +1809,9 @@ function importBackup(jsonText) {
   }
 
   // Grobe Struktur-Prüfung: genau die Felder, die exportData() schreibt.
+  // Das bleibt eine harte Ablehnung (anders als die Plausibilitäts-Prüfung
+  // pro Tagesabrechnung weiter unten) - ohne diese Grundstruktur ist die
+  // Datei schlicht kein Veeno-Backup.
   const gueltig =
     daten &&
     Array.isArray(daten.eintraege) &&
@@ -1733,35 +1823,30 @@ function importBackup(jsonText) {
     return;
   }
 
-  // Inhaltliche Plausibilitäts-Prüfung zusätzlich zur Struktur-Prüfung
-  // oben: pro Tagesabrechnung müssen paidOut/inCup nicht-negativ sein und
-  // sich exakt zu total aufsummieren (kleine Rundungstoleranz) - sonst
-  // würde z.B. ein Backup mit paidOut > total klaglos einen negativen
-  // Becherbestand importieren. Bei Verstoß: Import komplett ablehnen,
-  // keine teilweise Übernahme.
   const TOLERANZ = 0.01;
-  const tagesabrechnungenPlausibel = Object.values(daten.tagesabrechnungen).every(
-    (tag) =>
-      tag &&
-      typeof tag.total === "number" &&
-      typeof tag.paidOut === "number" &&
-      typeof tag.inCup === "number" &&
-      tag.paidOut >= 0 &&
-      tag.inCup >= 0 &&
-      Math.abs(tag.paidOut + tag.inCup - tag.total) <= TOLERANZ
-  );
 
-  if (!tagesabrechnungenPlausibel) {
-    statusEl.textContent = "Datei enthält unplausible Tagesabrechnungen (negative Werte oder paidOut + inCup ≠ total) - Import abgebrochen.";
-    return;
+  // Statt wie früher den kompletten Import abzulehnen, sobald eine einzelne
+  // Tagesabrechnung unplausibel ist, wird nur der betroffene Tag repariert -
+  // der Rest der Datei (die überwiegende Mehrheit an guten Tagen) läuft
+  // normal durch. Welche Tage geflickt wurden, steht später in der
+  // Erfolgsmeldung.
+  const tagesabrechnungenRepariert = {};
+  const reparierteTage = [];
+  for (const [schluessel, roh] of Object.entries(daten.tagesabrechnungen)) {
+    const { tag, geflickt } = repariereTagesabrechnung(roh);
+    tagesabrechnungenRepariert[schluessel] = tag;
+    if (geflickt) reparierteTage.push(schluessel);
   }
 
   // eingezahltGesamt gab es vor v1.0.0 noch nicht - ein älteres Backup ohne
   // dieses Feld ist trotzdem gültig, fällt dann einfach auf 0 zurück (alles
   // noch "Ausstehend"). Ist das Feld da, muss es eine nicht-negative Zahl
-  // sein, die nicht größer als die importierte Sparrücklage ist - sonst
-  // würde calcAusstehend() nach dem Import negativ werden.
-  const importierteSparruecklage = Object.values(daten.tagesabrechnungen).reduce(
+  // sein, die nicht größer als die (bereits reparierte) importierte
+  // Sparrücklage ist - sonst würde calcAusstehend() nach dem Import negativ
+  // werden. Das bleibt eine harte Ablehnung: anders als ein einzelner
+  // Tages-Ausrutscher lässt sich ein unplausibler Gesamtwert nicht sinnvoll
+  // "reparieren", ohne zu raten.
+  const importierteSparruecklage = Object.values(tagesabrechnungenRepariert).reduce(
     (summe, tag) => summe + tag.paidOut, 0
   );
   const hatEingezahltFeld = daten.eingezahltGesamt !== undefined;
@@ -1776,18 +1861,82 @@ function importBackup(jsonText) {
     return;
   }
 
+  // sparziel/einstellungen gab es vor diesem Umbau noch nicht im Backup -
+  // fehlt eines der Felder komplett (altes Backup), bleibt der jeweils
+  // aktuelle lokale Wert unangetastet, statt ihn zu löschen/überschreiben.
+  const hatSparzielFeld = daten.sparziel !== undefined;
+  const sparzielNeu = hatSparzielFeld
+    ? (typeof daten.sparziel === "number" && daten.sparziel > 0 ? daten.sparziel : null)
+    : sparzielBetrag;
+
+  const hatEinstellungenFeld = daten.einstellungen !== undefined;
+  const einstellungenNeu = hatEinstellungenFeld
+    ? normalisiereEinstellungen(daten.einstellungen)
+    : { ...einstellungen };
+
+  // Randfund aus der Backup-Analyse: einstellungen.becherKorrektur floss
+  // bisher ungeprüft in calcBecherBestand() ein - ein zweiter, von den
+  // Tagesabrechnungen unabhängiger Weg zu einem negativen effektiven
+  // Becherbestand. Jetzt, wo becherKorrektur mitimportiert wird, klemmen wir
+  // sie so, dass der Becherbestand nie unter 0 fallen kann (analog zur
+  // Tagesabrechnungs-Reparatur oben: anpassen statt den Import abzulehnen).
+  const rohBecherNeu = Object.values(tagesabrechnungenRepariert).reduce(
+    (summe, tag) => summe + tag.inCup, 0
+  );
+  let becherKorrekturGeklemmt = false;
+  if (round2(rohBecherNeu + einstellungenNeu.becherKorrektur) < 0) {
+    einstellungenNeu.becherKorrektur = round2(-rohBecherNeu);
+    becherKorrekturGeklemmt = true;
+  }
+
+  // Kontrollwerte (falls vorhanden - ältere Backups haben sie noch nicht):
+  // aus den (reparierten) Rohdaten neu berechnen und mit den exportierten
+  // Werten abgleichen. Eine Abweichung blockiert den Import NICHT, sondern
+  // erzeugt nur eine sichtbare Warnung - z.B. bei einer nachträglich von
+  // Hand veränderten Backup-Datei.
+  const berechneteSavingsTotal = round2(importierteSparruecklage);
+  const berechneteBecherBestand = round2(rohBecherNeu + einstellungenNeu.becherKorrektur);
+  let kontrollwerteWarnung = null;
+  if (daten.kontrollwerte && typeof daten.kontrollwerte === "object") {
+    const savingsWeichtAb =
+      typeof daten.kontrollwerte.savingsTotal === "number" &&
+      Math.abs(daten.kontrollwerte.savingsTotal - berechneteSavingsTotal) > TOLERANZ;
+    const becherWeichtAb =
+      typeof daten.kontrollwerte.becherBestand === "number" &&
+      Math.abs(daten.kontrollwerte.becherBestand - berechneteBecherBestand) > TOLERANZ;
+    if (savingsWeichtAb || becherWeichtAb) {
+      kontrollwerteWarnung = "⚠️ Die importierten Daten weichen von den erwarteten Werten ab, bitte prüfen.";
+    }
+  }
+
+  // Rein informativ: eine Datei mit einer höheren schemaVersion als dieser
+  // Code kennt, stammt aus einer neueren App-Version. Der Import läuft
+  // trotzdem best-effort weiter (das Format ist bisher rein additiv
+  // gewachsen) - nur ein Hinweis, dass eventuell nicht alles übernommen wird.
+  const schemaHinweis =
+    typeof daten.schemaVersion === "number" && daten.schemaVersion > BACKUP_SCHEMA_VERSION
+      ? `Hinweis: Diese Datei stammt aus einer neueren App-Version (Format ${daten.schemaVersion}) - einige Felder wurden eventuell nicht berücksichtigt.`
+      : null;
+
   const zeitpunkt = daten.exportiertAm
     ? new Date(daten.exportiertAm).toLocaleString("de-DE")
     : "unbekanntem Zeitpunkt";
 
-  if (!confirm(`Backup vom ${zeitpunkt} einspielen? Das ersetzt ALLE aktuellen Einträge und Tagesabrechnungen.`)) {
+  let bestaetigungsText = `Backup vom ${zeitpunkt} einspielen? Das ersetzt ALLE aktuellen Einträge und Tagesabrechnungen.`;
+  if (reparierteTage.length > 0) {
+    bestaetigungsText += ` Hinweis: ${reparierteTage.length} Tagesabrechnung(en) werden dabei automatisch korrigiert.`;
+  }
+
+  if (!confirm(bestaetigungsText)) {
     statusEl.textContent = "";
     return;
   }
 
-  entries = daten.eintraege;
-  dailySummaries = daten.tagesabrechnungen;
+  entries = ohneAbgerechneteEintraege(daten.eintraege);
+  dailySummaries = tagesabrechnungenRepariert;
   eingezahltGesamt = hatEingezahltFeld ? daten.eingezahltGesamt : 0;
+  sparzielBetrag = sparzielNeu;
+  einstellungen = einstellungenNeu;
   // badges gab es vor v1.0.0 noch nicht - unbekannte/kaputte Einträge
   // werden einfach rausgefiltert statt den ganzen Import abzulehnen (rein
   // additiv, kein Betrag, der etwas kaputt machen könnte). normalisiereBadges()
@@ -1801,8 +1950,11 @@ function importBackup(jsonText) {
   persistEntries();
   persistDailySummaries();
   persistEingezahltGesamt();
+  persistSparzielBetrag();
+  persistEinstellungen();
   persistBadges();
 
+  wendeFarbmodusAn(); // eine importierte Einstellung kann den Farbmodus geändert haben
   renderEntries();
   renderDayTotal();
   renderSavingsTotal();
@@ -1813,9 +1965,24 @@ function importBackup(jsonText) {
   renderPendingCard();
   renderBadges();
   renderSettings();
+  renderMotivation();
   checkBadges(false); // rückwirkend nachtragen, ohne Feiermoment für längst vergangene Erfolge
 
-  statusEl.textContent = "Backup erfolgreich eingespielt.";
+  const meldungen = ["Backup erfolgreich eingespielt."];
+  if (reparierteTage.length > 0) {
+    const anzahl = reparierteTage.length;
+    const liste = reparierteTage.sort().map(formatiereKurzdatum).join(", ");
+    meldungen.push(
+      `${anzahl} Tagesabrechnung${anzahl === 1 ? "" : "en"} wurde${anzahl === 1 ? "" : "n"} automatisch korrigiert: ${liste}.`
+    );
+  }
+  if (becherKorrekturGeklemmt) {
+    meldungen.push("Die Becherbestand-Korrektur aus den Einstellungen wurde angepasst, damit der Becherbestand nicht negativ wird.");
+  }
+  if (schemaHinweis) meldungen.push(schemaHinweis);
+  if (kontrollwerteWarnung) meldungen.push(kontrollwerteWarnung);
+
+  statusEl.textContent = meldungen.join("\n");
 }
 
 function initSettings() {
@@ -1920,11 +2087,27 @@ function initSettings() {
 
 function exportData() {
   const daten = {
+    // Version des Backup-Dateiformats (siehe BACKUP_SCHEMA_VERSION oben) -
+    // erlaubt importBackup() künftig, gezielt zwischen Formaten zu
+    // unterscheiden statt nur zu raten, ob ein Feld fehlt oder absichtlich
+    // leer ist.
+    schemaVersion: BACKUP_SCHEMA_VERSION,
     exportiertAm: new Date().toISOString(),
     eintraege: entries,
     tagesabrechnungen: dailySummaries,
     eingezahltGesamt: eingezahltGesamt,
+    sparziel: sparzielBetrag,
+    einstellungen: einstellungen,
     badges: freigeschalteteBadges,
+    // Kontrollwerte: zum Exportzeitpunkt berechnete Summen, die
+    // importBackup() nach dem Einlesen aus den Rohdaten neu berechnet und
+    // damit abgleicht. Eine Abweichung deutet auf eine nachträglich von
+    // Hand veränderte Backup-Datei hin - blockiert den Import aber nicht,
+    // erzeugt nur eine sichtbare Warnung (siehe importBackup()).
+    kontrollwerte: {
+      savingsTotal: calcSavingsTotal(),
+      becherBestand: calcBecherBestand(),
+    },
   };
 
   // Ein Blob ist eine "Datei im Speicher" - wir erzeugen daraus eine
