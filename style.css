@@ -557,9 +557,13 @@ button,
   background: var(--color-accent);
 }
 
+/* Blasses Orange statt Grau (--color-border war in beiden Farbmodi zu
+   kontrastarm zum Karten-Hintergrund, kaum erkennbar) - passend zum
+   warmen Orange der gefüllten Quadrate, nur stark abgedunkelt/transparent
+   statt vollem --color-accent. */
 .prognose-card__square--verbleibend {
   background: none;
-  border: 1.5px dashed var(--color-border);
+  border: 1.75px dashed rgba(255, 158, 62, 0.55);
 }
 
 .prognose-card__mehr {
@@ -603,7 +607,7 @@ button,
 
 .prognose-card__legend-item--verbleibend::before {
   background: none;
-  border: 1.5px dashed var(--color-border);
+  border: 1.75px dashed rgba(255, 158, 62, 0.55);
 }
 
 /* ==========================================================================
