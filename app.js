@@ -52,7 +52,7 @@ const APP_SEMVER = "1.1.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v49";
+const APP_VERSION = "v50";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1017,27 +1017,6 @@ function initDepositDialog() {
 // kein Ziel gesetzt / Ziel mit Fortschritt / Ziel erreicht.
 // ============================================================================
 
-// Prognose "bei deinem Durchschnitt erreichst du dein Ziel in ca. X
-// Schichten": Basis sind die letzten 10 Tagesabrechnungen (chronologisch
-// nach Datums-Schlüssel sortiert), Durchschnitt über deren total-Feld (der
-// volle Schichtbetrag, nicht nur der Teil der schon in der Sparrücklage
-// steckt - als grobe Prognose reicht das). Gibt null zurück, wenn die
-// Datenbasis zu dünn ist oder eine Prognose sonst keinen Sinn ergibt (siehe
-// einzelne Bedingungen unten).
-function calcZielPrognose(rest) {
-  if (rest <= 0) return null;
-
-  const schluessel = Object.keys(dailySummaries).sort();
-  if (schluessel.length < 2) return null;
-
-  const letzte10 = schluessel.slice(-10);
-  const durchschnitt =
-    letzte10.reduce((summe, k) => summe + dailySummaries[k].total, 0) / letzte10.length;
-  if (durchschnitt <= 0) return null;
-
-  return Math.ceil(rest / durchschnitt);
-}
-
 function renderSparziel() {
   const container = document.getElementById("goal-card");
   const sparruecklage = calcSavingsTotal();
@@ -1052,6 +1031,7 @@ function renderSparziel() {
       </button>
     `;
     document.getElementById("goal-empty-cta").addEventListener("click", openGoalDialog);
+    document.getElementById("prognose-card").hidden = true;
     return;
   }
 
@@ -1084,11 +1064,6 @@ function renderSparziel() {
   const rest = round2(Math.max(0, sparzielBetrag - sparruecklage));
   const restText = erreicht ? "Ziel erreicht" : `Noch ${formatAmount(rest)} bis zum Ziel`;
 
-  const prognoseSchichten = erreicht ? null : calcZielPrognose(rest);
-  const prognoseHtml = prognoseSchichten
-    ? `<p class="goal-card__prognose">Bei deinem Durchschnitt der letzten ${Math.min(10, Object.keys(dailySummaries).length)} Schichten erreichst du dein Ziel in ca. ${prognoseSchichten} ${prognoseSchichten === 1 ? "Schicht" : "Schichten"}.</p>`
-    : "";
-
   container.innerHTML = `
     <div class="goal-card__header">
       <span class="goal-card__label">Sparziel</span>
@@ -1107,9 +1082,70 @@ function renderSparziel() {
       <span class="goal-card__legend-item goal-card__legend-item--ausstehend">Ausstehend ${formatAmount(ausstehend)}</span>
     </div>
     ${erreicht ? `<p class="goal-card__celebrate">Ziel erreicht! 🎉</p>` : ""}
-    ${prognoseHtml}
   `;
   document.getElementById("goal-edit-btn").addEventListener("click", openGoalDialog);
+
+  renderZielprognose(sparruecklage, rest, erreicht);
+}
+
+// Eigene Card unterhalb der Zielkarte: "in ca. X Schichten erreicht" als
+// Kalender-Grid (Contribution-Graph-Stil) statt reiner Textzeile - gefüllte
+// Quadrate = bisher abgerechnete Schichten, umrandete/leere Quadrate =
+// geschätzte verbleibende Schichten bis zum Ziel. Durchschnitt basiert auf
+// den letzten 10 Tagesabrechnungen (chronologisch nach Datums-Schlüssel),
+// deren total-Feld (voller Schichtbetrag - als grobe Prognose reicht das,
+// exakter wäre unnötig kompliziert). Wird komplett ausgeblendet, wenn die
+// Datenbasis zu dünn ist oder eine Prognose sonst keinen Sinn ergibt (siehe
+// die einzelnen Bedingungen unten).
+const PROGNOSE_GRID_MAX = 20;
+
+function renderZielprognose(sparruecklage, rest, erreicht) {
+  const container = document.getElementById("prognose-card");
+
+  const bisherigeSchichten = Object.keys(dailySummaries).length;
+  if (erreicht || rest <= 0 || bisherigeSchichten < 2) {
+    container.hidden = true;
+    return;
+  }
+
+  const letzte10 = Object.keys(dailySummaries).sort().slice(-10);
+  const durchschnitt =
+    letzte10.reduce((summe, k) => summe + dailySummaries[k].total, 0) / letzte10.length;
+  if (durchschnitt <= 0) {
+    container.hidden = true;
+    return;
+  }
+
+  const verbleibendeSchichten = Math.ceil(rest / durchschnitt);
+
+  const gefuellteAnzahl = Math.min(bisherigeSchichten, PROGNOSE_GRID_MAX);
+  const leereAnzahl = Math.min(verbleibendeSchichten, PROGNOSE_GRID_MAX);
+  const gefuellteRest = bisherigeSchichten - gefuellteAnzahl;
+  const leereRest = verbleibendeSchichten - leereAnzahl;
+
+  const gefuellteHtml = `<div class="prognose-card__square prognose-card__square--bisher"></div>`.repeat(gefuellteAnzahl);
+  const leereHtml = `<div class="prognose-card__square prognose-card__square--verbleibend"></div>`.repeat(leereAnzahl);
+
+  const mehrTeile = [];
+  if (gefuellteRest > 0) mehrTeile.push(`+${gefuellteRest} weitere bisher`);
+  if (leereRest > 0) mehrTeile.push(`+${leereRest} weitere verbleibend`);
+  const mehrHtml = mehrTeile.length
+    ? `<p class="prognose-card__mehr">${mehrTeile.join(" · ")}</p>`
+    : "";
+
+  container.hidden = false;
+  container.innerHTML = `
+    <div class="prognose-card__header">
+      <span class="prognose-card__label">Zielprognose</span>
+    </div>
+    <div class="prognose-card__grid">${gefuellteHtml}${leereHtml}</div>
+    ${mehrHtml}
+    <p class="prognose-card__summary">${bisherigeSchichten} ${bisherigeSchichten === 1 ? "Schicht" : "Schichten"} bisher · noch ca. ${verbleibendeSchichten} ${verbleibendeSchichten === 1 ? "Schicht" : "Schichten"} bis zum Ziel</p>
+    <div class="prognose-card__legend">
+      <span class="prognose-card__legend-item prognose-card__legend-item--bisher">Bisher</span>
+      <span class="prognose-card__legend-item prognose-card__legend-item--verbleibend">Verbleibend</span>
+    </div>
+  `;
 }
 
 // Punkt 1 der Übersichtsseite: Begrüßung passend zur Tageszeit. Der

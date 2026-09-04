@@ -506,11 +506,104 @@ button,
   color: var(--color-accent-2);
 }
 
-.goal-card__prognose {
-  margin: 0;
-  text-align: center;
-  font-size: 0.82rem;
+/* ==========================================================================
+   Zielprognose-Karte (eigene Card direkt unter der Sparziel-Karte)
+   Kalender-Grid im Contribution-Graph-Stil: gefüllte Quadrate = bisher
+   abgerechnete Schichten, umrandete/leere Quadrate = geschätzt verbleibende
+   Schichten bis zum Ziel. Gleiches Karten-Grundgerüst wie .goal-card, aber
+   ohne eigene Klasse dafür zu erben - eigenständige Card, kann sich später
+   unabhängig entwickeln.
+   ========================================================================== */
+.prognose-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
+}
+
+.prognose-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.prognose-card__label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--color-text-muted);
+}
+
+/* Feste Quadratgröße statt auto-fill/fr-Spalten: das Grid soll wie ein
+   Kalender in mehreren gleich breiten Zeilen umbrechen, nicht die
+   verfügbare Breite gleichmäßig auf wenige Quadrate strecken. */
+.prognose-card__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.prognose-card__square {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.prognose-card__square--bisher {
+  background: var(--color-accent);
+}
+
+.prognose-card__square--verbleibend {
+  background: none;
+  border: 1.5px dashed var(--color-border);
+}
+
+.prognose-card__mehr {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.prognose-card__summary {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+/* Gleiches Muster wie .goal-card__legend/-legend-item weiter oben - Punkt
+   in der jeweiligen Segment-Farbe vor dem Label. */
+.prognose-card__legend {
+  display: flex;
+  gap: 14px;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+}
+
+.prognose-card__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.prognose-card__legend-item::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.prognose-card__legend-item--bisher::before {
+  background: var(--color-accent);
+}
+
+.prognose-card__legend-item--verbleibend::before {
+  background: none;
+  border: 1.5px dashed var(--color-border);
 }
 
 /* ==========================================================================
