@@ -528,6 +528,13 @@
         <span class="nav-btn__label">Einstellungen</span>
       </button>
     </nav>
+
+    <!-- Undo-Toast beim Löschen eines Eintrags (siehe deleteEntryMitUndo()
+         in app.js) - liegt über der Bottom-Nav, standardmäßig versteckt. -->
+    <div class="undo-toast" id="undo-toast" hidden>
+      <span class="undo-toast__text">Eintrag gelöscht</span>
+      <button class="undo-toast__action" id="undo-toast-action">Rückgängig</button>
+    </div>
   </div>
 
   <!-- ================= Dialog: Eintrag bearbeiten ================= -->

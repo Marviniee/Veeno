@@ -47,12 +47,12 @@ const BACKUP_SCHEMA_VERSION = 1;
 // Nur ändern, wenn ein neuer Git-Tag gesetzt wird (siehe Abschnitt 11 der
 // Technischen Referenz) - z.B. Tag "v0.5.0" -> APP_SEMVER = "0.5.0". NICHT
 // bei jedem Push hochzählen.
-const APP_SEMVER = "1.0.0";
+const APP_SEMVER = "1.1.0";
 
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v48";
+const APP_VERSION = "v49";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -418,6 +418,49 @@ function deleteEntry(id) {
   renderDayTotal();
 }
 
+// ============================================================================
+// Undo fürs Löschen: der Eintrag ist beim Anzeigen des Toasts bereits
+// wirklich aus entries/localStorage entfernt (siehe deleteEntry() oben) -
+// zuletztGeloeschterEintrag hält nur eine Kopie für den Fall, dass der
+// Nutzer innerhalb des Zeitfensters auf "Rückgängig" tippt. Kein
+// Undo-Stack: ein zweites Löschen während der Toast noch läuft ersetzt den
+// alten Eintrag, nur der zuletzt gelöschte ist wiederherstellbar.
+// ============================================================================
+let zuletztGeloeschterEintrag = null;
+let undoToastTimeout = null;
+
+function deleteEntryMitUndo(id) {
+  const eintrag = entries.find((e) => e.id === id);
+  if (!eintrag) return;
+  deleteEntry(id);
+  zuletztGeloeschterEintrag = eintrag;
+
+  clearTimeout(undoToastTimeout);
+  document.getElementById("undo-toast").hidden = false;
+  undoToastTimeout = setTimeout(() => {
+    document.getElementById("undo-toast").hidden = true;
+    zuletztGeloeschterEintrag = null;
+  }, 4500);
+}
+
+function undoDelete() {
+  if (!zuletztGeloeschterEintrag) return;
+  clearTimeout(undoToastTimeout);
+
+  entries.unshift(zuletztGeloeschterEintrag);
+  entries.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  persistEntries();
+  renderEntries();
+  renderDayTotal();
+
+  zuletztGeloeschterEintrag = null;
+  document.getElementById("undo-toast").hidden = true;
+}
+
+function initUndoToast() {
+  document.getElementById("undo-toast-action").addEventListener("click", undoDelete);
+}
+
 function updateEntry(id, betrag, timestamp) {
   const eintrag = entries.find((e) => e.id === id);
   if (!eintrag) return;
@@ -601,7 +644,7 @@ function saveEditedEntry() {
 
 function deleteEditedEntry() {
   if (editingEntryId === null) return;
-  deleteEntry(editingEntryId);
+  deleteEntryMitUndo(editingEntryId);
   closeEditDialog();
 }
 
@@ -974,6 +1017,27 @@ function initDepositDialog() {
 // kein Ziel gesetzt / Ziel mit Fortschritt / Ziel erreicht.
 // ============================================================================
 
+// Prognose "bei deinem Durchschnitt erreichst du dein Ziel in ca. X
+// Schichten": Basis sind die letzten 10 Tagesabrechnungen (chronologisch
+// nach Datums-Schlüssel sortiert), Durchschnitt über deren total-Feld (der
+// volle Schichtbetrag, nicht nur der Teil der schon in der Sparrücklage
+// steckt - als grobe Prognose reicht das). Gibt null zurück, wenn die
+// Datenbasis zu dünn ist oder eine Prognose sonst keinen Sinn ergibt (siehe
+// einzelne Bedingungen unten).
+function calcZielPrognose(rest) {
+  if (rest <= 0) return null;
+
+  const schluessel = Object.keys(dailySummaries).sort();
+  if (schluessel.length < 2) return null;
+
+  const letzte10 = schluessel.slice(-10);
+  const durchschnitt =
+    letzte10.reduce((summe, k) => summe + dailySummaries[k].total, 0) / letzte10.length;
+  if (durchschnitt <= 0) return null;
+
+  return Math.ceil(rest / durchschnitt);
+}
+
 function renderSparziel() {
   const container = document.getElementById("goal-card");
   const sparruecklage = calcSavingsTotal();
@@ -1020,6 +1084,11 @@ function renderSparziel() {
   const rest = round2(Math.max(0, sparzielBetrag - sparruecklage));
   const restText = erreicht ? "Ziel erreicht" : `Noch ${formatAmount(rest)} bis zum Ziel`;
 
+  const prognoseSchichten = erreicht ? null : calcZielPrognose(rest);
+  const prognoseHtml = prognoseSchichten
+    ? `<p class="goal-card__prognose">Bei deinem Durchschnitt der letzten ${Math.min(10, Object.keys(dailySummaries).length)} Schichten erreichst du dein Ziel in ca. ${prognoseSchichten} ${prognoseSchichten === 1 ? "Schicht" : "Schichten"}.</p>`
+    : "";
+
   container.innerHTML = `
     <div class="goal-card__header">
       <span class="goal-card__label">Sparziel</span>
@@ -1038,6 +1107,7 @@ function renderSparziel() {
       <span class="goal-card__legend-item goal-card__legend-item--ausstehend">Ausstehend ${formatAmount(ausstehend)}</span>
     </div>
     ${erreicht ? `<p class="goal-card__celebrate">Ziel erreicht! 🎉</p>` : ""}
+    ${prognoseHtml}
   `;
   document.getElementById("goal-edit-btn").addEventListener("click", openGoalDialog);
 }
@@ -2293,6 +2363,7 @@ function init() {
 
   initKeypad();
   initEditDialog();
+  initUndoToast();
   initShiftDialog();
   initGoalDialog();
   initDepositDialog();
