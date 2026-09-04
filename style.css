@@ -218,6 +218,81 @@ button,
   font-weight: 700;
 }
 
+/* ==========================================================================
+   Arbeitszeit-Tracker: Banner auf dem Eintrag-Screen (Ein-/Ausstempeln)
+   Zwei Zustände über den Modifier --aktiv: eingestempelt bekommt einen
+   deutlichen Akzentrahmen (gleiches Muster wie .goal-card--hero), nicht
+   eingestempelt bleibt dezenter (neutraler Rahmen, "Einstempeln" als reiner
+   Textbutton in Akzentfarbe statt gefüllter Fläche).
+   ========================================================================== */
+.zeiterfassung-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.zeiterfassung-banner--aktiv {
+  border-width: 1.5px;
+  border-color: var(--color-accent);
+  box-shadow: 0 4px 24px rgba(255, 158, 62, 0.15);
+}
+
+.zeiterfassung-banner__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.zeiterfassung-banner__status {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.zeiterfassung-banner__dauer {
+  font-size: 1.15rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+
+.zeiterfassung-banner__btn {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+/* "Ausstempeln": gefüllte Akzentfläche - die Haupt-Aktion, während man
+   eingestempelt ist. */
+.zeiterfassung-banner__btn--aus {
+  border: none;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+/* "Einstempeln": gleiches Muster wie .shift-btn (Umrandung statt Fläche) -
+   bewusst weniger dringlich als "Ausstempeln", schließlich ist "nicht
+   eingestempelt" kein Fehlerzustand. */
+.zeiterfassung-banner__btn--ein {
+  border: 2px solid var(--color-accent);
+  background: none;
+  color: var(--color-accent);
+}
+
+.zeiterfassung-banner__btn--ein:active {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
 /* Kopfbereich des Eintrag-Screens: Betragsfeld links + Tagessumme-Karte
    rechts, auf gleicher Höhe (siehe Design "Variante 2 - Balanciert"). */
 .entry-head {
@@ -1630,6 +1705,29 @@ button,
   color: var(--color-text);
   font-size: 1.1rem;
   font-weight: 600;
+}
+
+/* ==========================================================================
+   Arbeitszeit-Karte im "Schicht abschließen"-Screen (nur sichtbar, wenn
+   dieser Screen frisch durchs Ausstempeln geöffnet wurde, siehe
+   renderSchichtArbeitszeit() in app.js) - gleiche .field-label/.time-input-
+   Bausteine wie im Bearbeiten-Dialog, in einer eigenen Card gerahmt statt
+   frei auf dem Screen zu stehen.
+   ========================================================================== */
+.zeiterfassung-abschluss {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.zeiterfassung-abschluss__dauer {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
 }
 
 /* ==========================================================================

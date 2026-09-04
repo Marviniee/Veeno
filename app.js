@@ -30,13 +30,15 @@ const STORAGE_KEY_ZIEL = "veeno-sparziel-betrag";
 const STORAGE_KEY_EINSTELLUNGEN = "veeno-einstellungen";
 const STORAGE_KEY_EINGEZAHLT = "veeno-eingezahlt-gesamt";
 const STORAGE_KEY_BADGES = "veeno-badges";
+const STORAGE_KEY_ZEITERFASSUNG_AKTIV = "veeno-zeiterfassung-aktiv";
+const STORAGE_KEY_SCHICHTEN = "veeno-schichten";
 
 // Version des Backup-Dateiformats (siehe exportData()/importBackup()) -
 // unabhängig von APP_SEMVER/APP_VERSION. Nur hochzählen, wenn sich die
 // STRUKTUR eines Backups ändert (neues/entferntes Feld, anderer Aufbau),
 // damit importBackup() künftig gezielt zwischen Formaten unterscheiden
 // kann, statt wie bisher per Ad-hoc-Heuristik ("hat das Feld X?").
-const BACKUP_SCHEMA_VERSION = 1;
+const BACKUP_SCHEMA_VERSION = 2;
 
 // Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
 // wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
@@ -52,7 +54,7 @@ const APP_SEMVER = "1.1.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v51";
+const APP_VERSION = "v52";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -62,6 +64,7 @@ const EINSTELLUNGEN_DEFAULT = {
   rundung: 5,           // Rundungsgröße beim Schicht abschließen (5/10/20)
   becherKorrektur: 0,   // Differenz für die manuelle Becherbestand-Korrektur
   motivationAn: true,   // Motivationssprüche an/aus
+  zeiterfassungRundung: "stunde", // Rundung der Einstempel-Zeit: "stunde" | "halbeStunde" | "viertelstunde" | "exakt"
 };
 
 // "buffer" ist das, was der Nutzer gerade auf dem Haupt-Zahlenfeld eintippt,
@@ -97,6 +100,26 @@ let eingezahltGesamt = loadEingezahltGesamt();
 // unten), z.B. ["starter", "50", "100"]. Reihenfolge spielt keine Rolle,
 // nur Zugehörigkeit zählt (includes()).
 let freigeschalteteBadges = loadBadges();
+
+// Die aktuell laufende Zeiterfassung (Stempeluhr-Begleitung) - null, wenn
+// gerade nicht eingestempelt. {schichtId, startIst, startBezahlt}, siehe
+// Abschnitt 7b weiter unten.
+let zeiterfassungAktiv = loadZeiterfassungAktiv();
+
+// Abgeschlossene Arbeitszeit-Schichten (nach dem Ausstempeln), unabhängig
+// von den Tagesabrechnungen der Becher-Logik - siehe Abschnitt 7b.
+let schichten = loadSchichten();
+
+// Intervall-ID des Live-Timers im Zeiterfassungs-Banner (Abschnitt 7b) -
+// null, solange nicht eingestempelt.
+let zeiterfassungTimerId = null;
+
+// Merkt sich, welche Schicht zuletzt per Ausstempeln beendet wurde, damit
+// der anschließend automatisch geöffnete "Schicht abschließen"-Screen die
+// Arbeitszeit-Karte (gerundete Startzeit editierbar) nur in diesem Fall
+// zeigt - nicht, wenn der Screen ganz normal über den Button geöffnet wird
+// (siehe initShiftDialog()/renderSchichtArbeitszeit()).
+let letzteAusgestempelteSchichtId = null;
 
 
 // ============================================================================
@@ -212,6 +235,70 @@ function persistBadges() {
   localStorage.setItem(STORAGE_KEY_BADGES, JSON.stringify(freigeschalteteBadges));
 }
 
+// Prüft ein rohes Zeiterfassung-Aktiv-Objekt (aus localStorage oder einem
+// Backup) auf die drei nötigen String-Felder - alles andere (fehlt, falscher
+// Typ, kaputtes JSON) wird als "nicht eingestempelt" (null) behandelt, statt
+// die App mit einem halbkaputten Zustand starten zu lassen.
+function normalisiereZeiterfassungAktiv(roh) {
+  if (
+    roh &&
+    typeof roh.schichtId === "string" && roh.schichtId &&
+    typeof roh.startIst === "string" &&
+    typeof roh.startBezahlt === "string"
+  ) {
+    return { schichtId: roh.schichtId, startIst: roh.startIst, startBezahlt: roh.startBezahlt };
+  }
+  return null;
+}
+
+function loadZeiterfassungAktiv() {
+  const raw = localStorage.getItem(STORAGE_KEY_ZEITERFASSUNG_AKTIV);
+  if (!raw) return null;
+  try {
+    return normalisiereZeiterfassungAktiv(JSON.parse(raw));
+  } catch (fehler) {
+    console.error("Konnte laufende Zeiterfassung nicht lesen:", fehler);
+    return null;
+  }
+}
+
+function persistZeiterfassungAktiv() {
+  localStorage.setItem(STORAGE_KEY_ZEITERFASSUNG_AKTIV, JSON.stringify(zeiterfassungAktiv));
+}
+
+// Wie normalisiereZeiterfassungAktiv(), nur für die Schicht-Historie: jeder
+// Eintrag braucht alle fünf Felder mit dem richtigen Typ, sonst fliegt er
+// raus - besser ein paar (kaputte) Alt-Schichten weniger als ein Absturz
+// beim Rendern der Statistiken.
+function normalisiereSchichten(roh) {
+  if (!Array.isArray(roh)) return [];
+  return roh.filter(
+    (s) =>
+      s &&
+      typeof s.schichtId === "string" && s.schichtId &&
+      typeof s.startIst === "string" &&
+      typeof s.startBezahlt === "string" &&
+      typeof s.endeIst === "string" &&
+      typeof s.dauerMinuten === "number" &&
+      typeof s.trinkgeldGesamt === "number"
+  );
+}
+
+function loadSchichten() {
+  const raw = localStorage.getItem(STORAGE_KEY_SCHICHTEN);
+  if (!raw) return [];
+  try {
+    return normalisiereSchichten(JSON.parse(raw));
+  } catch (fehler) {
+    console.error("Konnte Schicht-Historie nicht lesen:", fehler);
+    return [];
+  }
+}
+
+function persistSchichten() {
+  localStorage.setItem(STORAGE_KEY_SCHICHTEN, JSON.stringify(schichten));
+}
+
 function loadSparzielBetrag() {
   const raw = localStorage.getItem(STORAGE_KEY_ZIEL);
   if (!raw) return null;
@@ -241,12 +328,16 @@ function normalisiereEinstellungen(roh) {
   if (!roh || typeof roh !== "object") return { ...EINSTELLUNGEN_DEFAULT };
   const gueltigeRundungen = [5, 10, 20];
   const gueltigeFarbmodi = ["system", "hell", "dunkel"];
+  const gueltigeZeiterfassungRundungen = ["stunde", "halbeStunde", "viertelstunde", "exakt"];
   return {
     maxBetrag: typeof roh.maxBetrag === "number" && roh.maxBetrag > 0 ? roh.maxBetrag : EINSTELLUNGEN_DEFAULT.maxBetrag,
     farbmodus: gueltigeFarbmodi.includes(roh.farbmodus) ? roh.farbmodus : EINSTELLUNGEN_DEFAULT.farbmodus,
     rundung: gueltigeRundungen.includes(roh.rundung) ? roh.rundung : EINSTELLUNGEN_DEFAULT.rundung,
     becherKorrektur: typeof roh.becherKorrektur === "number" ? roh.becherKorrektur : EINSTELLUNGEN_DEFAULT.becherKorrektur,
     motivationAn: typeof roh.motivationAn === "boolean" ? roh.motivationAn : EINSTELLUNGEN_DEFAULT.motivationAn,
+    zeiterfassungRundung: gueltigeZeiterfassungRundungen.includes(roh.zeiterfassungRundung)
+      ? roh.zeiterfassungRundung
+      : EINSTELLUNGEN_DEFAULT.zeiterfassungRundung,
   };
 }
 
@@ -403,6 +494,10 @@ function saveEntry() {
     id: Date.now(),
     amount: betrag,
     timestamp: new Date().toISOString(),
+    // Bindet den Eintrag an die laufende Zeiterfassung (falls gerade
+    // eingestempelt) - siehe Abschnitt 7b. Ohne laufende Zeiterfassung
+    // bleibt das Feld null, der Eintrag funktioniert ganz normal weiter.
+    schichtId: zeiterfassungAktiv ? zeiterfassungAktiv.schichtId : null,
   });
 
   persistEntries();
@@ -808,6 +903,8 @@ function openShiftDialog() {
   document.getElementById("shift-in-cup").value = imBecher.toFixed(2);
   updateSplitCheck(ausstehend, imBecher, gesamtTopf);
 
+  renderSchichtArbeitszeit();
+
   switchScreen("schicht");
 }
 
@@ -892,6 +989,221 @@ function renderSavingsTotal() {
 function renderBecherBestand() {
   document.getElementById("becher-bestand-value").textContent = formatAmount(calcBecherBestand());
 }
+
+
+// ============================================================================
+// 7b. Arbeitszeit-Tracker (Ein-/Ausstempeln)
+//
+// Marvin stempelt physisch an einer echten Stempeluhr ein/aus und tippt im
+// gleichen Moment hier "Einstempeln"/"Ausstempeln" - die App bildet die
+// reale Stempeluhr nur nach, ersetzt sie nicht. Während die Zeiterfassung
+// läuft, bekommt jeder neue Trinkgeld-Eintrag die laufende schichtId
+// mitgegeben (siehe saveEntry()), damit sich hinterher pro Schicht sowohl
+// die bezahlte Arbeitszeit als auch das dabei erzielte Trinkgeld auswerten
+// lassen (z.B. "€ pro Stunde" - noch nicht in dieser Version, aber die
+// Datengrundlage ist ab jetzt da).
+//
+// Zwei getrennte Zeitstempel pro Schicht:
+// - startIst: der exakte Moment des Tap auf "Einstempeln" (unverändert,
+//   für die Anzeige "Eingestempelt seit ...").
+// - startBezahlt: startIst, aufgerundet nach der Einstellung
+//   "zeiterfassungRundung" - das ist die Zeit, die für Marvins
+//   Lohnkontrolle tatsächlich zählt (dauerMinuten rechnet IMMER mit
+//   startBezahlt, nie mit startIst).
+// Beim Ausstempeln gibt es keine Rundung - endeIst ist immer der exakte
+// Tap-Zeitpunkt.
+// ============================================================================
+
+// Rundet eine Uhrzeit gemäß der gewählten Einstellung AUF (nie ab) - siehe
+// Abschnitts-Kommentar oben. "exakt" (oder ein unbekannter Wert) gibt die
+// Zeit unverändert zurück. Reine Millisekunden-Modulo-Rechnung: exakt auf
+// der Intervallgrenze (z.B. schon volle Stunde) bleibt unverändert, das
+// deckt auch den Grenzfall "Einstempeln exakt um 12:00" korrekt ab.
+function rundeZeiterfassungStart(datum, modus) {
+  const minutenProIntervall = { stunde: 60, halbeStunde: 30, viertelstunde: 15 };
+  const intervall = minutenProIntervall[modus];
+  if (!intervall) return new Date(datum.getTime());
+
+  const intervallMs = intervall * 60000;
+  const rest = datum.getTime() % intervallMs;
+  if (rest === 0) return new Date(datum.getTime());
+  return new Date(datum.getTime() + (intervallMs - rest));
+}
+
+// Formatiert eine Dauer in Millisekunden als "H:MM Std" (z.B. "2:34 Std").
+function formatZeiterfassungDauer(dauerMs) {
+  const gesamtMinuten = Math.max(0, Math.floor(dauerMs / 60000));
+  const stunden = Math.floor(gesamtMinuten / 60);
+  const minuten = gesamtMinuten % 60;
+  return `${stunden}:${String(minuten).padStart(2, "0")} Std`;
+}
+
+function einstempeln() {
+  if (zeiterfassungAktiv) return; // schon eingestempelt -> nichts tun
+
+  const jetzt = new Date();
+  const startBezahlt = rundeZeiterfassungStart(jetzt, einstellungen.zeiterfassungRundung);
+
+  zeiterfassungAktiv = {
+    schichtId: `zeit-${Date.now()}`,
+    startIst: jetzt.toISOString(),
+    startBezahlt: startBezahlt.toISOString(),
+  };
+  persistZeiterfassungAktiv();
+
+  renderZeiterfassung();
+  starteZeiterfassungTimer();
+}
+
+function ausstempeln() {
+  if (!zeiterfassungAktiv) return; // nicht eingestempelt -> nichts tun
+
+  const jetzt = new Date();
+  const startBezahlt = new Date(zeiterfassungAktiv.startBezahlt);
+  // Math.max(0, ...): bei sehr kurzen Schichten kann die AUFgerundete
+  // startBezahlt rechnerisch nach endeIst liegen (z.B. Einstempeln um
+  // 11:58, Ausstempeln um 12:02 bei Rundung "Stunde" -> startBezahlt
+  // 12:00, aber real nur 4 Minuten gearbeitet) - dann zählt die bezahlte
+  // Arbeitszeit einfach als 0 Minuten statt negativ zu werden.
+  const dauerMinuten = Math.max(0, Math.round((jetzt.getTime() - startBezahlt.getTime()) / 60000));
+  const trinkgeldGesamt = round2(
+    entries
+      .filter((eintrag) => eintrag.schichtId === zeiterfassungAktiv.schichtId)
+      .reduce((summe, eintrag) => summe + eintrag.amount, 0)
+  );
+
+  schichten.push({
+    schichtId: zeiterfassungAktiv.schichtId,
+    startIst: zeiterfassungAktiv.startIst,
+    startBezahlt: zeiterfassungAktiv.startBezahlt,
+    endeIst: jetzt.toISOString(),
+    dauerMinuten,
+    trinkgeldGesamt,
+  });
+  letzteAusgestempelteSchichtId = zeiterfassungAktiv.schichtId;
+  zeiterfassungAktiv = null;
+
+  persistSchichten();
+  persistZeiterfassungAktiv();
+  stoppeZeiterfassungTimer();
+  renderZeiterfassung();
+
+  // Durchgehender Feierabend-Flow: direkt weiter zur Becher-Logik, statt
+  // zwei getrennte Aktionen zu verlangen (siehe openShiftDialog()).
+  openShiftDialog();
+}
+
+// Aktualisiert nur die Live-Dauer-Anzeige im Banner, ohne den ganzen Block
+// neu zu rendern (kein Event-Listener-Neubinden nötig, läuft jede Sekunde).
+function tickZeiterfassungTimer() {
+  if (!zeiterfassungAktiv) return;
+  const dauerEl = document.getElementById("zeiterfassung-dauer");
+  if (!dauerEl) return;
+  const start = new Date(zeiterfassungAktiv.startIst);
+  dauerEl.textContent = formatZeiterfassungDauer(Date.now() - start.getTime());
+}
+
+function starteZeiterfassungTimer() {
+  stoppeZeiterfassungTimer();
+  zeiterfassungTimerId = setInterval(tickZeiterfassungTimer, 1000);
+}
+
+function stoppeZeiterfassungTimer() {
+  if (zeiterfassungTimerId !== null) {
+    clearInterval(zeiterfassungTimerId);
+    zeiterfassungTimerId = null;
+  }
+}
+
+// Rendert den Banner auf dem Eintrag-Screen komplett neu (wie renderSparziel())
+// - die zwei Zustände (eingestempelt/nicht eingestempelt) unterscheiden sich
+// stark genug, dass sich Ein-/Ausblenden einzelner Elemente nicht lohnt.
+function renderZeiterfassung() {
+  const container = document.getElementById("zeiterfassung-banner");
+
+  if (zeiterfassungAktiv) {
+    const start = new Date(zeiterfassungAktiv.startIst);
+    container.classList.add("zeiterfassung-banner--aktiv");
+    container.innerHTML = `
+      <div class="zeiterfassung-banner__info">
+        <span class="zeiterfassung-banner__status">Eingestempelt seit ${formatTime(zeiterfassungAktiv.startIst)}</span>
+        <span class="zeiterfassung-banner__dauer" id="zeiterfassung-dauer">${formatZeiterfassungDauer(Date.now() - start.getTime())}</span>
+      </div>
+      <button class="zeiterfassung-banner__btn zeiterfassung-banner__btn--aus" id="zeiterfassung-ausstempeln-btn">Ausstempeln</button>
+    `;
+    document.getElementById("zeiterfassung-ausstempeln-btn").addEventListener("click", ausstempeln);
+  } else {
+    container.classList.remove("zeiterfassung-banner--aktiv");
+    container.innerHTML = `
+      <div class="zeiterfassung-banner__info">
+        <span class="zeiterfassung-banner__status">Nicht eingestempelt</span>
+      </div>
+      <button class="zeiterfassung-banner__btn zeiterfassung-banner__btn--ein" id="zeiterfassung-einstempeln-btn">Einstempeln</button>
+    `;
+    document.getElementById("zeiterfassung-einstempeln-btn").addEventListener("click", einstempeln);
+  }
+}
+
+// Arbeitszeit-Karte im "Schicht abschließen"-Screen: zeigt/versteckt sich
+// je nachdem, ob dieser Screen-Aufruf gerade von ausstempeln() kommt (siehe
+// letzteAusgestempelteSchichtId) oder ganz normal über den Button auf dem
+// Eintrag-Screen - im zweiten Fall gibt es keine frisch beendete Schicht,
+// die Karte bleibt versteckt.
+function renderSchichtArbeitszeit() {
+  const container = document.getElementById("zeiterfassung-abschluss");
+  const schicht = letzteAusgestempelteSchichtId
+    ? schichten.find((s) => s.schichtId === letzteAusgestempelteSchichtId)
+    : null;
+
+  if (!schicht) {
+    container.hidden = true;
+    return;
+  }
+
+  container.hidden = false;
+  document.getElementById("zeiterfassung-abschluss-start").value = toTimeInputValue(schicht.startBezahlt);
+  aktualisiereSchichtArbeitszeitDauer(schicht);
+}
+
+function aktualisiereSchichtArbeitszeitDauer(schicht) {
+  const dauerMs = new Date(schicht.endeIst).getTime() - new Date(schicht.startBezahlt).getTime();
+  document.getElementById("zeiterfassung-abschluss-dauer").textContent =
+    `Bezahlte Arbeitszeit: ${formatZeiterfassungDauer(dauerMs)}`;
+}
+
+// Manuelles Nachbearbeiten der gerundeten Startzeit (für Sonderschichten
+// außerhalb des Rasters, siehe Abschnitts-Kommentar oben) - nur das Datum
+// der bisherigen startBezahlt bleibt erhalten, nur die Uhrzeit wird ersetzt
+// (gleiches Muster wie saveEditedEntry() im Bearbeiten-Dialog).
+function initZeiterfassungAbschluss() {
+  document.getElementById("zeiterfassung-abschluss-start").addEventListener("change", (event) => {
+    const schicht = letzteAusgestempelteSchichtId
+      ? schichten.find((s) => s.schichtId === letzteAusgestempelteSchichtId)
+      : null;
+    if (!schicht) return;
+
+    const [stunden, minuten] = event.target.value.split(":").map(Number);
+    if (isNaN(stunden) || isNaN(minuten)) return;
+
+    const neueStart = new Date(schicht.startBezahlt);
+    neueStart.setHours(stunden, minuten, 0, 0);
+    schicht.startBezahlt = neueStart.toISOString();
+    // Math.max(0, ...): gleiche Klemmung wie in ausstempeln() - eine von
+    // Hand nachträglich spät gesetzte Startzeit soll nie zu einer
+    // negativen Arbeitszeit führen.
+    schicht.dauerMinuten = Math.max(0, Math.round((new Date(schicht.endeIst).getTime() - neueStart.getTime()) / 60000));
+
+    persistSchichten();
+    aktualisiereSchichtArbeitszeitDauer(schicht);
+  });
+}
+
+function initZeiterfassung() {
+  renderZeiterfassung();
+  if (zeiterfassungAktiv) starteZeiterfassungTimer();
+  initZeiterfassungAbschluss();
+}
+
 
 // ============================================================================
 // "Ausstehend" / "Eingezahlt (gesamt)" - siehe Erklärung im Abschnitts-
@@ -1774,6 +2086,11 @@ function renderSettings() {
     button.classList.toggle("choice-btn--active", Number(button.dataset.rundung) === einstellungen.rundung);
   });
 
+  // 3b. Rundung beim Einstempeln (Arbeitszeit-Tracker)
+  document.querySelectorAll("#settings-zeiterfassung-rundung-group .choice-btn").forEach((button) => {
+    button.classList.toggle("choice-btn--active", button.dataset.zeiterfassungRundung === einstellungen.zeiterfassungRundung);
+  });
+
   // 4. Becherbestand: aktuellen Stand laut App zur Orientierung anzeigen
   document.getElementById("settings-becher-aktuell").textContent = formatAmount(calcBecherBestand());
 
@@ -2053,12 +2370,23 @@ function importBackup(jsonText) {
   freigeschalteteBadges = normalisiereBadges(daten.badges).filter((eintrag) =>
     BADGES.some((b) => b.id === eintrag.id)
   );
+  // zeiterfassungAktiv/schichten gab es vor diesem Umbau noch nicht - fehlen
+  // die Felder komplett (altes Backup), fallen sie sauber auf "leer" zurück
+  // (kein laufendes Einstempeln, keine Historie), statt den aktuellen
+  // lokalen Stand zu übernehmen - anders als z.B. bei sparziel/einstellungen
+  // gibt es hier keinen sinnvollen "unverändert lassen"-Fall, weil ein altes
+  // Backup dazu schlicht keine Aussage trifft.
+  zeiterfassungAktiv = normalisiereZeiterfassungAktiv(daten.zeiterfassungAktiv);
+  schichten = normalisiereSchichten(daten.schichten);
+  letzteAusgestempelteSchichtId = null;
   persistEntries();
   persistDailySummaries();
   persistEingezahltGesamt();
   persistSparzielBetrag();
   persistEinstellungen();
   persistBadges();
+  persistZeiterfassungAktiv();
+  persistSchichten();
 
   wendeFarbmodusAn(); // eine importierte Einstellung kann den Farbmodus geändert haben
   renderEntries();
@@ -2072,6 +2400,12 @@ function importBackup(jsonText) {
   renderBadges();
   renderSettings();
   renderMotivation();
+  renderZeiterfassung();
+  if (zeiterfassungAktiv) {
+    starteZeiterfassungTimer();
+  } else {
+    stoppeZeiterfassungTimer();
+  }
   checkBadges(false); // rückwirkend nachtragen, ohne Feiermoment für längst vergangene Erfolge
 
   const meldungen = ["Backup erfolgreich eingespielt."];
@@ -2109,6 +2443,15 @@ function initSettings() {
   document.querySelectorAll("#settings-rundung-group .choice-btn").forEach((button) => {
     button.addEventListener("click", () => {
       einstellungen.rundung = Number(button.dataset.rundung);
+      persistEinstellungen();
+      renderSettings();
+    });
+  });
+
+  // 3b. Rundung beim Einstempeln (Arbeitszeit-Tracker)
+  document.querySelectorAll("#settings-zeiterfassung-rundung-group .choice-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      einstellungen.zeiterfassungRundung = button.dataset.zeiterfassungRundung;
       persistEinstellungen();
       renderSettings();
     });
@@ -2156,6 +2499,8 @@ function initSettings() {
     localStorage.removeItem(STORAGE_KEY_EINSTELLUNGEN);
     localStorage.removeItem(STORAGE_KEY_EINGEZAHLT);
     localStorage.removeItem(STORAGE_KEY_BADGES);
+    localStorage.removeItem(STORAGE_KEY_ZEITERFASSUNG_AKTIV);
+    localStorage.removeItem(STORAGE_KEY_SCHICHTEN);
     location.reload();
   });
 
@@ -2205,6 +2550,8 @@ function exportData() {
     sparziel: sparzielBetrag,
     einstellungen: einstellungen,
     badges: freigeschalteteBadges,
+    zeiterfassungAktiv: zeiterfassungAktiv,
+    schichten: schichten,
     // Kontrollwerte: zum Exportzeitpunkt berechnete Summen, die
     // importBackup() nach dem Einlesen aus den Rohdaten neu berechnet und
     // damit abgleicht. Eine Abweichung deutet auf eine nachträglich von
@@ -2242,7 +2589,13 @@ function calcGesamtTopf() {
 }
 
 function initShiftDialog() {
-  document.getElementById("open-shift-dialog").addEventListener("click", openShiftDialog);
+  document.getElementById("open-shift-dialog").addEventListener("click", () => {
+    // Ganz normaler manueller Aufruf, keine frisch beendete Zeiterfassung -
+    // die Arbeitszeit-Karte im Schicht-Screen soll hier NICHT auftauchen
+    // (siehe renderSchichtArbeitszeit()).
+    letzteAusgestempelteSchichtId = null;
+    openShiftDialog();
+  });
   document.getElementById("shift-cancel").addEventListener("click", () => switchScreen("eintrag"));
   document.getElementById("shift-save").addEventListener("click", saveShiftSummary);
 
@@ -2410,7 +2763,13 @@ function init() {
   initBadgeCelebration();
   initBadgeDetail();
   initBottomNav();
+  initZeiterfassung();
   initServiceWorker();
+
+  // Startzustand richtet sich nach der Zeiterfassung: eingestempelt -> direkt
+  // zum Eintrag-Screen (der Banner mit "Ausstempeln" soll sofort sichtbar
+  // sein), nicht eingestempelt -> zur Übersicht (siehe Abschnitt 7b).
+  switchScreen(zeiterfassungAktiv ? "eintrag" : "sparziel");
 
   // Rückwirkend nachtragen für Bestandsnutzer (siehe Abschnitt 8b) - ohne
   // Feiermoment, ein App-Start soll nicht wie eine Konfetti-Kaskade wirken.

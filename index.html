@@ -62,6 +62,14 @@
         <span class="app-header__title">Veeno</span>
       </header>
 
+      <!-- Arbeitszeit-Tracker (Ein-/Ausstempeln): deutlich sichtbarer Banner
+           direkt unter der Kopfzeile, wird komplett von app.js gerendert
+           (renderZeiterfassung) - zwei ganz unterschiedliche Zustände
+           (eingestempelt/nicht), siehe dortigen Kommentar. -->
+      <section class="zeiterfassung-banner" id="zeiterfassung-banner">
+        <!-- wird von app.js gefüllt -->
+      </section>
+
       <!-- Betragsfeld links + Tagessumme als eigene Karte rechts daneben,
            auf gleicher Höhe - so sind Eingabe und Tagessumme auf einen
            Blick zusammen sichtbar (siehe Variante 2 "Balanciert"). -->
@@ -309,6 +317,22 @@
         <span class="modal__spacer"></span>
       </div>
 
+      <!-- Arbeitszeit-Karte: nur sichtbar, wenn dieser Screen gerade automatisch
+           durchs Ausstempeln geöffnet wurde (siehe renderSchichtArbeitszeit()
+           in app.js) - die gerundete Startzeit ist hier direkt nachträglich
+           editierbar (für Sonderschichten außerhalb des Rasters). -->
+      <section class="zeiterfassung-abschluss" id="zeiterfassung-abschluss" hidden>
+        <label class="field-label" for="zeiterfassung-abschluss-start">Eingestempelt (gerundet)</label>
+        <div class="field-with-icon field-with-icon--time">
+          <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <polyline points="12 7 12 12 15.5 14" />
+          </svg>
+          <input type="time" id="zeiterfassung-abschluss-start" class="time-input" />
+        </div>
+        <p class="zeiterfassung-abschluss__dauer" id="zeiterfassung-abschluss-dauer"></p>
+      </section>
+
       <!-- Drei Kästen als Fluss: bisheriger Becherbestand + diese Schicht
            ergeben den Topf, aus dem "Ausstehend" (unten) entnommen wird -
            was übrig bleibt, ist der neue Becherbestand rechts. "Ausstehend"
@@ -451,6 +475,18 @@
           <button class="choice-btn" data-rundung="10">10 €</button>
           <button class="choice-btn" data-rundung="20">20 €</button>
         </div>
+      </section>
+
+      <!-- 3b. Rundung beim Einstempeln (Arbeitszeit-Tracker) -->
+      <section class="settings-card">
+        <span class="settings-card__label">Rundung beim Einstempeln</span>
+        <div class="choice-group" id="settings-zeiterfassung-rundung-group">
+          <button class="choice-btn" data-zeiterfassung-rundung="stunde">Stunde</button>
+          <button class="choice-btn" data-zeiterfassung-rundung="halbeStunde">30 Min</button>
+          <button class="choice-btn" data-zeiterfassung-rundung="viertelstunde">15 Min</button>
+          <button class="choice-btn" data-zeiterfassung-rundung="exakt">Exakt</button>
+        </div>
+        <p class="settings-card__hint">Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:45 → 12:00 bei "Stunde"). Beim Ausstempeln erfolgt keine Rundung.</p>
       </section>
 
       <!-- 4. Becherbestand manuell korrigieren -->
