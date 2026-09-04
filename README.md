@@ -22,6 +22,11 @@ Studienstart.
 - **Ausstehend/Eingezahlt-Tracking:** behält im Blick, wie viel schon aus dem Becher
   entnommen, aber noch nicht am Bankautomaten eingezahlt wurde
 - **Sparziel** mit Fortschrittsbalken bis zum gewünschten Zielbetrag
+- **Zielprognose:** eigene Karte mit Kalender-Grid (Contribution-Graph-Stil), zeigt anhand
+  des Durchschnitts der letzten 10 Schichten, in wie vielen weiteren Schichten das
+  Sparziel voraussichtlich erreicht wird
+- **Undo fürs Löschen:** kurzes Zeitfenster nach dem Löschen eines Eintrags, um die
+  Aktion per Toast rückgängig zu machen
 - **Wachstumskurve** der Sparrücklage über Zeit (1/3/6 Monate)
 - **Meilenstein-Belohnungssystem** mit freischaltbaren Abzeichen ab der ersten
   Einzahlung bis zu 3.000 €
