@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v58";
+const APP_VERSION = "v59";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -3178,17 +3178,30 @@ function initSettings() {
       });
     });
   });
-  document.getElementById("settings-export-btn").addEventListener("click", () => {
-    if (exportAuswahl === "stempeluhr") {
-      exportStempeluhrJson();
-    } else {
-      // "trinkgeld" und "beides" nutzen beide die bestehende exportData() -
-      // das volle Backup enthält schon immer alle Felder (siehe
-      // Abschnitts-Kommentar), "Beides" ist also einfach ihr expliziter Name.
-      exportData();
-    }
-  });
-  document.getElementById("settings-export-csv-btn").addEventListener("click", exportStempeluhrCsv);
+  // Null-Checks ab hier bewusst zusätzlich zum init()-weiten initSicher()-
+  // Schutz (siehe dort): die beiden Buttons sind die jüngsten, am wenigsten
+  // erprobten Ergänzungen in dieser Funktion - fehlt einer davon (z.B. durch
+  // eine veraltete gecachte index.html bei einem Nutzer), soll wenigstens
+  // der jeweils andere trotzdem seinen Klick-Handler bekommen, statt dass
+  // ein einzelnes fehlendes Element den Rest von initSettings() abbricht.
+  const exportBtn = document.getElementById("settings-export-btn");
+  if (exportBtn) {
+    exportBtn.addEventListener("click", () => {
+      if (exportAuswahl === "stempeluhr") {
+        exportStempeluhrJson();
+      } else {
+        // "trinkgeld" und "beides" nutzen beide die bestehende exportData() -
+        // das volle Backup enthält schon immer alle Felder (siehe
+        // Abschnitts-Kommentar), "Beides" ist also einfach ihr expliziter Name.
+        exportData();
+      }
+    });
+  }
+
+  const exportCsvBtn = document.getElementById("settings-export-csv-btn");
+  if (exportCsvBtn) {
+    exportCsvBtn.addEventListener("click", exportStempeluhrCsv);
+  }
 }
 
 
@@ -3494,6 +3507,23 @@ function initServiceWorker() {
 // 13. Start
 // ============================================================================
 
+// Führt eine der init*()-Funktionen geschützt aus: wirft eine davon einen
+// Fehler (z.B. weil eine erwartete Element-ID fehlt - siehe die
+// dokumentierten Vorfälle in initBadgeCelebration()/initSettings(), meist
+// durch eine veraltete Service-Worker-gecachte Version bei einem Nutzer,
+// nicht durch einen echten Quellcode-Mismatch), bricht ohne diesen Wrapper
+// init() komplett ab und initBottomNav()/initServiceWorker() laufen nie -
+// die ganze App wirkt dann eingefroren, obwohl nur ein einzelner Dialog
+// betroffen wäre. Mit dem Wrapper läuft init() immer bis zum Ende durch,
+// der Fehler landet nur in der Konsole statt die App lahmzulegen.
+function initSicher(fn) {
+  try {
+    fn();
+  } catch (fehler) {
+    console.error(`${fn.name}() ist fehlgeschlagen - App läuft trotzdem weiter:`, fehler);
+  }
+}
+
 function init() {
   wendeFarbmodusAn(); // vor allem anderen, damit kein falsches Theme aufblitzt
 
@@ -3517,22 +3547,26 @@ function init() {
   renderMotivation();
   renderSettings();
 
-  initKeypad();
-  initEditDialog();
-  initUndoToast();
-  initShiftDialog();
-  initGoalDialog();
-  initDepositDialog();
-  initExport();
-  initSettings();
-  initMaxDialog();
-  initGrowthChart();
-  initBadgeCelebration();
-  initBadgeDetail();
-  initBottomNav();
-  initStempeluhr();
-  initStundenlohnDialog();
-  initServiceWorker();
+  // Jede init*()-Funktion läuft einzeln abgesichert (siehe initSicher()) -
+  // ein Fehler in einer von ihnen (z.B. fehlendes DOM-Element durch eine
+  // veraltete gecachte Version) darf nie verhindern, dass die restlichen
+  // init*()-Aufrufe (allen voran initBottomNav()) trotzdem ausgeführt werden.
+  initSicher(initKeypad);
+  initSicher(initEditDialog);
+  initSicher(initUndoToast);
+  initSicher(initShiftDialog);
+  initSicher(initGoalDialog);
+  initSicher(initDepositDialog);
+  initSicher(initExport);
+  initSicher(initSettings);
+  initSicher(initMaxDialog);
+  initSicher(initGrowthChart);
+  initSicher(initBadgeCelebration);
+  initSicher(initBadgeDetail);
+  initSicher(initBottomNav);
+  initSicher(initStempeluhr);
+  initSicher(initStundenlohnDialog);
+  initSicher(initServiceWorker);
 
   // Startzustand richtet sich nach der Zeiterfassung: eingestempelt -> direkt
   // zum Eintrag-Screen (unverändert), nicht eingestempelt -> jetzt direkt
