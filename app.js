@@ -60,7 +60,7 @@ const APP_SEMVER = "1.1.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v56";
+const APP_VERSION = "v57";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.

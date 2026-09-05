@@ -1475,6 +1475,18 @@ button,
 }
 
 .key {
+  /* -webkit-appearance:none ist der eigentliche Kern des "Speichern-Button
+     zu schmal/gequetscht"-Bugs (siehe ausführlicher Kommentar bei
+     .key--save unten): ohne diese Zeile behält Safari/WKWebView auf
+     echten iOS-Geräten eine native Button-Chrome-Berechnung bei, die
+     eigene Breiten-/Innenabstands-Vorstellungen mitbringt und unsere
+     CSS-Werte (width, padding, min-height) teilweise überstimmt oder
+     ignoriert - inkonsistent zwischen Gerät und Simulator, weil beide
+     WKWebView-Builds diese native Chrome unterschiedlich stark anwenden.
+     Alle .key-Buttons sind ohnehin komplett eigenständig gestylt (Farbe,
+     Radius, Rahmen), native Chrome wird nirgends gebraucht. */
+  -webkit-appearance: none;
+  appearance: none;
   border: none;
   border-radius: 14px;
   background: var(--color-surface);
@@ -1507,19 +1519,34 @@ button,
    width:100% ist hier NICHT redundant zu grid-column:span 2: einige Dialoge
    (Schicht abschließen, Einzahlung, Eingabe-Obergrenze, Stundenlohn) nutzen
    .key--save als freistehenden Button außerhalb von .keypad, direkt in
-   einem flex-column-Container (.modal/.screen). Echtes iOS-Safari/WKWebView
-   stretcht dort einen nativen <button> NICHT zuverlässig auf die volle
-   Breite, obwohl align-items:stretch (der Flexbox-Default) das eigentlich
-   vorsieht - Desktop-Browser rendern das unauffälliger/breiter, was den Bug
-   im Simulator/Desktop-Test leicht übersehen lässt. width:100% erzwingt die
-   volle Breite explizit, unabhängig von diesem Stretch-Verhalten - im
-   Grid-Kontext füllt es einfach die bereits per span reservierte Fläche. */
+   einem flex-column-Container (.modal/.screen). Dort verlässt er sich auf
+   den Flexbox-Default align-items:stretch für die volle Breite -
+   width:100% erzwingt das jetzt zusätzlich explizit. Trotzdem blieb der
+   Button auf einem echten iPhone weiterhin zu schmal UND vertikal
+   gequetscht: der eigentliche Übeltäter ist -webkit-appearance (siehe
+   .key oben) - erst mit appearance:none plus den expliziten
+   padding/min-height weiter unten (für die vier freistehenden Fälle,
+   :not(.modal__save-btn) grenzt Sparziel/Bearbeiten-Dialog aus, die schon
+   ihre eigene Größe über .modal__save-btn/.modal__actions bekommen) ist
+   die Größe unabhängig von jeder nativen Button-Chrome verlässlich. */
 .key--save {
   grid-column: span 2;
   width: 100%;
   background: var(--color-accent);
   color: var(--color-accent-text);
   font-size: 1.3rem;
+}
+
+/* Betrifft genau die vier Dialoge, in denen .key--save freistehend (nicht
+   in .keypad, nicht als .modal__save-btn in .modal__actions) vorkommt:
+   Schicht abschließen, Einzahlung bestätigen, Eingabe-Obergrenze,
+   Stundenlohn. Ohne eigene Höhe/Innenabstand bestimmt sonst nur die
+   (durch appearance:none jetzt zwar nicht mehr native, aber weiterhin
+   minimale) Button-Grundgröße das Layout - das wirkt gequetscht statt wie
+   eine echte "Speichern"-Fläche. */
+.key--save:not(.modal__save-btn) {
+  padding: 16px 0;
+  min-height: 56px;
 }
 
 /* Kompakte Keypad-Variante für den Bearbeiten-Dialog: kein Speichern-Feld
@@ -2344,17 +2371,6 @@ button,
   font-weight: 700;
   color: var(--color-text);
   margin: 0;
-}
-
-/* #shift-save und #deposit-save sitzen anders als das Haupt-Zahlenfeld
-   nicht in der 60px-Grid-Zeile von .keypad, sondern als freistehende
-   Buttons - die Höhe braucht deshalb eine eigene Angabe (die volle Breite
-   erzwingt seit dem iOS-Stretch-Bugfix schon width:100% auf .key--save
-   selbst, siehe dort). */
-#shift-save,
-#deposit-save {
-  padding: 16px 0;
-  min-height: 56px;
 }
 
 /* ==========================================================================
