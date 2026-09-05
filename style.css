@@ -13,6 +13,18 @@
   --color-accent: #FF9E3E;       /* warmes Orange - Hauptfarbe */
   --color-accent-text: #1c1c1e;  /* Text auf orangem Hintergrund */
   --color-danger: #ef4444;
+
+  /* Heatmap-Stufen für den Stempeluhr-Kalender (siehe renderStempeluhrKalender()
+     in app.js) - bewusst vier eigene, feste Farbtöne statt Opacity auf
+     --color-accent: eine transparente Akzentfarbe würde im Dunkelmodus gegen
+     den fast schwarzen Hintergrund zu blass/unsichtbar werden. Stufe 4
+     entspricht bewusst exakt --color-accent (der bisherigen einheitlichen
+     Schicht-Farbe), Stufe 1 bleibt trotzdem klar vom weißen Kartenhintergrund
+     unterscheidbar. */
+  --color-heat-1: #FFD9A8;
+  --color-heat-2: #FFC17A;
+  --color-heat-3: #FFA84C;
+  --color-heat-4: #FF9E3E;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,6 +37,15 @@
 
     --color-accent: #FF9E3E;
     --color-accent-text: #1c1c1e;
+
+    /* Eigene, dunklere Startstufe statt der hellen Light-Mode-Skala: die
+       wäre gegen den fast schwarzen Hintergrund zwar noch nicht unsichtbar,
+       aber deutlich kontrastärmer als hier - alle vier Stufen bleiben
+       trotzdem hell genug für den dunklen Text (--color-accent-text). */
+    --color-heat-1: #C9832E;
+    --color-heat-2: #DB8F35;
+    --color-heat-3: #EC9A3A;
+    --color-heat-4: #FF9E3E;
   }
 }
 
@@ -42,6 +63,10 @@
   --color-border: #e2e2e0;
   --color-accent: #FF9E3E;
   --color-accent-text: #1c1c1e;
+  --color-heat-1: #FFD9A8;
+  --color-heat-2: #FFC17A;
+  --color-heat-3: #FFA84C;
+  --color-heat-4: #FF9E3E;
 }
 
 :root[data-theme="dark"] {
@@ -52,6 +77,10 @@
   --color-border: #2c2c2e;
   --color-accent: #FF9E3E;
   --color-accent-text: #1c1c1e;
+  --color-heat-1: #C9832E;
+  --color-heat-2: #DB8F35;
+  --color-heat-3: #EC9A3A;
+  --color-heat-4: #FF9E3E;
 }
 
 /* Türkis/Teal - zweite Akzentfarbe, aktuell nur fürs Icon/Branding gedacht.
@@ -344,12 +373,20 @@ button,
   visibility: hidden;
 }
 
+/* Nur noch die geteilten, farbunabhängigen Eigenschaften - die eigentliche
+   Hintergrundfarbe kommt von einer der vier .clock-calendar__day--heat-N-
+   Klassen daneben (siehe berechneHeatStufe() in app.js), je nach
+   Schichtdauer dieses Tages im Vergleich zum Rest des Monats. */
 .clock-calendar__day--schicht {
-  background: var(--color-accent);
   color: var(--color-accent-text);
   font-weight: 700;
   cursor: pointer;
 }
+
+.clock-calendar__day--heat-1 { background: var(--color-heat-1); }
+.clock-calendar__day--heat-2 { background: var(--color-heat-2); }
+.clock-calendar__day--heat-3 { background: var(--color-heat-3); }
+.clock-calendar__day--heat-4 { background: var(--color-heat-4); }
 
 .clock-calendar__day--heute:not(.clock-calendar__day--schicht) {
   box-shadow: inset 0 0 0 1.5px var(--color-accent);

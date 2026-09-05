@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v62";
+const APP_VERSION = "v63";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1484,6 +1484,36 @@ function schichtenFuerMonat(jahr, monatIndex) {
   });
 }
 
+// Gesamtdauer (Minuten) pro Tag innerhalb eines Monats - bei Doppelschichten
+// zählt die Summe aller Schichten dieses Tages, nicht die einzelne Schicht
+// (siehe Abschnitts-Kommentar bei berechneHeatStufe()).
+function tagesDauerProTag(schichtenDesMonats) {
+  const proTag = {};
+  for (const s of schichtenDesMonats) {
+    const tag = new Date(s.endeIst).getDate();
+    proTag[tag] = (proTag[tag] || 0) + s.dauerMinuten;
+  }
+  return proTag;
+}
+
+// Bildet die Tagesdauer auf eine von vier Heatmap-Stufen ab (GitHub-
+// Contribution-Graph-Stil) - die Skala wird dynamisch aus der kürzesten und
+// längsten TATSÄCHLICH vorkommenden Tages-Gesamtdauer DIESES Monats
+// berechnet, nicht hart auf einen festen Minuten-Bereich codiert (ein Monat
+// mit lauter 2h-Schichten soll genauso die volle Bandbreite an Stufen zeigen
+// können wie einer mit 2-12h-Schichten). Sind alle Tage gleich lang (min ===
+// max, z.B. nur ein einziger Schicht-Tag im Monat), gibt es keine sinnvolle
+// Bandbreite - dann bekommt jeder Schicht-Tag die höchste Stufe statt
+// willkürlich eine mittlere.
+function berechneHeatStufe(minutenDesTages, minMinuten, maxMinuten) {
+  if (maxMinuten === minMinuten) return 4;
+  const anteil = (minutenDesTages - minMinuten) / (maxMinuten - minMinuten);
+  if (anteil < 0.25) return 1;
+  if (anteil < 0.5) return 2;
+  if (anteil < 0.75) return 3;
+  return 4;
+}
+
 function renderStempeluhrKalender() {
   const jahr = kalenderJahr;
   const monatIndex = kalenderMonat;
@@ -1491,6 +1521,11 @@ function renderStempeluhrKalender() {
 
   const schichtenDesMonats = schichtenFuerMonat(jahr, monatIndex);
   const summe = schichtMonatssummen[monatSchluessel(jahr, monatIndex)];
+
+  const dauerProTag = tagesDauerProTag(schichtenDesMonats);
+  const tagesDauern = Object.values(dauerProTag);
+  const minTagesDauer = tagesDauern.length > 0 ? Math.min(...tagesDauern) : 0;
+  const maxTagesDauer = tagesDauern.length > 0 ? Math.max(...tagesDauern) : 0;
 
   const gesamtMinuten = schichtenDesMonats.reduce((s, e) => s + e.dauerMinuten, 0) + (summe?.gesamtMinuten || 0);
   const gesamtLohn = round2(
@@ -1533,7 +1568,8 @@ function renderStempeluhrKalender() {
     }
 
     if (schichtenDesTags.length > 0) {
-      zelle.classList.add("clock-calendar__day--schicht");
+      const heatStufe = berechneHeatStufe(dauerProTag[tag], minTagesDauer, maxTagesDauer);
+      zelle.classList.add("clock-calendar__day--schicht", `clock-calendar__day--heat-${heatStufe}`);
       zelle.addEventListener("click", () => openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags));
     } else {
       zelle.disabled = true;
