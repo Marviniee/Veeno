@@ -504,12 +504,14 @@ button,
   flex: 1;
   display: flex;
   flex-direction: column;
+  align-items: center;
   min-width: 0;
 }
 
 .entry-amount__label {
   font-size: 0.8rem;
   color: var(--color-text-muted);
+  text-align: center;
 }
 
 /* Zwei gleich breite Kacheln nebeneinander ("Heute" + "Verdienst") - je
@@ -1384,11 +1386,7 @@ button,
   font-variant-numeric: tabular-nums;
 }
 
-/* Im Kopfbereich des Eintrag-Screens steht das Betragsfeld links neben der
-   Tagessumme-Karte statt allein über volle Breite - dort wirkt eine
-   zentrierte Zahl verloren, deshalb hier linksbündig. */
 .entry-amount .display {
-  text-align: left;
   padding: 2px 0 0;
 }
 
