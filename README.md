@@ -27,22 +27,27 @@ Studienstart.
   Sparziel voraussichtlich erreicht wird
 - **Undo fürs Löschen:** kurzes Zeitfenster nach dem Löschen eines Eintrags, um die
   Aktion per Toast rückgängig zu machen
-- **Wachstumskurve** der Sparrücklage über Zeit (1/3/6 Monate)
+- **Wachstumskurve** der Sparrücklage über die letzten 30 Tage, mit einem Punkt-Marker
+  pro Datenpunkt
 - **Meilenstein-Belohnungssystem** mit freischaltbaren Abzeichen ab der ersten
   Einzahlung bis zu 3.000 €
-- **Stempeluhr:** eigener Tab zum Ein-/Ausstempeln mit Live-Timer, App startet je nach
-  Status automatisch auf dem passenden Tab
-- **Arbeitszeit-Kalender:** echter Monatskalender mit allen Schichten, editierbaren
-  Start-/Endzeiten und verdientem Lohn pro Tag (auf Basis eines einstellbaren
-  Stundenlohns, der pro Schicht eingefroren wird)
-- **Live-Verdienst-Anzeige** auf dem Eintrag-Screen: laufender Lohn und Arbeitszeit der
-  aktuellen Schicht in Echtzeit
+- **Stempeluhr:** eigener Tab zum Ein-/Ausstempeln mit großem Knopf, klar erkennbarem
+  Status und Live-Timer; App startet je nach Status automatisch auf dem passenden Tab
+- **Arbeitszeit-Kalender:** echter Monatskalender mit allen Schichten als
+  Intensitäts-Heatmap (Farbstärke je nach Schichtdauer, wie ein Contribution-Graph),
+  editierbaren Start-/Endzeiten, Löschen einzelner Schichten und verdientem Lohn pro Tag
+  (auf Basis eines einstellbaren Stundenlohns, der pro Schicht eingefroren wird)
+- **Live-Verdienst-Anzeige** auf dem Eintrag-Screen: laufender Lohn, Arbeitszeit und
+  Ø €/Std. der aktuellen Schicht in Echtzeit, symmetrisch neben der Trinkgeld-Kachel
+- **Wisch-Navigation:** zwischen den Haupt-Tabs wischen, plus Wisch-Geste "Zurück" auf
+  allen Vollbild-Screens
 - **Automatische Verlaufsverdichtung:** Schichten älter als 2 Monate werden zu
   Monatssummen zusammengefasst, um den Speicher schlank zu halten
-- **Backup & Restore:** wahlweise nur Trinkgeld (JSON), nur Stempeluhr (CSV) oder beides
-  exportierbar; Wiederherstellung über JSON-Import
-- **Einstellungen** für Farbmodus (Hell/Dunkel/System), Rundungsgröße beim Schicht-
-  Abschluss, Eingabe-Obergrenze pro Eintrag und Stundenlohn
+- **Backup & Restore:** granular wählbar (nur Trinkgeld, nur Stempeluhr oder beides),
+  beides als JSON vollständig wiederherstellbar, Stempeluhr zusätzlich als CSV für
+  externe Auswertung (Excel/Lohnkontrolle)
+- **Einstellungen** in thematischen Untermenüs: Trinkgeld & Schicht, Stempeluhr,
+  Darstellung, Backup & Export, sowie Gefahrenzone für destruktive Aktionen
 
 ## Technik
 
@@ -67,4 +72,4 @@ Persönliches Projekt, kein Open-Source-Lizenz – alle Rechte vorbehalten.
 
 ## Version
 
-v2.0.0
+v2.1.0
