@@ -219,78 +219,182 @@ button,
 }
 
 /* ==========================================================================
-   Arbeitszeit-Tracker: Banner auf dem Eintrag-Screen (Ein-/Ausstempeln)
-   Zwei Zustände über den Modifier --aktiv: eingestempelt bekommt einen
-   deutlichen Akzentrahmen (gleiches Muster wie .goal-card--hero), nicht
-   eingestempelt bleibt dezenter (neutraler Rahmen, "Einstempeln" als reiner
-   Textbutton in Akzentfarbe statt gefüllter Fläche).
+   Stempeluhr-Tab: großer Ein-/Ausstempeln-Knopf + Monatskalender
    ========================================================================== */
-.zeiterfassung-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 12px 14px;
-}
 
-.zeiterfassung-banner--aktiv {
-  border-width: 1.5px;
-  border-color: var(--color-accent);
-  box-shadow: 0 4px 24px rgba(255, 158, 62, 0.15);
-}
-
-.zeiterfassung-banner__info {
+/* Zentrierter Bereich um den großen Knopf - eigener Screen-Abschnitt,
+   deshalb mit etwas Luft ober-/unterhalb statt direkt an Nachbarkarten zu kleben. */
+.clock-toggle {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0 4px;
 }
 
-.zeiterfassung-banner__status {
+/* Großer runder Knopf als eindeutig unterscheidbarer Zustands-Indikator:
+   "Clocked Out" = nur Umrandung (wie .shift-btn), "Clocked In" = komplett
+   gefüllte Akzentfläche mit Schatten - der Unterschied soll auch aus der
+   Hüfte erkennbar sein, nicht nur am Text. */
+.clock-toggle__btn {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 3px solid var(--color-accent);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.clock-toggle__btn--aktiv {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  box-shadow: 0 8px 28px rgba(255, 158, 62, 0.35);
+}
+
+.clock-toggle__state {
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+
+.clock-toggle__timer {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-toggle__hint {
+  margin: 0;
   font-size: 0.85rem;
   color: var(--color-text-muted);
 }
 
-.zeiterfassung-banner__dauer {
-  font-size: 1.15rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-accent);
+/* Kalender-Karte: gleiches Karten-Grundgerüst wie goal-card/prognose-card. */
+.clock-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: 16px;
 }
 
-.zeiterfassung-banner__btn {
-  flex-shrink: 0;
-  min-height: 44px;
-  padding: 0 18px;
-  border-radius: 12px;
+.clock-calendar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clock-calendar__title {
   font-weight: 700;
-  font-size: 0.95rem;
+  font-size: 1rem;
+}
+
+.clock-calendar__nav {
+  min-width: 36px;
+  min-height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 1.2rem;
+  line-height: 1;
   cursor: pointer;
 }
 
-/* "Ausstempeln": gefüllte Akzentfläche - die Haupt-Aktion, während man
-   eingestempelt ist. */
-.zeiterfassung-banner__btn--aus {
-  border: none;
-  background: var(--color-accent);
-  color: var(--color-accent-text);
-}
-
-/* "Einstempeln": gleiches Muster wie .shift-btn (Umrandung statt Fläche) -
-   bewusst weniger dringlich als "Ausstempeln", schließlich ist "nicht
-   eingestempelt" kein Fehlerzustand. */
-.zeiterfassung-banner__btn--ein {
-  border: 2px solid var(--color-accent);
-  background: none;
+.clock-calendar__summary {
+  margin: 0;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 800;
   color: var(--color-accent);
 }
 
-.zeiterfassung-banner__btn--ein:active {
+.clock-calendar__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+.clock-calendar__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.clock-calendar__day {
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-calendar__day--leer {
+  visibility: hidden;
+}
+
+.clock-calendar__day--schicht {
   background: var(--color-accent);
   color: var(--color-accent-text);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.clock-calendar__day--heute:not(.clock-calendar__day--schicht) {
+  box-shadow: inset 0 0 0 1.5px var(--color-accent);
+}
+
+.clock-calendar__day:disabled {
+  cursor: default;
+}
+
+.clock-calendar__verdichtet-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* Schicht-Detail-Overlay (Tap auf einen hervorgehobenen Kalendertag) */
+.schicht-detail__eintrag {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.schicht-detail__eintrag:last-of-type {
+  border-bottom: none;
+}
+
+.schicht-detail__zeile {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.schicht-detail__lohn {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-accent);
+}
+
+.schicht-detail__gesamt {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+  font-weight: 700;
+  text-align: right;
 }
 
 /* Kopfbereich des Eintrag-Screens: Betragsfeld links + Tagessumme-Karte
@@ -1659,6 +1763,12 @@ button,
    (gleiche Breite wie der "Abbrechen"-Text links) */
 .modal__spacer {
   width: 70px;
+}
+
+.modal__hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
 }
 
 /* Speichern und Löschen nebeneinander in einer Reihe, damit der Dialog

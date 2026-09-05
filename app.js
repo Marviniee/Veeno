@@ -32,13 +32,19 @@ const STORAGE_KEY_EINGEZAHLT = "veeno-eingezahlt-gesamt";
 const STORAGE_KEY_BADGES = "veeno-badges";
 const STORAGE_KEY_ZEITERFASSUNG_AKTIV = "veeno-zeiterfassung-aktiv";
 const STORAGE_KEY_SCHICHTEN = "veeno-schichten";
+const STORAGE_KEY_SCHICHT_MONATSSUMMEN = "veeno-schicht-monatssummen";
+
+// Einzelne Schicht-Datensätze werden maximal so viele Kalendermonate lang
+// aufbewahrt (siehe verdichteAlteSchichten() in Abschnitt 7b) - älter als
+// das werden sie zu einer Monatssumme zusammengefasst und gelöscht.
+const SCHICHT_RETENTION_MONATE = 2;
 
 // Version des Backup-Dateiformats (siehe exportData()/importBackup()) -
 // unabhängig von APP_SEMVER/APP_VERSION. Nur hochzählen, wenn sich die
 // STRUKTUR eines Backups ändert (neues/entferntes Feld, anderer Aufbau),
 // damit importBackup() künftig gezielt zwischen Formaten unterscheiden
 // kann, statt wie bisher per Ad-hoc-Heuristik ("hat das Feld X?").
-const BACKUP_SCHEMA_VERSION = 2;
+const BACKUP_SCHEMA_VERSION = 3;
 
 // Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
 // wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
@@ -54,7 +60,7 @@ const APP_SEMVER = "1.1.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v52";
+const APP_VERSION = "v53";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -65,6 +71,7 @@ const EINSTELLUNGEN_DEFAULT = {
   becherKorrektur: 0,   // Differenz für die manuelle Becherbestand-Korrektur
   motivationAn: true,   // Motivationssprüche an/aus
   zeiterfassungRundung: "stunde", // Rundung der Einstempel-Zeit: "stunde" | "halbeStunde" | "viertelstunde" | "exakt"
+  stundenlohn: null,    // Stundenlohn in € - null = noch nicht gesetzt (siehe Stempeluhr-Tab, Ersteinrichtung)
 };
 
 // "buffer" ist das, was der Nutzer gerade auf dem Haupt-Zahlenfeld eintippt,
@@ -107,11 +114,20 @@ let freigeschalteteBadges = loadBadges();
 let zeiterfassungAktiv = loadZeiterfassungAktiv();
 
 // Abgeschlossene Arbeitszeit-Schichten (nach dem Ausstempeln), unabhängig
-// von den Tagesabrechnungen der Becher-Logik - siehe Abschnitt 7b.
+// von den Tagesabrechnungen der Becher-Logik - siehe Abschnitt 7b. Hält nur
+// ein rollierendes Fenster der letzten SCHICHT_RETENTION_MONATE Monate,
+// älteres wandert per verdichteAlteSchichten() in schichtMonatssummen.
 let schichten = loadSchichten();
 
-// Intervall-ID des Live-Timers im Zeiterfassungs-Banner (Abschnitt 7b) -
-// null, solange nicht eingestempelt.
+// Pro Kalendermonat verdichtete Schichten, die aus schichten() rausgefallen
+// sind (siehe SCHICHT_RETENTION_MONATE) - {schluessel: {gesamtMinuten,
+// gesamtLohn, anzahlSchichten}}, schluessel z.B. "2026-07". Für den
+// Stempeluhr-Kalender die einzige noch verfügbare Information zu älteren
+// Monaten (keine Tages-Details mehr, nur noch die Monatssumme).
+let schichtMonatssummen = loadSchichtMonatssummen();
+
+// Intervall-ID des Live-Timers im Stempeluhr-Tab (Abschnitt 7b) - null,
+// solange nicht eingestempelt.
 let zeiterfassungTimerId = null;
 
 // Merkt sich, welche Schicht zuletzt per Ausstempeln beendet wurde, damit
@@ -120,6 +136,12 @@ let zeiterfassungTimerId = null;
 // zeigt - nicht, wenn der Screen ganz normal über den Button geöffnet wird
 // (siehe initShiftDialog()/renderSchichtArbeitszeit()).
 let letzteAusgestempelteSchichtId = null;
+
+// Welcher Monat gerade im Stempeluhr-Kalender angezeigt wird (0-basierter
+// Monatsindex wie bei Date#getMonth()) - startet beim aktuellen Monat,
+// änderbar über die Vor/Zurück-Pfeile (siehe wechsleKalenderMonat()).
+let kalenderJahr = new Date().getFullYear();
+let kalenderMonat = new Date().getMonth();
 
 
 // ============================================================================
@@ -267,21 +289,26 @@ function persistZeiterfassungAktiv() {
 }
 
 // Wie normalisiereZeiterfassungAktiv(), nur für die Schicht-Historie: jeder
-// Eintrag braucht alle fünf Felder mit dem richtigen Typ, sonst fliegt er
+// Eintrag braucht die sechs Kernfelder mit dem richtigen Typ, sonst fliegt er
 // raus - besser ein paar (kaputte) Alt-Schichten weniger als ein Absturz
-// beim Rendern der Statistiken.
+// beim Rendern der Statistiken. "lohn" ist NICHT Teil dieser Pflichtprüfung:
+// das Feld gab es vor Einführung des Stundenlohns noch nicht, alte Schichten
+// (lokal oder aus einem älteren Backup) bekommen per .map() rückwirkend 0€
+// statt komplett rausgefiltert zu werden.
 function normalisiereSchichten(roh) {
   if (!Array.isArray(roh)) return [];
-  return roh.filter(
-    (s) =>
-      s &&
-      typeof s.schichtId === "string" && s.schichtId &&
-      typeof s.startIst === "string" &&
-      typeof s.startBezahlt === "string" &&
-      typeof s.endeIst === "string" &&
-      typeof s.dauerMinuten === "number" &&
-      typeof s.trinkgeldGesamt === "number"
-  );
+  return roh
+    .filter(
+      (s) =>
+        s &&
+        typeof s.schichtId === "string" && s.schichtId &&
+        typeof s.startIst === "string" &&
+        typeof s.startBezahlt === "string" &&
+        typeof s.endeIst === "string" &&
+        typeof s.dauerMinuten === "number" &&
+        typeof s.trinkgeldGesamt === "number"
+    )
+    .map((s) => ({ ...s, lohn: typeof s.lohn === "number" ? s.lohn : 0 }));
 }
 
 function loadSchichten() {
@@ -297,6 +324,47 @@ function loadSchichten() {
 
 function persistSchichten() {
   localStorage.setItem(STORAGE_KEY_SCHICHTEN, JSON.stringify(schichten));
+}
+
+// Verdichtete Monatssummen (siehe SCHICHT_RETENTION_MONATE): Objekt, jeder
+// Schlüssel ein Monat als "YYYY-MM", jeder Wert {gesamtMinuten, gesamtLohn,
+// anzahlSchichten}. Wie bei normalisiereSchichten() wird ein kaputter/
+// unbekannter Eintrag einfach übersprungen statt den ganzen Import/das ganze
+// Laden abzulehnen.
+function normalisiereSchichtMonatssummen(roh) {
+  if (!roh || typeof roh !== "object") return {};
+  const ergebnis = {};
+  for (const [monat, werte] of Object.entries(roh)) {
+    if (
+      /^\d{4}-\d{2}$/.test(monat) &&
+      werte && typeof werte === "object" &&
+      typeof werte.gesamtMinuten === "number" &&
+      typeof werte.gesamtLohn === "number" &&
+      typeof werte.anzahlSchichten === "number"
+    ) {
+      ergebnis[monat] = {
+        gesamtMinuten: werte.gesamtMinuten,
+        gesamtLohn: werte.gesamtLohn,
+        anzahlSchichten: werte.anzahlSchichten,
+      };
+    }
+  }
+  return ergebnis;
+}
+
+function loadSchichtMonatssummen() {
+  const raw = localStorage.getItem(STORAGE_KEY_SCHICHT_MONATSSUMMEN);
+  if (!raw) return {};
+  try {
+    return normalisiereSchichtMonatssummen(JSON.parse(raw));
+  } catch (fehler) {
+    console.error("Konnte Schicht-Monatssummen nicht lesen:", fehler);
+    return {};
+  }
+}
+
+function persistSchichtMonatssummen() {
+  localStorage.setItem(STORAGE_KEY_SCHICHT_MONATSSUMMEN, JSON.stringify(schichtMonatssummen));
 }
 
 function loadSparzielBetrag() {
@@ -338,6 +406,7 @@ function normalisiereEinstellungen(roh) {
     zeiterfassungRundung: gueltigeZeiterfassungRundungen.includes(roh.zeiterfassungRundung)
       ? roh.zeiterfassungRundung
       : EINSTELLUNGEN_DEFAULT.zeiterfassungRundung,
+    stundenlohn: typeof roh.stundenlohn === "number" && roh.stundenlohn > 0 ? roh.stundenlohn : EINSTELLUNGEN_DEFAULT.stundenlohn,
   };
 }
 
@@ -554,6 +623,22 @@ function undoDelete() {
 
 function initUndoToast() {
   document.getElementById("undo-toast-action").addEventListener("click", undoDelete);
+}
+
+// Generischer Info-Toast (kein Undo, keine Aktion) - aktuell nur für den
+// Hinweis nach dem Verdichten alter Schichten genutzt (siehe
+// verdichteAlteSchichten()), aber bewusst allgemein gehalten für künftige
+// Fälle. Gleiches visuelles Muster wie der Undo-Toast, etwas länger
+// sichtbar (5s statt 4,5s), da hier nichts zum schnellen Reagieren drängt.
+let infoToastTimeout = null;
+
+function zeigeInfoToast(text) {
+  document.getElementById("info-toast-text").textContent = text;
+  document.getElementById("info-toast").hidden = false;
+  clearTimeout(infoToastTimeout);
+  infoToastTimeout = setTimeout(() => {
+    document.getElementById("info-toast").hidden = true;
+  }, 5000);
 }
 
 function updateEntry(id, betrag, timestamp) {
@@ -992,7 +1077,7 @@ function renderBecherBestand() {
 
 
 // ============================================================================
-// 7b. Arbeitszeit-Tracker (Ein-/Ausstempeln)
+// 7b. Arbeitszeit-Tracker (Ein-/Ausstempeln) - eigener "Stempeluhr"-Tab
 //
 // Marvin stempelt physisch an einer echten Stempeluhr ein/aus und tippt im
 // gleichen Moment hier "Einstempeln"/"Ausstempeln" - die App bildet die
@@ -1000,19 +1085,37 @@ function renderBecherBestand() {
 // läuft, bekommt jeder neue Trinkgeld-Eintrag die laufende schichtId
 // mitgegeben (siehe saveEntry()), damit sich hinterher pro Schicht sowohl
 // die bezahlte Arbeitszeit als auch das dabei erzielte Trinkgeld auswerten
-// lassen (z.B. "€ pro Stunde" - noch nicht in dieser Version, aber die
-// Datengrundlage ist ab jetzt da).
+// lassen (Trinkgeld läuft aber weiterhin unabhängig über die
+// Tagesabrechnungen - der Stempeluhr-Kalender zeigt bewusst NUR den
+// Stundenlohn-Verdienst, kein Trinkgeld).
 //
 // Zwei getrennte Zeitstempel pro Schicht:
 // - startIst: der exakte Moment des Tap auf "Einstempeln" (unverändert,
 //   für die Anzeige "Eingestempelt seit ...").
 // - startBezahlt: startIst, aufgerundet nach der Einstellung
 //   "zeiterfassungRundung" - das ist die Zeit, die für Marvins
-//   Lohnkontrolle tatsächlich zählt (dauerMinuten rechnet IMMER mit
-//   startBezahlt, nie mit startIst).
+//   Lohnkontrolle tatsächlich zählt (dauerMinuten UND der Live-Timer
+//   rechnen IMMER mit startBezahlt, nie mit startIst).
 // Beim Ausstempeln gibt es keine Rundung - endeIst ist immer der exakte
 // Tap-Zeitpunkt.
+//
+// Verdienst (lohn): wird beim Ausstempeln EINMALIG aus dauerMinuten und dem
+// dann gültigen einstellungen.stundenlohn berechnet und fest im Schicht-
+// Datensatz gespeichert ("eingefroren") - eine spätere Änderung des
+// Stundenlohns wirkt sich nie rückwirkend auf schon abgeschlossene
+// Schichten aus, nur auf künftige.
+//
+// Retention: schichten hält nur ein rollierendes Fenster der letzten
+// SCHICHT_RETENTION_MONATE Monate. Bei jedem App-Start verdichtet
+// verdichteAlteSchichten() ältere Einzelschichten zu einer Monatssumme
+// (schichtMonatssummen) und löscht sie - siehe dort.
 // ============================================================================
+
+const MONATSNAMEN = [
+  "Januar", "Februar", "März", "April", "Mai", "Juni",
+  "Juli", "August", "September", "Oktober", "November", "Dezember",
+];
+const WOCHENTAGE_KURZ = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 
 // Rundet eine Uhrzeit gemäß der gewählten Einstellung AUF (nie ab) - siehe
 // Abschnitts-Kommentar oben. "exakt" (oder ein unbekannter Wert) gibt die
@@ -1051,7 +1154,7 @@ function einstempeln() {
   };
   persistZeiterfassungAktiv();
 
-  renderZeiterfassung();
+  renderStempeluhrKnopf();
   starteZeiterfassungTimer();
 }
 
@@ -1071,6 +1174,11 @@ function ausstempeln() {
       .filter((eintrag) => eintrag.schichtId === zeiterfassungAktiv.schichtId)
       .reduce((summe, eintrag) => summe + eintrag.amount, 0)
   );
+  // Verdienst dieser Schicht mit dem JETZT gültigen Stundenlohn berechnen und
+  // fest speichern (siehe Abschnitts-Kommentar oben) - kein Stundenlohn
+  // gesetzt (null) zählt dabei wie 0€.
+  const stundenlohn = typeof einstellungen.stundenlohn === "number" ? einstellungen.stundenlohn : 0;
+  const lohn = round2((dauerMinuten / 60) * stundenlohn);
 
   schichten.push({
     schichtId: zeiterfassungAktiv.schichtId,
@@ -1079,6 +1187,7 @@ function ausstempeln() {
     endeIst: jetzt.toISOString(),
     dauerMinuten,
     trinkgeldGesamt,
+    lohn,
   });
   letzteAusgestempelteSchichtId = zeiterfassungAktiv.schichtId;
   zeiterfassungAktiv = null;
@@ -1086,21 +1195,24 @@ function ausstempeln() {
   persistSchichten();
   persistZeiterfassungAktiv();
   stoppeZeiterfassungTimer();
-  renderZeiterfassung();
+  renderStempeluhrKnopf();
+  renderStempeluhrKalender();
 
   // Durchgehender Feierabend-Flow: direkt weiter zur Becher-Logik, statt
   // zwei getrennte Aktionen zu verlangen (siehe openShiftDialog()).
   openShiftDialog();
 }
 
-// Aktualisiert nur die Live-Dauer-Anzeige im Banner, ohne den ganzen Block
-// neu zu rendern (kein Event-Listener-Neubinden nötig, läuft jede Sekunde).
+// Aktualisiert nur die Live-Dauer-Anzeige im Stempeluhr-Knopf, ohne den
+// ganzen Tab neu zu rendern (läuft jede Sekunde). Rechnet mit startBezahlt
+// (nicht startIst) - der Timer zählt also die für die Lohnkontrolle
+// tatsächlich zählende, gerundete Zeit, siehe Abschnitts-Kommentar oben.
 function tickZeiterfassungTimer() {
   if (!zeiterfassungAktiv) return;
-  const dauerEl = document.getElementById("zeiterfassung-dauer");
-  if (!dauerEl) return;
-  const start = new Date(zeiterfassungAktiv.startIst);
-  dauerEl.textContent = formatZeiterfassungDauer(Date.now() - start.getTime());
+  const timerEl = document.getElementById("clock-toggle-timer");
+  if (!timerEl) return;
+  const start = new Date(zeiterfassungAktiv.startBezahlt);
+  timerEl.textContent = formatZeiterfassungDauer(Date.now() - start.getTime());
 }
 
 function starteZeiterfassungTimer() {
@@ -1115,32 +1227,26 @@ function stoppeZeiterfassungTimer() {
   }
 }
 
-// Rendert den Banner auf dem Eintrag-Screen komplett neu (wie renderSparziel())
-// - die zwei Zustände (eingestempelt/nicht eingestempelt) unterscheiden sich
-// stark genug, dass sich Ein-/Ausblenden einzelner Elemente nicht lohnt.
-function renderZeiterfassung() {
-  const container = document.getElementById("zeiterfassung-banner");
+// Aktualisiert nur Klassen/Textinhalte des Ein-/Ausstempeln-Knopfes (kein
+// innerHTML-Neuaufbau nötig, der Knopf selbst bleibt immer derselbe Klick-
+// Handler - siehe initStempeluhr()).
+function renderStempeluhrKnopf() {
+  const knopf = document.getElementById("clock-toggle-btn");
+  const zustand = document.getElementById("clock-toggle-state");
+  const timerEl = document.getElementById("clock-toggle-timer");
+  const hinweis = document.getElementById("clock-toggle-hint");
 
   if (zeiterfassungAktiv) {
-    const start = new Date(zeiterfassungAktiv.startIst);
-    container.classList.add("zeiterfassung-banner--aktiv");
-    container.innerHTML = `
-      <div class="zeiterfassung-banner__info">
-        <span class="zeiterfassung-banner__status">Eingestempelt seit ${formatTime(zeiterfassungAktiv.startIst)}</span>
-        <span class="zeiterfassung-banner__dauer" id="zeiterfassung-dauer">${formatZeiterfassungDauer(Date.now() - start.getTime())}</span>
-      </div>
-      <button class="zeiterfassung-banner__btn zeiterfassung-banner__btn--aus" id="zeiterfassung-ausstempeln-btn">Ausstempeln</button>
-    `;
-    document.getElementById("zeiterfassung-ausstempeln-btn").addEventListener("click", ausstempeln);
+    knopf.classList.add("clock-toggle__btn--aktiv");
+    zustand.textContent = "Ausstempeln";
+    timerEl.hidden = false;
+    timerEl.textContent = formatZeiterfassungDauer(Date.now() - new Date(zeiterfassungAktiv.startBezahlt).getTime());
+    hinweis.textContent = `Eingestempelt seit ${formatTime(zeiterfassungAktiv.startIst)}`;
   } else {
-    container.classList.remove("zeiterfassung-banner--aktiv");
-    container.innerHTML = `
-      <div class="zeiterfassung-banner__info">
-        <span class="zeiterfassung-banner__status">Nicht eingestempelt</span>
-      </div>
-      <button class="zeiterfassung-banner__btn zeiterfassung-banner__btn--ein" id="zeiterfassung-einstempeln-btn">Einstempeln</button>
-    `;
-    document.getElementById("zeiterfassung-einstempeln-btn").addEventListener("click", einstempeln);
+    knopf.classList.remove("clock-toggle__btn--aktiv");
+    zustand.textContent = "Einstempeln";
+    timerEl.hidden = true;
+    hinweis.textContent = "Nicht eingestempelt";
   }
 }
 
@@ -1192,16 +1298,285 @@ function initZeiterfassungAbschluss() {
     // Hand nachträglich spät gesetzte Startzeit soll nie zu einer
     // negativen Arbeitszeit führen.
     schicht.dauerMinuten = Math.max(0, Math.round((new Date(schicht.endeIst).getTime() - neueStart.getTime()) / 60000));
+    // Lohn mit der aktuell gültigen Rate neu berechnen (praktisch derselbe
+    // Moment wie das Ausstempeln selbst, kein "rückwirkend andere Rate"-Fall).
+    const stundenlohn = typeof einstellungen.stundenlohn === "number" ? einstellungen.stundenlohn : 0;
+    schicht.lohn = round2((schicht.dauerMinuten / 60) * stundenlohn);
 
     persistSchichten();
     aktualisiereSchichtArbeitszeitDauer(schicht);
+    renderStempeluhrKalender();
   });
 }
 
-function initZeiterfassung() {
-  renderZeiterfassung();
-  if (zeiterfassungAktiv) starteZeiterfassungTimer();
+// ----------------------------------------------------------------------------
+// Retention: schichten hält nur ein rollierendes Fenster der letzten
+// SCHICHT_RETENTION_MONATE Monate. Bei jedem App-Start werden ältere
+// Einzelschichten (nach dem Kalendermonat ihres endeIst gruppiert) zu einer
+// Monatssumme verdichtet und danach aus schichten entfernt - die
+// Trinkgeld-Verknüpfung (schichtId) spielt dabei keine Rolle mehr: entries
+// enthält ohnehin nur die aktuell noch nicht abgerechnete Schicht des
+// laufenden Tages (siehe saveShiftSummary()), eine 2 Monate alte
+// schichten-Zeile kann also nie noch offene entries mit ihrer schichtId
+// haben - keine Waisen-Referenzen möglich.
+// ----------------------------------------------------------------------------
+
+function monatSchluessel(jahr, monatIndex) {
+  return `${jahr}-${String(monatIndex + 1).padStart(2, "0")}`;
+}
+
+function monatSchluesselVonIso(isoString) {
+  const datum = new Date(isoString);
+  return monatSchluessel(datum.getFullYear(), datum.getMonth());
+}
+
+function verdichteAlteSchichten() {
+  const grenze = new Date();
+  grenze.setMonth(grenze.getMonth() - SCHICHT_RETENTION_MONATE);
+
+  const alte = schichten.filter((s) => new Date(s.endeIst).getTime() < grenze.getTime());
+  if (alte.length === 0) return;
+
+  const nachMonat = {};
+  for (const s of alte) {
+    const monat = monatSchluesselVonIso(s.endeIst);
+    if (!nachMonat[monat]) nachMonat[monat] = { gesamtMinuten: 0, gesamtLohn: 0, anzahlSchichten: 0 };
+    nachMonat[monat].gesamtMinuten += s.dauerMinuten;
+    nachMonat[monat].gesamtLohn = round2(nachMonat[monat].gesamtLohn + s.lohn);
+    nachMonat[monat].anzahlSchichten += 1;
+  }
+
+  for (const [monat, werte] of Object.entries(nachMonat)) {
+    const bisherige = schichtMonatssummen[monat] || { gesamtMinuten: 0, gesamtLohn: 0, anzahlSchichten: 0 };
+    schichtMonatssummen[monat] = {
+      gesamtMinuten: bisherige.gesamtMinuten + werte.gesamtMinuten,
+      gesamtLohn: round2(bisherige.gesamtLohn + werte.gesamtLohn),
+      anzahlSchichten: bisherige.anzahlSchichten + werte.anzahlSchichten,
+    };
+  }
+
+  const alteIds = new Set(alte.map((s) => s.schichtId));
+  schichten = schichten.filter((s) => !alteIds.has(s.schichtId));
+
+  persistSchichten();
+  persistSchichtMonatssummen();
+
+  // Kurzer Hinweis statt stiller Löschung - ein Satz pro betroffenem Monat
+  // (in aller Regel nur einer, da verdichteAlteSchichten() bei jedem
+  // App-Start läuft und sich Monate so nicht anhäufen können).
+  const meldung = Object.entries(nachMonat)
+    .map(([monat, werte]) => {
+      const [jahrText, monatNr] = monat.split("-");
+      const monatName = MONATSNAMEN[Number(monatNr) - 1];
+      return `${werte.anzahlSchichten} Schicht${werte.anzahlSchichten === 1 ? "" : "en"} aus ${monatName} ${jahrText} zu einer Monatssumme zusammengefasst.`;
+    })
+    .join(" ");
+  zeigeInfoToast(meldung);
+}
+
+// ----------------------------------------------------------------------------
+// Stempeluhr-Kalender: echter Monatskalender (Wochentagsreihen + Tageszahlen)
+// statt Contribution-Graph. Tage mit einer Schicht sind hervorgehoben und
+// per Tap öffnen sie das Detail (openSchichtDetail()). Zeigt zusätzlich den
+// Verdienst (NUR Stundenlohn, kein Trinkgeld) des angezeigten Monats -
+// kombiniert aus den noch einzeln vorliegenden Schichten UND einer
+// eventuell schon verdichteten Monatssumme (kann im Übergangsmonat beides
+// gleichzeitig geben, siehe verdichteAlteSchichten()).
+// ----------------------------------------------------------------------------
+
+function schichtenFuerMonat(jahr, monatIndex) {
+  return schichten.filter((s) => {
+    const d = new Date(s.endeIst);
+    return d.getFullYear() === jahr && d.getMonth() === monatIndex;
+  });
+}
+
+function renderStempeluhrKalender() {
+  const jahr = kalenderJahr;
+  const monatIndex = kalenderMonat;
+  document.getElementById("clock-calendar-title").textContent = `${MONATSNAMEN[monatIndex]} ${jahr}`;
+
+  const schichtenDesMonats = schichtenFuerMonat(jahr, monatIndex);
+  const summe = schichtMonatssummen[monatSchluessel(jahr, monatIndex)];
+
+  const gesamtMinuten = schichtenDesMonats.reduce((s, e) => s + e.dauerMinuten, 0) + (summe?.gesamtMinuten || 0);
+  const gesamtLohn = round2(
+    schichtenDesMonats.reduce((s, e) => s + e.lohn, 0) + (summe?.gesamtLohn || 0)
+  );
+  document.getElementById("clock-calendar-summary").textContent =
+    `${formatZeiterfassungDauer(gesamtMinuten * 60000)} · ${formatAmount(gesamtLohn)}`;
+
+  const hinweisEl = document.getElementById("clock-calendar-verdichtet-hint");
+  if (summe) {
+    hinweisEl.hidden = false;
+    hinweisEl.textContent =
+      `+ ${summe.anzahlSchichten} bereits verdichtete Schicht${summe.anzahlSchichten === 1 ? "" : "en"} diesen Monats: ${formatZeiterfassungDauer(summe.gesamtMinuten * 60000)} · ${formatAmount(summe.gesamtLohn)}`;
+  } else {
+    hinweisEl.hidden = true;
+  }
+
+  const grid = document.getElementById("clock-calendar-grid");
+  grid.innerHTML = "";
+
+  const ersterTagWochentag = (new Date(jahr, monatIndex, 1).getDay() + 6) % 7; // Mo=0 ... So=6
+  const tageImMonat = new Date(jahr, monatIndex + 1, 0).getDate();
+  const heute = new Date();
+
+  for (let i = 0; i < ersterTagWochentag; i++) {
+    const leerzelle = document.createElement("div");
+    leerzelle.className = "clock-calendar__day clock-calendar__day--leer";
+    grid.appendChild(leerzelle);
+  }
+
+  for (let tag = 1; tag <= tageImMonat; tag++) {
+    const schichtenDesTags = schichtenDesMonats.filter((s) => new Date(s.endeIst).getDate() === tag);
+    const zelle = document.createElement("button");
+    zelle.type = "button";
+    zelle.className = "clock-calendar__day";
+    zelle.textContent = String(tag);
+
+    if (heute.getFullYear() === jahr && heute.getMonth() === monatIndex && heute.getDate() === tag) {
+      zelle.classList.add("clock-calendar__day--heute");
+    }
+
+    if (schichtenDesTags.length > 0) {
+      zelle.classList.add("clock-calendar__day--schicht");
+      zelle.addEventListener("click", () => openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags));
+    } else {
+      zelle.disabled = true;
+    }
+
+    grid.appendChild(zelle);
+  }
+}
+
+function wechsleKalenderMonat(delta) {
+  kalenderMonat += delta;
+  if (kalenderMonat < 0) {
+    kalenderMonat = 11;
+    kalenderJahr -= 1;
+  } else if (kalenderMonat > 11) {
+    kalenderMonat = 0;
+    kalenderJahr += 1;
+  }
+  renderStempeluhrKalender();
+}
+
+// Detail-Overlay: alle Schichten eines angetippten Tages mit Start/Ende,
+// Dauer und Lohn - bei mehreren Schichten am selben Tag (Doppelschicht)
+// zusätzlich eine Gesamtzeile.
+function openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags) {
+  document.getElementById("schicht-detail-title").textContent = `${tag}. ${MONATSNAMEN[monatIndex]} ${jahr}`;
+
+  const liste = document.getElementById("schicht-detail-liste");
+  liste.innerHTML = schichtenDesTags
+    .map(
+      (s) => `
+        <div class="schicht-detail__eintrag">
+          <div class="schicht-detail__zeile">
+            <span>${formatTime(s.startBezahlt)} – ${formatTime(s.endeIst)}</span>
+            <span>${formatZeiterfassungDauer(s.dauerMinuten * 60000)}</span>
+          </div>
+          <div class="schicht-detail__lohn">${formatAmount(s.lohn)}</div>
+        </div>
+      `
+    )
+    .join("");
+
+  if (schichtenDesTags.length > 1) {
+    const gesamt = round2(schichtenDesTags.reduce((summe, s) => summe + s.lohn, 0));
+    liste.innerHTML += `<div class="schicht-detail__gesamt">Gesamt: ${formatAmount(gesamt)}</div>`;
+  }
+
+  document.getElementById("schicht-detail-overlay").hidden = false;
+}
+
+function closeSchichtDetail() {
+  document.getElementById("schicht-detail-overlay").hidden = true;
+}
+
+// ----------------------------------------------------------------------------
+// Stundenlohn-Dialog: gleiches Zahlenfeld-Muster wie Sparziel/Eingabe-
+// Obergrenze (eigener Buffer, eigenes Keypad, applyDigit() mit Infinity).
+// Wird sowohl aus den Einstellungen heraus geöffnet (jederzeit änderbar) als
+// auch automatisch beim ersten Öffnen des Stempeluhr-Tabs, solange noch kein
+// Stundenlohn gesetzt ist (siehe switchScreen()) - derselbe Dialog, kein
+// gesonderter Onboarding-Screen nötig.
+// ----------------------------------------------------------------------------
+
+let stundenlohnBuffer = "";
+
+function updateStundenlohnDisplay() {
+  document.getElementById("stundenlohn-display").textContent = (stundenlohnBuffer === "" ? "0" : stundenlohnBuffer) + " €";
+}
+
+function openStundenlohnDialog() {
+  stundenlohnBuffer = typeof einstellungen.stundenlohn === "number" ? amountToBuffer(einstellungen.stundenlohn) : "";
+  updateStundenlohnDisplay();
+  document.getElementById("stundenlohn-overlay").hidden = false;
+}
+
+function closeStundenlohnDialog() {
+  document.getElementById("stundenlohn-overlay").hidden = true;
+}
+
+function saveStundenlohn() {
+  const betrag = bufferToAmount(stundenlohnBuffer);
+  if (betrag === null) {
+    flashInvalid("stundenlohn-display");
+    return;
+  }
+  einstellungen.stundenlohn = betrag;
+  persistEinstellungen();
+  renderSettings();
+  closeStundenlohnDialog();
+}
+
+function initStundenlohnDialog() {
+  const keypad = document.getElementById("stundenlohn-keypad");
+
+  keypad.querySelectorAll(".key[data-digit]").forEach((button) => {
+    button.addEventListener("click", () => {
+      stundenlohnBuffer = applyDigit(stundenlohnBuffer, button.dataset.digit, Infinity);
+      updateStundenlohnDisplay();
+    });
+  });
+
+  document.getElementById("stundenlohn-key-comma").addEventListener("click", () => {
+    stundenlohnBuffer = insertComma(stundenlohnBuffer);
+    updateStundenlohnDisplay();
+  });
+  document.getElementById("stundenlohn-key-single-cent").addEventListener("click", () => {
+    stundenlohnBuffer = "0,0";
+    updateStundenlohnDisplay();
+  });
+  document.getElementById("stundenlohn-key-delete-digit").addEventListener("click", () => {
+    stundenlohnBuffer = stundenlohnBuffer.slice(0, -1);
+    updateStundenlohnDisplay();
+  });
+
+  document.getElementById("stundenlohn-cancel").addEventListener("click", closeStundenlohnDialog);
+  document.getElementById("stundenlohn-save").addEventListener("click", saveStundenlohn);
+  document.getElementById("settings-stundenlohn-edit").addEventListener("click", openStundenlohnDialog);
+}
+
+function initStempeluhr() {
+  document.getElementById("clock-toggle-btn").addEventListener("click", () => {
+    if (zeiterfassungAktiv) {
+      ausstempeln();
+    } else {
+      einstempeln();
+    }
+  });
+  document.getElementById("clock-calendar-prev").addEventListener("click", () => wechsleKalenderMonat(-1));
+  document.getElementById("clock-calendar-next").addEventListener("click", () => wechsleKalenderMonat(1));
+  document.getElementById("schicht-detail-close").addEventListener("click", closeSchichtDetail);
+
   initZeiterfassungAbschluss();
+
+  renderStempeluhrKnopf();
+  if (zeiterfassungAktiv) starteZeiterfassungTimer();
+  renderStempeluhrKalender();
 }
 
 
@@ -2091,6 +2466,10 @@ function renderSettings() {
     button.classList.toggle("choice-btn--active", button.dataset.zeiterfassungRundung === einstellungen.zeiterfassungRundung);
   });
 
+  // 3c. Stundenlohn (Arbeitszeit-Tracker)
+  document.getElementById("settings-stundenlohn-value").textContent =
+    typeof einstellungen.stundenlohn === "number" ? formatAmount(einstellungen.stundenlohn) : "Nicht gesetzt";
+
   // 4. Becherbestand: aktuellen Stand laut App zur Orientierung anzeigen
   document.getElementById("settings-becher-aktuell").textContent = formatAmount(calcBecherBestand());
 
@@ -2378,6 +2757,10 @@ function importBackup(jsonText) {
   // Backup dazu schlicht keine Aussage trifft.
   zeiterfassungAktiv = normalisiereZeiterfassungAktiv(daten.zeiterfassungAktiv);
   schichten = normalisiereSchichten(daten.schichten);
+  // schichtMonatssummen gab es vor diesem Umbau noch nicht - fehlt das Feld
+  // (altes Backup), fällt es auf {} zurück statt den lokalen Stand zu
+  // übernehmen, aus demselben Grund wie zeiterfassungAktiv/schichten oben.
+  schichtMonatssummen = normalisiereSchichtMonatssummen(daten.schichtMonatssummen);
   letzteAusgestempelteSchichtId = null;
   persistEntries();
   persistDailySummaries();
@@ -2387,6 +2770,7 @@ function importBackup(jsonText) {
   persistBadges();
   persistZeiterfassungAktiv();
   persistSchichten();
+  persistSchichtMonatssummen();
 
   wendeFarbmodusAn(); // eine importierte Einstellung kann den Farbmodus geändert haben
   renderEntries();
@@ -2400,7 +2784,8 @@ function importBackup(jsonText) {
   renderBadges();
   renderSettings();
   renderMotivation();
-  renderZeiterfassung();
+  renderStempeluhrKnopf();
+  renderStempeluhrKalender();
   if (zeiterfassungAktiv) {
     starteZeiterfassungTimer();
   } else {
@@ -2501,6 +2886,7 @@ function initSettings() {
     localStorage.removeItem(STORAGE_KEY_BADGES);
     localStorage.removeItem(STORAGE_KEY_ZEITERFASSUNG_AKTIV);
     localStorage.removeItem(STORAGE_KEY_SCHICHTEN);
+    localStorage.removeItem(STORAGE_KEY_SCHICHT_MONATSSUMMEN);
     location.reload();
   });
 
@@ -2525,6 +2911,27 @@ function initSettings() {
   });
 
   document.getElementById("settings-max-edit").addEventListener("click", openMaxDialog);
+
+  // 9. Daten exportieren: Auswahl Stempeluhr/Trinkgeld/Beides (siehe
+  // exportStempeluhrCsv()/exportData() weiter unten in Abschnitt 10).
+  document.querySelectorAll("#settings-export-auswahl-group .choice-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      exportAuswahl = button.dataset.exportAuswahl;
+      document.querySelectorAll("#settings-export-auswahl-group .choice-btn").forEach((b) => {
+        b.classList.toggle("choice-btn--active", b === button);
+      });
+    });
+  });
+  document.getElementById("settings-export-btn").addEventListener("click", () => {
+    // "Beides" löst zwei getrennte Downloads nacheinander aus, keine
+    // Kombi-Datei - CSV zuerst, dann das gewohnte JSON-Backup.
+    if (exportAuswahl === "stempeluhr" || exportAuswahl === "beides") {
+      exportStempeluhrCsv();
+    }
+    if (exportAuswahl === "trinkgeld" || exportAuswahl === "beides") {
+      exportData();
+    }
+  });
 }
 
 
@@ -2552,6 +2959,7 @@ function exportData() {
     badges: freigeschalteteBadges,
     zeiterfassungAktiv: zeiterfassungAktiv,
     schichten: schichten,
+    schichtMonatssummen: schichtMonatssummen,
     // Kontrollwerte: zum Exportzeitpunkt berechnete Summen, die
     // importBackup() nach dem Einlesen aus den Rohdaten neu berechnet und
     // damit abgleicht. Eine Abweichung deutet auf eine nachträglich von
@@ -2579,6 +2987,61 @@ function exportData() {
 
 function initExport() {
   document.getElementById("export-data").addEventListener("click", exportData);
+}
+
+// Welche Daten der "Daten exportieren"-Bereich in den Einstellungen als
+// nächstes exportiert (siehe initSettings()) - "stempeluhr" | "trinkgeld" |
+// "beides". Trinkgeld bleibt bewusst reines JSON (wiederherstellbar über
+// "Backup wiederherstellen"), die Stempeluhr-Historie ist reiner CSV-Export
+// ohne Re-Import (für externe Auswertung, z.B. Excel) - kein Bedarf, das
+// JSON-Format künftig um ein CSV-Parsing zu erweitern.
+let exportAuswahl = "trinkgeld";
+
+// CSV-Export der Schicht-Historie: eine Zeile pro Einzelschicht (Datum,
+// Start, Ende, Dauer in Stunden, Lohn), danach - falls vorhanden - ein
+// eigener Abschnitt mit den verdichteten Monatssummen (siehe
+// verdichteAlteSchichten()). Bewusst kein JSON, weil das explizit für
+// externe Tabellenauswertung gedacht ist, nicht fürs Zurückspielen in Veeno.
+function exportStempeluhrCsv() {
+  const zeilen = ["Datum,Start,Ende,Dauer (Std),Lohn (€)"];
+
+  const schichtenSortiert = [...schichten].sort(
+    (a, b) => new Date(a.startBezahlt) - new Date(b.startBezahlt)
+  );
+  for (const s of schichtenSortiert) {
+    zeilen.push(
+      [
+        dateKey(new Date(s.startBezahlt)),
+        formatTime(s.startBezahlt),
+        formatTime(s.endeIst),
+        (s.dauerMinuten / 60).toFixed(2),
+        s.lohn.toFixed(2),
+      ].join(",")
+    );
+  }
+
+  const monate = Object.keys(schichtMonatssummen).sort();
+  if (monate.length > 0) {
+    zeilen.push("");
+    zeilen.push("Verdichtete Monatssummen");
+    zeilen.push("Monat,Gesamtstunden,Gesamtlohn (€),Anzahl Schichten");
+    for (const monat of monate) {
+      const summe = schichtMonatssummen[monat];
+      zeilen.push(
+        [monat, (summe.gesamtMinuten / 60).toFixed(2), summe.gesamtLohn.toFixed(2), summe.anzahlSchichten].join(",")
+      );
+    }
+  }
+
+  const blob = new Blob([zeilen.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `veeno-stempeluhr-${todayDateKey()}.csv`;
+  link.click();
+
+  URL.revokeObjectURL(url);
 }
 
 // Liefert den aktuellen Gesamttopf (bisheriger Becherbestand + heutige,
@@ -2647,6 +3110,18 @@ function switchScreen(name) {
   // Tageszeit gewechselt hat (z.B. App blieb über Nacht im Hintergrund offen).
   if (name === "sparziel") {
     renderHomeGreeting();
+  }
+
+  // Stempeluhr-Tab: Knopf/Kalender frisch halten (Timer kann in der
+  // Zwischenzeit weitergelaufen sein) und beim allerersten Öffnen aktiv
+  // nach dem Stundenlohn fragen, solange noch keiner gesetzt ist - danach
+  // öffnet sich der Dialog nicht mehr automatisch (siehe openStundenlohnDialog()).
+  if (name === "stempeluhr") {
+    renderStempeluhrKnopf();
+    renderStempeluhrKalender();
+    if (einstellungen.stundenlohn === null) {
+      openStundenlohnDialog();
+    }
   }
 }
 
@@ -2736,6 +3211,11 @@ function initServiceWorker() {
 function init() {
   wendeFarbmodusAn(); // vor allem anderen, damit kein falsches Theme aufblitzt
 
+  // Verdichtung alter Schichten VOR dem ersten Rendern des Stempeluhr-Tabs,
+  // damit Kalender/Toast direkt den aktuellen (bereinigten) Stand zeigen -
+  // siehe Abschnitt 7b.
+  verdichteAlteSchichten();
+
   updateDisplay();
   renderEntries();
   renderDayTotal();
@@ -2763,13 +3243,14 @@ function init() {
   initBadgeCelebration();
   initBadgeDetail();
   initBottomNav();
-  initZeiterfassung();
+  initStempeluhr();
+  initStundenlohnDialog();
   initServiceWorker();
 
   // Startzustand richtet sich nach der Zeiterfassung: eingestempelt -> direkt
-  // zum Eintrag-Screen (der Banner mit "Ausstempeln" soll sofort sichtbar
-  // sein), nicht eingestempelt -> zur Übersicht (siehe Abschnitt 7b).
-  switchScreen(zeiterfassungAktiv ? "eintrag" : "sparziel");
+  // zum Eintrag-Screen (unverändert), nicht eingestempelt -> jetzt direkt
+  // zum Stempeluhr-Tab (bisher Übersicht) - siehe Abschnitt 7b.
+  switchScreen(zeiterfassungAktiv ? "eintrag" : "stempeluhr");
 
   // Rückwirkend nachtragen für Bestandsnutzer (siehe Abschnitt 8b) - ohne
   // Feiermoment, ein App-Start soll nicht wie eine Konfetti-Kaskade wirken.
