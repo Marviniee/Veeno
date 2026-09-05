@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v61";
+const APP_VERSION = "v62";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -3443,6 +3443,134 @@ function initBottomNav() {
 
 
 // ============================================================================
+// 11b. Swipe-Navigation
+//
+// Zwei Gesten, komplett ohne Framework über rohe touchstart/touchmove/
+// touchend-Auswertung (ein einziger, global auf document gebundener
+// Listener-Satz statt vieler einzelner - Overlays wie edit-overlay liegen
+// außerhalb von #app als eigene <div>s, ein Listener auf #app allein würde
+// dort nichts abbekommen):
+//
+// 1. Auf den vier Haupt-Tabs (siehe SWIPE_HAUPT_TABS, exakt die Reihenfolge
+//    der Bottom-Nav) wechselt Wischen nach links/rechts zum nächsten/
+//    vorherigen Tab - ohne Wrap-Around an den Rändern.
+// 2. Auf jedem Screen/Overlay mit einem .modal__cancel-Button (Schicht
+//    abschließen, Einzahlung erfassen, Backup & Export, Kalender-Detail,
+//    Bearbeiten-Dialog, Sparziel/Eingabe-Obergrenze/Stundenlohn, ...) löst
+//    Wischen von links nach rechts (klassische iOS-Zurück-Geste) denselben
+//    Klick aus wie der Button selbst - automatisch für jeden aktuellen UND
+//    künftigen Screen/Dialog dieses Musters, ohne einzelne IDs zu pflegen.
+//
+// Ist irgendein .modal-overlay gerade sichtbar (auch eins ganz ohne
+// .modal__cancel, z.B. der Feiermoment oder das Abzeichen-Detail), wird NIE
+// im Hintergrund der Tab gewechselt - Priorität hat immer das, was der
+// Nutzer gerade tatsächlich sieht.
+// ============================================================================
+
+const SWIPE_HAUPT_TABS = ["eintrag", "stempeluhr", "sparziel", "einstellungen"];
+
+// Schwellwerte gegen versehentliches Auslösen beim normalen vertikalen
+// Scrollen: erst ab einer spürbaren Mindestweite UND einer eindeutig
+// horizontalen statt diagonalen Richtung zählt es als Wisch-Geste.
+const SWIPE_MIN_DISTANZ = 60;
+const SWIPE_MAX_VERTIKAL_ANTEIL = 0.5;
+
+let swipeStartX = null;
+let swipeStartY = null;
+let swipeAktiv = false;
+
+function aktuellerScreenName() {
+  const sichtbar = document.querySelector(".screen:not([hidden])");
+  return sichtbar ? sichtbar.id.replace("screen-", "") : null;
+}
+
+function handleSwipeStart(event) {
+  if (event.touches.length !== 1) return; // Mehrfingergesten (z.B. Pinch) ignorieren
+  swipeStartX = event.touches[0].clientX;
+  swipeStartY = event.touches[0].clientY;
+  swipeAktiv = false;
+}
+
+function handleSwipeMove(event) {
+  if (swipeStartX === null || event.touches.length !== 1) return;
+  const deltaX = event.touches[0].clientX - swipeStartX;
+  const deltaY = event.touches[0].clientY - swipeStartY;
+  if (
+    !swipeAktiv &&
+    Math.abs(deltaX) >= SWIPE_MIN_DISTANZ &&
+    Math.abs(deltaY) <= Math.abs(deltaX) * SWIPE_MAX_VERTIKAL_ANTEIL
+  ) {
+    swipeAktiv = true;
+  }
+}
+
+function handleSwipeEnd(event) {
+  if (swipeStartX === null) return;
+  const changedTouch = event.changedTouches[0];
+  const deltaX = changedTouch.clientX - swipeStartX;
+  const deltaY = changedTouch.clientY - swipeStartY;
+  swipeStartX = null;
+  swipeStartY = null;
+
+  // Nochmal exakt dieselbe Schwellwert-Prüfung wie in handleSwipeMove() -
+  // swipeAktiv kann bei einem sehr kurzen, schnellen Wisch (kein
+  // zwischenzeitliches touchmove-Event) noch false sein, obwohl die
+  // Gesamtbewegung längst eindeutig ist.
+  const eindeutigHorizontal =
+    swipeAktiv ||
+    (Math.abs(deltaX) >= SWIPE_MIN_DISTANZ && Math.abs(deltaY) <= Math.abs(deltaX) * SWIPE_MAX_VERTIKAL_ANTEIL);
+  if (!eindeutigHorizontal) return;
+
+  const nachRechts = deltaX > 0;
+  const nachLinks = deltaX < 0;
+
+  // Priorität 1: Ein Overlay ist sichtbar - Wisch nach rechts klickt dessen
+  // .modal__cancel (falls vorhanden), in jedem Fall NIE im Hintergrund den
+  // Tab wechseln.
+  const overlayOffen = document.querySelector(".modal-overlay:not([hidden])");
+  if (overlayOffen) {
+    if (nachRechts) {
+      overlayOffen.querySelector(".modal__cancel")?.click();
+    }
+    return;
+  }
+
+  const aktiverName = aktuellerScreenName();
+  if (!aktiverName) return;
+
+  // Priorität 2: kein Overlay offen, aber der aktive Screen ist selbst ein
+  // Unterscreen mit eigenem .modal__cancel (Schicht abschließen, Einzahlung
+  // erfassen, Backup & Export) - gleiche Zurück-Geste wie bei den Overlays.
+  if (!SWIPE_HAUPT_TABS.includes(aktiverName)) {
+    if (nachRechts) {
+      document.getElementById(`screen-${aktiverName}`)?.querySelector(".modal__cancel")?.click();
+    }
+    return;
+  }
+
+  // Priorität 3: einer der vier Haupt-Tabs ist aktiv - zwischen ihnen
+  // wechseln, exakt in der Bottom-Nav-Reihenfolge, kein Wrap-Around.
+  const index = SWIPE_HAUPT_TABS.indexOf(aktiverName);
+  if (nachLinks && index < SWIPE_HAUPT_TABS.length - 1) {
+    switchScreen(SWIPE_HAUPT_TABS[index + 1]);
+  } else if (nachRechts && index > 0) {
+    switchScreen(SWIPE_HAUPT_TABS[index - 1]);
+  }
+}
+
+// Alle drei Listener passiv (kein preventDefault) - normales vertikales
+// Scrollen und Taps auf Buttons (Kalender-Monatsnavigation, Choice-Groups,
+// ...) bleiben dadurch komplett unangetastet; die Geste wirkt sich
+// ausschließlich in handleSwipeEnd() aus, wenn die Schwellwerte erreicht
+// wurden.
+function initSwipeNavigation() {
+  document.addEventListener("touchstart", handleSwipeStart, { passive: true });
+  document.addEventListener("touchmove", handleSwipeMove, { passive: true });
+  document.addEventListener("touchend", handleSwipeEnd, { passive: true });
+}
+
+
+// ============================================================================
 // 12. Motivations-Text
 // ============================================================================
 
@@ -3575,6 +3703,7 @@ function init() {
   initSicher(initBadgeCelebration);
   initSicher(initBadgeDetail);
   initSicher(initBottomNav);
+  initSicher(initSwipeNavigation);
   initSicher(initStempeluhr);
   initSicher(initStundenlohnDialog);
   initSicher(initServiceWorker);
