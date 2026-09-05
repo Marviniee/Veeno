@@ -433,20 +433,33 @@ button,
 }
 
 /* Schicht-Detail-Overlay (Tap auf einen hervorgehobenen Kalendertag) -
-   Start-/Endzeit direkt editierbar, siehe openSchichtDetail() in app.js. */
-.schicht-detail__eintrag {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--color-border);
+   Start-/Endzeit direkt editierbar, siehe openSchichtDetail() in app.js.
+   Fast bildschirmfüllend statt kleines Bottom-Sheet, bleibt aber ein
+   Overlay (kein Vollbild-Screen-Wechsel) - fühlt sich weiter wie
+   "innerhalb der Stempeluhr" an. */
+#schicht-detail-overlay .modal {
+  height: 90dvh;
 }
 
-.schicht-detail__eintrag:last-of-type {
-  border-bottom: none;
+/* Jede Schicht (bei Doppelschicht-Tagen auch die abschließende "Gesamt"-
+   Zusammenfassung) als eigene, klar abgegrenzte Karte statt nur einer
+   dünnen Trennlinie. */
+.schicht-detail__eintrag {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.schicht-detail__eintrag:last-child {
+  margin-bottom: 0;
 }
 
 /* Nummerierung bei mehreren Schichten am selben Tag (Doppelschicht) - macht
    eindeutig, welcher Zeitfelder-Block zu welcher Schicht gehört. */
 .schicht-detail__kennzeichnung {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -458,7 +471,7 @@ button,
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
 .schicht-detail__zeitfelder .field-with-icon {
@@ -471,25 +484,41 @@ button,
   color: var(--color-text-muted);
 }
 
-.schicht-detail__zeile {
+/* Größere, prominentere Start-/Endzeit-Darstellung als das normale
+   .field-with-icon--time (z.B. im Bearbeiten-Dialog). */
+.field-with-icon--gross {
+  padding: 4px 0;
+}
+
+.field-with-icon--gross .field-with-icon__icon {
+  width: 22px;
+  height: 22px;
+}
+
+.field-with-icon--gross .time-input {
+  padding-left: 48px;
+  font-size: 1.4rem;
+  min-height: 52px;
+}
+
+/* Dauer/Lohn als zwei Stat-Kacheln nebeneinander, gleiches .today-card-
+   Muster wie "Heute"/"Verdienst" auf dem Eintrag-Screen. */
+.schicht-detail__stats {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.9rem;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.schicht-detail__hinweis {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
   color: var(--color-text-muted);
 }
 
-.schicht-detail__lohn {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-accent);
-}
-
-.schicht-detail__gesamt {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid var(--color-border);
-  font-weight: 700;
-  text-align: right;
+/* Gesamt-Karte: gleiche Kachel-Optik, aber in Akzentfarbe umrandet, damit
+   sie sich sichtbar von den einzelnen Schicht-Karten abhebt. */
+.schicht-detail__eintrag--gesamt {
+  border-color: var(--color-accent);
 }
 
 /* Löschen: bewusst unauffällig, gleiches Muster wie .modal__delete-link im
@@ -498,7 +527,7 @@ button,
    Tag, damit bei Doppelschichten klar ist, welche gemeint ist. */
 .schicht-detail__delete-link {
   display: block;
-  margin-top: 6px;
+  margin-top: 2px;
   border: none;
   background: none;
   padding: 4px 0;

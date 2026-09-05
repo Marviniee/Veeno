@@ -61,7 +61,7 @@ const APP_SEMVER = "2.2.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v75";
+const APP_VERSION = "v76";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1669,53 +1669,115 @@ function wechsleKalenderMonat(delta) {
 // direkt editierbar (analog zum Bearbeiten-Dialog-Muster bei Trinkgeld-
 // Einträgen), Dauer und Lohn aktualisieren sich sofort nach jeder Änderung.
 // Bei mehreren Schichten am selben Tag (Doppelschicht) bekommt jede ihren
-// eigenen, nummerierten Block ("Schicht 1"/"Schicht 2") - so ist immer klar,
-// welche gerade bearbeitet wird - plus eine Gesamtzeile am Ende.
+// eigenen, klar abgegrenzten Karten-Block ("Schicht 1"/"Schicht 2") - so ist
+// immer klar, welche gerade bearbeitet wird - plus eine Gesamt-Karte am Ende.
+
+// Wiederverwendete Icon-Fragmente für die Dauer/Lohn-Stat-Kacheln (gleiches
+// Muster wie "Heute"/"Verdienst" auf dem Eintrag-Screen, siehe .today-card).
+const SCHICHT_DETAIL_ICON_DAUER = `
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15.5 14" />
+`;
+const SCHICHT_DETAIL_ICON_LOHN = `
+  <rect x="3" y="6" width="18" height="13" rx="2.5" />
+  <path d="M3 10.5h18" />
+  <circle cx="17" cy="14" r="1" fill="currentColor" stroke="none" />
+`;
+
+function schichtDetailStatKachel(iconPfad, label, wert, id) {
+  return `
+    <div class="today-card">
+      <div class="today-card__header">
+        <svg class="today-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPfad}</svg>
+        <span class="today-card__label">${label}</span>
+      </div>
+      <div class="today-card__value"${id ? ` id="${id}"` : ""}>${wert}</div>
+    </div>
+  `;
+}
+
+// Ein einzelner Schicht-Block im Kalender-Detail-Popup: eigene, klar
+// abgegrenzte Karte (siehe .schicht-detail__eintrag) mit großen Zeitfeldern,
+// Dauer/Lohn als Stat-Kacheln, plus zwei Zusatzinfos, die nur erscheinen,
+// wenn sie tatsächlich etwas aussagen: die reale Einstempel-Zeit weicht von
+// der bezahlten/gerundeten Startzeit ab, oder es gab überhaupt einen
+// eingefrorenen Stundenlohn zum Zeitpunkt der Schicht.
+function renderSchichtDetailEintrag(s, index, mehrereSchichten) {
+  const startIstWert = toTimeInputValue(s.startIst);
+  const startBezahltWert = toTimeInputValue(s.startBezahlt);
+  const abweichungHtml =
+    startIstWert !== startBezahltWert
+      ? `<p class="schicht-detail__hinweis">Tatsächlich eingestempelt um ${startIstWert} Uhr, bezahlt ab ${startBezahltWert} Uhr (Rundung).</p>`
+      : "";
+
+  return `
+    <div class="schicht-detail__eintrag">
+      ${mehrereSchichten ? `<p class="schicht-detail__kennzeichnung">Schicht ${index + 1}</p>` : ""}
+      <div class="schicht-detail__zeitfelder">
+        <div class="field-with-icon field-with-icon--time field-with-icon--gross">
+          <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <polyline points="12 7 12 12 15.5 14" />
+          </svg>
+          <input type="time" class="time-input schicht-detail__start-input" data-schicht-id="${s.schichtId}" value="${startBezahltWert}" />
+        </div>
+        <span class="schicht-detail__zeitfelder-trenner" aria-hidden="true">–</span>
+        <div class="field-with-icon field-with-icon--time field-with-icon--gross">
+          <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <polyline points="12 7 12 12 15.5 14" />
+          </svg>
+          <input type="time" class="time-input schicht-detail__ende-input" data-schicht-id="${s.schichtId}" value="${toTimeInputValue(s.endeIst)}" />
+        </div>
+      </div>
+
+      ${abweichungHtml}
+
+      <div class="schicht-detail__stats">
+        ${schichtDetailStatKachel(SCHICHT_DETAIL_ICON_DAUER, "Dauer", formatZeiterfassungDauer(s.dauerMinuten * 60000))}
+        ${schichtDetailStatKachel(SCHICHT_DETAIL_ICON_LOHN, "Lohn", formatAmount(s.lohn))}
+      </div>
+
+      <p class="schicht-detail__hinweis">Stundenlohn zu diesem Zeitpunkt: ${formatAmount(effektiverStundenlohnFuerSchicht(s))}/Std.</p>
+
+      <button type="button" class="schicht-detail__delete-link" data-schicht-id="${s.schichtId}">Schicht löschen</button>
+    </div>
+  `;
+}
+
+// Zusätzliche "Gesamt"-Karte am Ende bei Doppelschicht-Tagen - Tages-
+// Gesamtdauer/-lohn, gleiches Stat-Kachel-Muster wie die einzelnen Schichten.
+function renderSchichtDetailGesamt(schichtenDesTags) {
+  const gesamtLohn = round2(schichtenDesTags.reduce((summe, s) => summe + s.lohn, 0));
+  const gesamtMinuten = schichtenDesTags.reduce((summe, s) => summe + s.dauerMinuten, 0);
+  return `
+    <div class="schicht-detail__eintrag schicht-detail__eintrag--gesamt">
+      <p class="schicht-detail__kennzeichnung">Gesamt</p>
+      <div class="schicht-detail__stats">
+        ${schichtDetailStatKachel(SCHICHT_DETAIL_ICON_DAUER, "Dauer", formatZeiterfassungDauer(gesamtMinuten * 60000))}
+        ${schichtDetailStatKachel(SCHICHT_DETAIL_ICON_LOHN, "Lohn", formatAmount(gesamtLohn))}
+      </div>
+    </div>
+  `;
+}
+
 function openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags) {
   schichtDetailJahr = jahr;
   schichtDetailMonat = monatIndex;
   schichtDetailTag = tag;
 
-  document.getElementById("schicht-detail-title").textContent = `${tag}. ${MONATSNAMEN[monatIndex]} ${jahr}`;
+  const wochentag = WOCHENTAGE_VOLL[new Date(jahr, monatIndex, tag).getDay()];
+  document.getElementById("schicht-detail-title").textContent = `${wochentag}, ${tag}. ${MONATSNAMEN[monatIndex]} ${jahr}`;
 
   const mehrereSchichten = schichtenDesTags.length > 1;
   const liste = document.getElementById("schicht-detail-liste");
 
   liste.innerHTML = schichtenDesTags
-    .map(
-      (s, index) => `
-        <div class="schicht-detail__eintrag">
-          ${mehrereSchichten ? `<p class="schicht-detail__kennzeichnung">Schicht ${index + 1}</p>` : ""}
-          <div class="schicht-detail__zeitfelder">
-            <div class="field-with-icon field-with-icon--time">
-              <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <polyline points="12 7 12 12 15.5 14" />
-              </svg>
-              <input type="time" class="time-input schicht-detail__start-input" data-schicht-id="${s.schichtId}" value="${toTimeInputValue(s.startBezahlt)}" />
-            </div>
-            <span class="schicht-detail__zeitfelder-trenner" aria-hidden="true">–</span>
-            <div class="field-with-icon field-with-icon--time">
-              <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <polyline points="12 7 12 12 15.5 14" />
-              </svg>
-              <input type="time" class="time-input schicht-detail__ende-input" data-schicht-id="${s.schichtId}" value="${toTimeInputValue(s.endeIst)}" />
-            </div>
-          </div>
-          <div class="schicht-detail__zeile">
-            <span class="schicht-detail__dauer" data-schicht-id="${s.schichtId}">${formatZeiterfassungDauer(s.dauerMinuten * 60000)}</span>
-            <span class="schicht-detail__lohn" data-schicht-id="${s.schichtId}">${formatAmount(s.lohn)}</span>
-          </div>
-          <button type="button" class="schicht-detail__delete-link" data-schicht-id="${s.schichtId}">Schicht löschen</button>
-        </div>
-      `
-    )
+    .map((s, index) => renderSchichtDetailEintrag(s, index, mehrereSchichten))
     .join("");
 
   if (mehrereSchichten) {
-    const gesamt = round2(schichtenDesTags.reduce((summe, s) => summe + s.lohn, 0));
-    liste.innerHTML += `<div class="schicht-detail__gesamt" id="schicht-detail-gesamt">Gesamt: ${formatAmount(gesamt)}</div>`;
+    liste.innerHTML += renderSchichtDetailGesamt(schichtenDesTags);
   }
 
   liste.querySelectorAll(".schicht-detail__start-input, .schicht-detail__ende-input").forEach((input) => {
@@ -1778,16 +1840,13 @@ function bearbeiteSchichtZeitImDetail(schichtId, schichtenDesTags) {
   neuBerechneSchichtDauerUndLohn(schicht);
   persistSchichten();
 
-  document.querySelector(`.schicht-detail__dauer[data-schicht-id="${schichtId}"]`).textContent =
-    formatZeiterfassungDauer(schicht.dauerMinuten * 60000);
-  document.querySelector(`.schicht-detail__lohn[data-schicht-id="${schichtId}"]`).textContent = formatAmount(schicht.lohn);
-
-  const gesamtEl = document.getElementById("schicht-detail-gesamt");
-  if (gesamtEl) {
-    const gesamt = round2(schichtenDesTags.reduce((summe, s) => summe + s.lohn, 0));
-    gesamtEl.textContent = `Gesamt: ${formatAmount(gesamt)}`;
-  }
-
+  // Komplettes Neurendern statt gezieltem DOM-Patch: schichtenDesTags enthält
+  // dieselben (mutierten) Objekte wie oben, und ein <input type="time">
+  // committet ohnehin erst bei Verlassen des Felds (change-Event) - der
+  // Fokus ist zu diesem Zeitpunkt schon weg, ein Neurendern verliert also
+  // nichts, hält aber Abweichungs-/Stundenlohn-Hinweis und Gesamt-Kachel
+  // garantiert konsistent.
+  openSchichtDetail(schichtDetailJahr, schichtDetailMonat, schichtDetailTag, schichtenDesTags);
   renderStempeluhrKalender(); // Tagesmarkierung/Monatssumme im Hintergrund aktuell halten
 }
 
