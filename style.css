@@ -2558,6 +2558,31 @@ button,
   color: var(--color-text-muted);
 }
 
+/* "Exportieren": echter Button statt reinem Text-Link, klar die primäre
+   Aktion der Export-Karte - gleiche Optik wie z.B. "Übernehmen". */
+.settings-primary-btn {
+  align-self: stretch;
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 10px;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* Trennt den CSV-Export optisch vom JSON-Export darüber - inset statt
+   voller Kartenbreite, damit klar bleibt, dass beide zur selben Karte
+   gehören. */
+.settings-card__divider {
+  align-self: stretch;
+  height: 1px;
+  margin: 4px 10px;
+  background: var(--color-border);
+}
+
 .settings-link-btn {
   align-self: flex-start;
   min-height: 44px;

@@ -61,7 +61,7 @@ const APP_SEMVER = "2.2.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v83";
+const APP_VERSION = "v84";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -2864,6 +2864,13 @@ function renderSettings() {
 
   // 8. Motivationssprüche
   document.getElementById("settings-motivation-toggle").checked = einstellungen.motivationAn;
+
+  // 9. Daten exportieren: aktive Auswahl + passender Hinweistext (siehe
+  // EXPORT_AUSWAHL_HINWEIS weiter unten in Abschnitt 10).
+  document.querySelectorAll("#settings-export-auswahl-group .choice-btn").forEach((button) => {
+    button.classList.toggle("choice-btn--active", button.dataset.exportAuswahl === exportAuswahl);
+  });
+  document.getElementById("settings-export-auswahl-hint").textContent = EXPORT_AUSWAHL_HINWEIS[exportAuswahl];
 }
 
 // ============================================================================
@@ -3593,9 +3600,7 @@ function initSettings() {
   document.querySelectorAll("#settings-export-auswahl-group .choice-btn").forEach((button) => {
     button.addEventListener("click", () => {
       exportAuswahl = button.dataset.exportAuswahl;
-      document.querySelectorAll("#settings-export-auswahl-group .choice-btn").forEach((b) => {
-        b.classList.toggle("choice-btn--active", b === button);
-      });
+      renderSettings(); // aktualisiert sowohl die aktive Auswahl-Markierung als auch den Hinweistext
     });
   });
   // Null-Checks ab hier bewusst zusätzlich zum init()-weiten initSicher()-
@@ -3686,6 +3691,15 @@ function exportData() {
 // unabhängig davon ein eigener, immer verfügbarer Link für externe
 // Auswertung (z.B. Excel) - bewusst reiner Export ohne Re-Import.
 let exportAuswahl = "trinkgeld";
+
+// Passender, spezifischer Hinweistext je Export-Auswahl (siehe
+// renderSettings()) statt eines einzigen statischen Texts für alle drei
+// Optionen gemeinsam.
+const EXPORT_AUSWAHL_HINWEIS = {
+  stempeluhr: 'Exportiert nur die Zeiterfassung (Stempeluhr) als JSON - überschreibt beim Import ausschließlich diese Daten, alle Trinkgeld-Daten bleiben unangetastet.',
+  trinkgeld: 'Exportiert das vollständige Backup als JSON (enthält ohnehin alle Daten) - vollständig wiederherstellbar über "Backup wiederherstellen" unten.',
+  beides: 'Exportiert das vollständige Backup als JSON - inhaltlich identisch zu "Nur Trinkgeld", da dieses Format bereits alle Daten enthält.',
+};
 
 // JSON-Export NUR der Zeiterfassungs-Daten (Stempeluhr) - Pendant zu
 // exportData(), aber ohne jedes Trinkgeld-Feld. importBackup() erkennt
