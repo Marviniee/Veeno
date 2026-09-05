@@ -30,9 +30,19 @@ Studienstart.
 - **Wachstumskurve** der Sparrücklage über Zeit (1/3/6 Monate)
 - **Meilenstein-Belohnungssystem** mit freischaltbaren Abzeichen ab der ersten
   Einzahlung bis zu 3.000 €
-- **Backup & Restore:** alle Daten als JSON exportierbar und wiederherstellbar
+- **Stempeluhr:** eigener Tab zum Ein-/Ausstempeln mit Live-Timer, App startet je nach
+  Status automatisch auf dem passenden Tab
+- **Arbeitszeit-Kalender:** echter Monatskalender mit allen Schichten, editierbaren
+  Start-/Endzeiten und verdientem Lohn pro Tag (auf Basis eines einstellbaren
+  Stundenlohns, der pro Schicht eingefroren wird)
+- **Live-Verdienst-Anzeige** auf dem Eintrag-Screen: laufender Lohn und Arbeitszeit der
+  aktuellen Schicht in Echtzeit
+- **Automatische Verlaufsverdichtung:** Schichten älter als 2 Monate werden zu
+  Monatssummen zusammengefasst, um den Speicher schlank zu halten
+- **Backup & Restore:** wahlweise nur Trinkgeld (JSON), nur Stempeluhr (CSV) oder beides
+  exportierbar; Wiederherstellung über JSON-Import
 - **Einstellungen** für Farbmodus (Hell/Dunkel/System), Rundungsgröße beim Schicht-
-  Abschluss und Eingabe-Obergrenze pro Eintrag
+  Abschluss, Eingabe-Obergrenze pro Eintrag und Stundenlohn
 
 ## Technik
 
@@ -57,4 +67,4 @@ Persönliches Projekt, kein Open-Source-Lizenz – alle Rechte vorbehalten.
 
 ## Version
 
-v1.1.0
+v2.0.0
