@@ -61,7 +61,7 @@ const APP_SEMVER = "2.2.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v81";
+const APP_VERSION = "v82";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1018,9 +1018,9 @@ function calcAusstehend() {
 
 // Summe aller inCup-Werte aus den Tagesabrechnungen - OHNE die manuelle
 // Korrektur (Punkt 4 im Einstellungen-Screen). Eigene kleine Funktion, weil
-// sowohl calcBecherBestand() als auch das Setzen einer neuen Korrektur
-// (settings-becher-apply, Abschnitt Einstellungen) genau diese Rohsumme
-// brauchen.
+// sowohl calcBecherBestand() als auch das Live-Auto-Save beim Tippen im
+// Becherbestand-Feld (settings-becher-input, Abschnitt Einstellungen) genau
+// diese Rohsumme brauchen.
 function calcBecherBestandOhneKorrektur() {
   return Object.values(dailySummaries).reduce((summe, tag) => summe + tag.inCup, 0);
 }
@@ -2840,8 +2840,14 @@ function renderSettings() {
   document.getElementById("settings-stundenlohn-value").textContent =
     typeof einstellungen.stundenlohn === "number" ? formatAmount(einstellungen.stundenlohn) : "Nicht gesetzt";
 
-  // 4. Becherbestand: aktuellen Stand laut App zur Orientierung anzeigen
-  document.getElementById("settings-becher-aktuell").textContent = formatAmount(calcBecherBestand());
+  // 4. Becherbestand: aktueller Stand laut App als Platzhalter im leeren
+  // Eingabefeld (statt generisch "0,00") - das Feld selbst bleibt leer,
+  // solange niemand tippt, siehe initSettings() für das Auto-Save beim
+  // Tippen.
+  document.getElementById("settings-becher-input").placeholder = calcBecherBestand().toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
   // 8. Motivationssprüche
   document.getElementById("settings-motivation-toggle").checked = einstellungen.motivationAn;
@@ -3494,20 +3500,21 @@ function initSettings() {
     });
   });
 
-  // 4. Becherbestand korrigieren: aus dem eingegebenen Zielwert die
-  // Korrektur-Differenz berechnen (Zielwert - aktuelle inCup-Summe OHNE
+  // 4. Becherbestand korrigieren: kein "Übernehmen"-Button mehr - jede
+  // Eingabe speichert sofort live. Aus dem eingegebenen Zielwert wird die
+  // Korrektur-Differenz berechnet (Zielwert - aktuelle inCup-Summe OHNE
   // Korrektur), damit zukünftige Schicht-Abrechnungen weiter korrekt
   // darauf aufbauen (siehe calcBecherBestand()/calcBecherBestandOhneKorrektur()).
-  document.getElementById("settings-becher-apply").addEventListener("click", () => {
-    const eingabe = document.getElementById("settings-becher-input");
-    const zielWert = parseFloat(eingabe.value);
-    if (isNaN(zielWert) || zielWert < 0) return; // ungültige Eingabe -> nichts tun
+  // renderSettings() (aktualisiert u.a. den Platzhalter) wird hier bewusst
+  // NICHT aufgerufen, solange das Feld fokussiert ist - das würde den
+  // Platzhalter zwar auffrischen, aber jede weitere Ziffer würde denselben
+  // Effekt haben, ein sichtbarer Unterschied entsteht dadurch ohnehin nicht.
+  document.getElementById("settings-becher-input").addEventListener("input", (event) => {
+    const zielWert = parseFloat(event.target.value);
+    if (isNaN(zielWert) || zielWert < 0) return; // (noch) keine gültige Zahl -> nichts tun, nicht überschreiben
 
     einstellungen.becherKorrektur = round2(zielWert - calcBecherBestandOhneKorrektur());
     persistEinstellungen();
-    eingabe.value = "";
-
-    renderSettings();
     renderBecherBestand();
   });
 
@@ -3824,6 +3831,15 @@ function switchScreen(name) {
   // Daten ab, die sich seit dem letzten Öffnen geändert haben können.
   if (name === "profil") {
     renderProfil();
+  }
+
+  // Becherbestand-Feld: leer starten, damit der aktuelle Wert wieder als
+  // Platzhalter sichtbar ist (siehe initSettings()) - eine vorherige
+  // Korrektur-Eingabe bleibt sonst stehen, auch nachdem sie längst
+  // übernommen wurde.
+  if (name === "trinkgeld-schicht") {
+    document.getElementById("settings-becher-input").value = "";
+    renderSettings();
   }
 }
 

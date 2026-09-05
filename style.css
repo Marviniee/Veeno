@@ -2558,18 +2558,6 @@ button,
   color: var(--color-text-muted);
 }
 
-.settings-apply-btn {
-  min-height: 40px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 10px;
-  background: var(--color-accent);
-  color: var(--color-accent-text);
-  font-weight: 700;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-
 .settings-link-btn {
   align-self: flex-start;
   min-height: 44px;
