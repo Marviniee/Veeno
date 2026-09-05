@@ -561,34 +561,12 @@
         </div>
       </section>
 
-      <!-- 5. Backup wiederherstellen -->
+      <!-- 5. Backup & Export: eigener Untermenü-Screen (siehe #screen-backup-export
+           weiter unten) statt zwei Karten mitten in der langen Einstellungen-
+           Liste - Inhalt/Funktionalität unverändert, nur an einem ruhigeren
+           eigenen Ort. -->
       <section class="settings-card">
-        <span class="settings-card__label">Backup</span>
-        <button class="settings-link-btn" id="settings-restore-btn">Backup wiederherstellen</button>
-        <input type="file" accept="application/json" id="settings-restore-input" hidden />
-        <p class="settings-card__hint" id="settings-restore-status"></p>
-      </section>
-
-      <!-- 5b. Daten exportieren: Auswahl Stempeluhr/Trinkgeld/Beides, alle drei
-           als JSON und damit vollständig wiederherstellbar (siehe
-           exportStempeluhrJson()/exportData()/importBackup() in app.js -
-           "Nur Stempeluhr" bzw. "Nur Trinkgeld" überschreiben beim Import
-           gezielt nur die jeweiligen Daten, "Beides" ist das komplette
-           Backup). Trinkgeld default-aktiv, da das dem bisherigen Verhalten
-           des "Daten exportieren"-Links am nächsten kommt. Die CSV bleibt
-           separat als reiner Lese-Export für Excel/Lohnkontrolle - kein
-           Ersatz für das JSON-Backup, deshalb ein eigener Link statt einer
-           vierten Auswahl-Option. -->
-      <section class="settings-card">
-        <span class="settings-card__label">Daten exportieren</span>
-        <div class="choice-group" id="settings-export-auswahl-group">
-          <button class="choice-btn" data-export-auswahl="stempeluhr">Nur Stempeluhr</button>
-          <button class="choice-btn choice-btn--active" data-export-auswahl="trinkgeld">Nur Trinkgeld</button>
-          <button class="choice-btn" data-export-auswahl="beides">Beides</button>
-        </div>
-        <p class="settings-card__hint">Alle drei Optionen als JSON-Backup, vollständig wiederherstellbar über "Backup wiederherstellen" oben - "Nur Stempeluhr"/"Nur Trinkgeld" überschreiben beim Import gezielt nur die jeweiligen Daten, "Beides" das komplette Backup.</p>
-        <button class="settings-link-btn" id="settings-export-btn">Exportieren</button>
-        <button class="settings-link-btn" id="settings-export-csv-btn">Stempeluhr zusätzlich als CSV (für Excel/Lohnkontrolle, reiner Export, nicht wiederherstellbar)</button>
+        <button class="settings-link-btn" id="settings-backup-export-open">Backup & Export ›</button>
       </section>
 
       <!-- 6. Motivationssprüche an/aus -->
@@ -616,6 +594,50 @@
           Veeno <span id="settings-app-semver">0.5.0</span> · Build <span id="settings-build-version">v29</span> ·
           <a href="https://github.com/Marviniee/Veeno" target="_blank" rel="noopener">GitHub-Repo</a>
         </p>
+      </section>
+    </main>
+
+    <!-- ================= Bildschirm: Backup & Export =================
+         Eigener Untermenü-Screen, erreichbar über "Backup & Export ›" auf
+         dem Einstellungen-Screen, per switchScreen() wie die anderen
+         Vollbild-Screens auch (Schicht abschließen, Einzahlung erfassen).
+         Inhalt entspricht 1:1 den beiden früheren Karten "Backup" und
+         "Daten exportieren" - nur Restore steht jetzt oben, Export darunter. -->
+    <main id="screen-backup-export" class="screen" hidden>
+      <div class="modal__header">
+        <button class="modal__cancel" id="backup-export-close">Zurück</button>
+        <h2>Backup &amp; Export</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <!-- Backup wiederherstellen -->
+      <section class="settings-card">
+        <span class="settings-card__label">Backup</span>
+        <button class="settings-link-btn" id="settings-restore-btn">Backup wiederherstellen</button>
+        <input type="file" accept="application/json" id="settings-restore-input" hidden />
+        <p class="settings-card__hint" id="settings-restore-status"></p>
+      </section>
+
+      <!-- Daten exportieren: Auswahl Stempeluhr/Trinkgeld/Beides, alle drei
+           als JSON und damit vollständig wiederherstellbar (siehe
+           exportStempeluhrJson()/exportData()/importBackup() in app.js -
+           "Nur Stempeluhr" bzw. "Nur Trinkgeld" überschreiben beim Import
+           gezielt nur die jeweiligen Daten, "Beides" ist das komplette
+           Backup). Trinkgeld default-aktiv, da das dem bisherigen Verhalten
+           des "Daten exportieren"-Links am nächsten kommt. Die CSV bleibt
+           separat als reiner Lese-Export für Excel/Lohnkontrolle - kein
+           Ersatz für das JSON-Backup, deshalb ein eigener Link statt einer
+           vierten Auswahl-Option. -->
+      <section class="settings-card">
+        <span class="settings-card__label">Daten exportieren</span>
+        <div class="choice-group" id="settings-export-auswahl-group">
+          <button class="choice-btn" data-export-auswahl="stempeluhr">Nur Stempeluhr</button>
+          <button class="choice-btn choice-btn--active" data-export-auswahl="trinkgeld">Nur Trinkgeld</button>
+          <button class="choice-btn" data-export-auswahl="beides">Beides</button>
+        </div>
+        <p class="settings-card__hint">Alle drei Optionen als JSON-Backup, vollständig wiederherstellbar über "Backup wiederherstellen" oben - "Nur Stempeluhr"/"Nur Trinkgeld" überschreiben beim Import gezielt nur die jeweiligen Daten, "Beides" das komplette Backup.</p>
+        <button class="settings-link-btn" id="settings-export-btn">Exportieren</button>
+        <button class="settings-link-btn" id="settings-export-csv-btn">Stempeluhr zusätzlich als CSV (für Excel/Lohnkontrolle, reiner Export, nicht wiederherstellbar)</button>
       </section>
     </main>
 

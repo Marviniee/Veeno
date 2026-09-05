@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v59";
+const APP_VERSION = "v60";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -3065,6 +3065,17 @@ function importBackup(jsonText) {
 function initSettings() {
   document.getElementById("settings-app-semver").textContent = APP_SEMVER;
   document.getElementById("settings-build-version").textContent = APP_VERSION;
+
+  // 1b. Backup & Export: eigener Untermenü-Screen statt zwei Karten mitten
+  // in der langen Einstellungen-Liste (siehe #screen-backup-export in
+  // index.html) - Navigation dorthin und zurück, restliche Bindungen weiter
+  // unten (Punkt 9/10) bleiben inhaltlich unverändert.
+  document.getElementById("settings-backup-export-open").addEventListener("click", () => {
+    switchScreen("backup-export");
+  });
+  document.getElementById("backup-export-close").addEventListener("click", () => {
+    switchScreen("einstellungen");
+  });
 
   // 2. Farbmodus
   document.querySelectorAll("#settings-farbmodus-group .choice-btn").forEach((button) => {
