@@ -61,7 +61,7 @@ const APP_SEMVER = "2.2.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v82";
+const APP_VERSION = "v83";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -1212,6 +1212,17 @@ const WOCHENTAGE_KURZ = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 // Zeit unverändert zurück. Reine Millisekunden-Modulo-Rechnung: exakt auf
 // der Intervallgrenze (z.B. schon volle Stunde) bleibt unverändert, das
 // deckt auch den Grenzfall "Einstempeln exakt um 12:00" korrekt ab.
+// Beispieltext unter "Rundung beim Einstempeln" (Einstellungen), passend zur
+// jeweils gewählten Option - siehe renderSettings(). Die Beispielzeiten
+// spiegeln echtes Rundungsverhalten von rundeZeiterfassungStart() (immer
+// aufrunden zum nächsten Intervall).
+const ZEITERFASSUNG_RUNDUNG_BEISPIEL = {
+  stunde: 'Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:42 → 12:00 bei "Stunde"). Beim Ausstempeln erfolgt keine Rundung.',
+  halbeStunde: 'Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:40 → 12:00 bei "30 Min"). Beim Ausstempeln erfolgt keine Rundung.',
+  viertelstunde: 'Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:50 → 12:00 bei "15 Min"). Beim Ausstempeln erfolgt keine Rundung.',
+  exakt: "Keine Rundung, die exakte Einstempel-Zeit zählt.",
+};
+
 function rundeZeiterfassungStart(datum, modus) {
   const minutenProIntervall = { stunde: 60, halbeStunde: 30, viertelstunde: 15 };
   const intervall = minutenProIntervall[modus];
@@ -2835,6 +2846,8 @@ function renderSettings() {
   document.querySelectorAll("#settings-zeiterfassung-rundung-group .choice-btn").forEach((button) => {
     button.classList.toggle("choice-btn--active", button.dataset.zeiterfassungRundung === einstellungen.zeiterfassungRundung);
   });
+  document.getElementById("settings-zeiterfassung-rundung-hint").textContent =
+    ZEITERFASSUNG_RUNDUNG_BEISPIEL[einstellungen.zeiterfassungRundung];
 
   // 3c. Stundenlohn (Arbeitszeit-Tracker)
   document.getElementById("settings-stundenlohn-value").textContent =
