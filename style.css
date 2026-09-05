@@ -2588,6 +2588,52 @@ button,
   color: var(--color-danger);
 }
 
+/* Die vier Navigations-Zeilen auf dem Haupt-Einstellungen-Screen (Trinkgeld
+   & Schicht, Stempeluhr, Darstellung, Backup & Export) - eigenes, führendes
+   Icon in einem Badge statt reinem Text-Link, analog zur Profilzeile
+   darüber. Einheitlich in Veeno-Orange (nicht bunt wie bei echtem Apple-
+   Settings), thematisch passende, aber eigene Icons statt der Bottom-Nav-
+   Icons wiederzuverwenden. */
+.settings-link-btn--nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  align-self: stretch;
+  width: 100%;
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.settings-link-btn__icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settings-link-btn__icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-link-btn__label {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.settings-link-btn__chevron {
+  color: var(--color-text-muted);
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
 /* Toggle-Schalter (Motivationssprüche an/aus). Klassischer Trick: eine
    unsichtbare Checkbox + :checked steuert per Geschwister-Selektor das
    Aussehen von "Track" und "Thumb" daneben - kein JS für die Optik nötig. */

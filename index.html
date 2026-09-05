@@ -499,20 +499,50 @@
            #screen-trinkgeld-schicht weiter unten) - Eingabe-Obergrenze,
            Rundung beim Schicht abschließen, Becherbestand korrigieren. -->
       <section class="settings-card">
-        <button class="settings-link-btn" id="settings-trinkgeld-schicht-open">Trinkgeld &amp; Schicht ›</button>
+        <button class="settings-link-btn settings-link-btn--nav" id="settings-trinkgeld-schicht-open">
+          <span class="settings-link-btn__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="8" />
+              <path d="M12 8v8M9.5 10c0-1 1-1.5 2.5-1.5s2.5 1 2.5 2-1 1.5-2.5 1.5-2.5 1-2.5 2 1 2 2.5 2 2.5-.5 2.5-1.5" />
+            </svg>
+          </span>
+          <span class="settings-link-btn__label">Trinkgeld &amp; Schicht</span>
+          <span class="settings-link-btn__chevron">›</span>
+        </button>
       </section>
 
       <!-- 2. Stempeluhr: eigener Untermenü-Screen (siehe
            #screen-stempeluhr-einstellungen weiter unten) - Rundung beim
-           Einstempeln, Stundenlohn. -->
+           Einstempeln, Stundenlohn. Eigenes Kalender-Icon statt des
+           Uhr-Icons vom Bottom-Nav-Tab "Stempeluhr", damit beide klar
+           unterscheidbar bleiben. -->
       <section class="settings-card">
-        <button class="settings-link-btn" id="settings-stempeluhr-einstellungen-open">Stempeluhr ›</button>
+        <button class="settings-link-btn settings-link-btn--nav" id="settings-stempeluhr-einstellungen-open">
+          <span class="settings-link-btn__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="5" width="18" height="16" rx="2.5" />
+              <path d="M3 9.5h18" />
+              <path d="M8 3v4M16 3v4" />
+            </svg>
+          </span>
+          <span class="settings-link-btn__label">Stempeluhr</span>
+          <span class="settings-link-btn__chevron">›</span>
+        </button>
       </section>
 
       <!-- 3. Darstellung: eigener Untermenü-Screen (siehe #screen-darstellung
            weiter unten) - Farbmodus, Motivationssprüche an/aus. -->
       <section class="settings-card">
-        <button class="settings-link-btn" id="settings-darstellung-open">Darstellung ›</button>
+        <button class="settings-link-btn settings-link-btn--nav" id="settings-darstellung-open">
+          <span class="settings-link-btn__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4.5" />
+              <path d="M12 3v2.2M12 18.8V21M4.2 12H2M22 12h-2.2M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M5.6 18.4l1.6-1.6M16.8 7.2l1.6-1.6" />
+            </svg>
+          </span>
+          <span class="settings-link-btn__label">Darstellung</span>
+          <span class="settings-link-btn__chevron">›</span>
+        </button>
       </section>
 
       <!-- 4. Backup & Export: eigener Untermenü-Screen (siehe #screen-backup-export
@@ -520,7 +550,16 @@
            Liste - Inhalt/Funktionalität unverändert, nur an einem ruhigeren
            eigenen Ort. -->
       <section class="settings-card">
-        <button class="settings-link-btn" id="settings-backup-export-open">Backup & Export ›</button>
+        <button class="settings-link-btn settings-link-btn--nav" id="settings-backup-export-open">
+          <span class="settings-link-btn__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M7 18h9a4 4 0 0 0 .5-7.97A5.5 5.5 0 0 0 6.1 9.1 4 4 0 0 0 7 18Z" />
+              <path d="M12 17V10M9.5 12.5 12 10l2.5 2.5" />
+            </svg>
+          </span>
+          <span class="settings-link-btn__label">Backup &amp; Export</span>
+          <span class="settings-link-btn__chevron">›</span>
+        </button>
       </section>
 
       <!-- 5. Gefahrenzone: Sparziel zurücksetzen + Alle Daten löschen, beide
