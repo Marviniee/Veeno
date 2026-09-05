@@ -48,6 +48,9 @@ Studienstart.
   externe Auswertung (Excel/Lohnkontrolle)
 - **Einstellungen** in thematischen Untermenüs: Trinkgeld & Schicht, Stempeluhr,
   Darstellung, Backup & Export, sowie Gefahrenzone für destruktive Aktionen
+- **Profil:** Name und Foto (bleiben ausschließlich lokal gespeichert), personalisierte
+  Begrüßung auf dem Übersicht-Screen, automatisch berechnetes "Dabei seit"-Datum und
+  eine kleine Statistik-Zeile
 
 ## Technik
 
@@ -72,4 +75,4 @@ Persönliches Projekt, kein Open-Source-Lizenz – alle Rechte vorbehalten.
 
 ## Version
 
-v2.1.0
+v2.2.0
