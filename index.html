@@ -822,6 +822,10 @@
         <div class="display" id="edit-display">0 €</div>
       </div>
 
+      <!-- ⌫ nur unter "," und "0" (2 Spalten), die dritte Spalte unter "0,0"
+           nimmt das kompakte Uhrzeit-Feld auf (nur Icon + Wert, ohne eigene
+           "Uhrzeit"-Beschriftung/-Zeile) - spart gegenüber vorher eine ganze
+           Zeile Höhe im Dialog. -->
       <div class="keypad keypad--compact" id="edit-keypad">
         <button class="key" data-digit="1">1</button>
         <button class="key" data-digit="2">2</button>
@@ -839,16 +843,14 @@
         <button class="key" data-digit="0">0</button>
         <button class="key key--muted" id="edit-key-single-cent">0,0</button>
 
-        <button class="key key--action key--full-row" id="edit-key-delete-digit">⌫</button>
-      </div>
-
-      <label class="field-label" for="edit-time">Uhrzeit</label>
-      <div class="field-with-icon field-with-icon--time">
-        <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="9" />
-          <polyline points="12 7 12 12 15.5 14" />
-        </svg>
-        <input type="time" id="edit-time" class="time-input" />
+        <button class="key key--action key--span-2" id="edit-key-delete-digit">⌫</button>
+        <div class="field-with-icon field-with-icon--time field-with-icon--compact">
+          <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <polyline points="12 7 12 12 15.5 14" />
+          </svg>
+          <input type="time" id="edit-time" class="time-input" />
+        </div>
       </div>
 
       <!-- Speichern und Löschen nebeneinander, damit der Dialog kompakt bleibt.

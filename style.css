@@ -1566,6 +1566,13 @@ button,
   grid-column: span 3;
 }
 
+/* ⌫ im Bearbeiten-Dialog: nur noch 2 Spalten breit (unter "," und "0"),
+   die dritte Spalte daneben nimmt das kompakte Uhrzeit-Feld ein - siehe
+   .field-with-icon--compact weiter unten. */
+.key--span-2 {
+  grid-column: span 2;
+}
+
 /* ==========================================================================
    Eingabefelder mit Icon links (Bearbeiten-Dialog: Betrag, Uhrzeit)
    ========================================================================== */
@@ -1587,6 +1594,11 @@ button,
   pointer-events: none;
 }
 
+.field-with-icon--amount {
+  min-height: 64px;
+  padding: 10px 0;
+}
+
 .field-with-icon--amount .display {
   flex: 1;
   padding-left: 44px;
@@ -1597,6 +1609,30 @@ button,
   padding-left: 44px;
   border: none;
   background: none;
+}
+
+/* Kompakte Variante fürs Uhrzeit-Feld im Bearbeiten-Dialog: sitzt als
+   drittes Grid-Element neben ⌫ im Zahlenfeld (siehe .key--span-2), deshalb
+   deutlich schmaler als das normale volle .field-with-icon--time - Icon
+   direkt vor dem Wert statt absolut positioniert links, keine eigene
+   "Uhrzeit"-Beschriftung nötig. */
+.field-with-icon--compact {
+  padding: 0 6px;
+  gap: 4px;
+}
+
+.field-with-icon--compact .field-with-icon__icon {
+  position: static;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.field-with-icon--compact .time-input {
+  padding-left: 0;
+  min-height: unset;
+  font-size: 0.85rem;
+  font-weight: 600;
 }
 
 /* ==========================================================================
@@ -1789,14 +1825,16 @@ button,
 
 .modal {
   width: 100%;
-  max-height: 92dvh;
+  max-height: 95dvh;
   overflow-y: auto;
   background: var(--color-bg);
   border-radius: 20px 20px 0 0;
-  padding: 10px 16px 14px;
+  /* Safe-Area-Puffer unten - auf einem echten iPhone saßen Speichern/Löschen
+     sonst zu nah am Home-Indicator. */
+  padding: 10px 16px max(14px, calc(env(safe-area-inset-bottom) + 8px));
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
 }
 
