@@ -482,7 +482,66 @@
     <main id="screen-einstellungen" class="screen" hidden>
       <h1 class="screen-title">Einstellungen</h1>
 
-      <!-- 1. Eingabe-Obergrenze pro Trinkgeld-Eintrag -->
+      <!-- 1. Trinkgeld & Schicht: eigener Untermenü-Screen (siehe
+           #screen-trinkgeld-schicht weiter unten) - Eingabe-Obergrenze,
+           Rundung beim Schicht abschließen, Becherbestand korrigieren. -->
+      <section class="settings-card">
+        <button class="settings-link-btn" id="settings-trinkgeld-schicht-open">Trinkgeld &amp; Schicht ›</button>
+      </section>
+
+      <!-- 2. Stempeluhr: eigener Untermenü-Screen (siehe
+           #screen-stempeluhr-einstellungen weiter unten) - Rundung beim
+           Einstempeln, Stundenlohn. -->
+      <section class="settings-card">
+        <button class="settings-link-btn" id="settings-stempeluhr-einstellungen-open">Stempeluhr ›</button>
+      </section>
+
+      <!-- 3. Darstellung: eigener Untermenü-Screen (siehe #screen-darstellung
+           weiter unten) - Farbmodus, Motivationssprüche an/aus. -->
+      <section class="settings-card">
+        <button class="settings-link-btn" id="settings-darstellung-open">Darstellung ›</button>
+      </section>
+
+      <!-- 4. Backup & Export: eigener Untermenü-Screen (siehe #screen-backup-export
+           weiter unten) statt zwei Karten mitten in der langen Einstellungen-
+           Liste - Inhalt/Funktionalität unverändert, nur an einem ruhigeren
+           eigenen Ort. -->
+      <section class="settings-card">
+        <button class="settings-link-btn" id="settings-backup-export-open">Backup & Export ›</button>
+      </section>
+
+      <!-- 5. Gefahrenzone: Sparziel zurücksetzen + Alle Daten löschen, beide
+           unwiderruflich/destruktiv, deshalb zusammen ganz unten - bleibt
+           unverändert direkt in der Hauptliste, keine eigene Unterseite. -->
+      <section class="settings-card">
+        <span class="settings-card__label">Gefahrenzone</span>
+        <button class="settings-link-btn settings-link-btn--danger" id="settings-goal-reset">Sparziel zurücksetzen</button>
+        <button class="settings-link-btn settings-link-btn--danger" id="settings-delete-all">Alle Daten löschen</button>
+      </section>
+
+      <!-- 6. App-Info: bleibt unverändert direkt in der Hauptliste. -->
+      <section class="settings-info">
+        <p class="settings-info__desc">Veeno hilft dir, dein Trinkgeld zu erfassen und zu sparen.</p>
+        <p class="settings-info__privacy">Alle Daten werden ausschließlich lokal auf diesem Gerät gespeichert. Es gibt keinen Server, keine Cloud-Synchronisation, keine Datenweitergabe.</p>
+        <p class="settings-info__meta">
+          Veeno <span id="settings-app-semver">0.5.0</span> · Build <span id="settings-build-version">v29</span> ·
+          <a href="https://github.com/Marviniee/Veeno" target="_blank" rel="noopener">GitHub-Repo</a>
+        </p>
+      </section>
+    </main>
+
+    <!-- ================= Bildschirm: Trinkgeld & Schicht =================
+         Eigener Untermenü-Screen, erreichbar über "Trinkgeld & Schicht ›"
+         auf dem Einstellungen-Screen - Eingabe-Obergrenze, Rundung beim
+         Schicht abschließen, Becherbestand korrigieren (Inhalt/
+         Funktionalität unverändert, nur aus der Hauptliste ausgelagert). -->
+    <main id="screen-trinkgeld-schicht" class="screen" hidden>
+      <div class="modal__header">
+        <button class="modal__cancel" id="trinkgeld-schicht-close">Zurück</button>
+        <h2>Trinkgeld &amp; Schicht</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
       <section class="settings-card">
         <div class="settings-card__header">
           <span class="settings-card__label">Eingabe-Obergrenze</span>
@@ -491,17 +550,6 @@
         <p class="settings-card__hint">Gilt für einzelne Trinkgeld-Einträge, auf dem Eintrag-Screen und im Bearbeiten-Dialog.</p>
       </section>
 
-      <!-- 2. Farbmodus -->
-      <section class="settings-card">
-        <span class="settings-card__label">Farbmodus</span>
-        <div class="choice-group" id="settings-farbmodus-group">
-          <button class="choice-btn" data-farbmodus="system">System</button>
-          <button class="choice-btn" data-farbmodus="hell">Hell</button>
-          <button class="choice-btn" data-farbmodus="dunkel">Dunkel</button>
-        </div>
-      </section>
-
-      <!-- 3. Rundung beim Schicht abschließen -->
       <section class="settings-card">
         <span class="settings-card__label">Rundung beim Schicht abschließen</span>
         <div class="choice-group" id="settings-rundung-group">
@@ -511,7 +559,30 @@
         </div>
       </section>
 
-      <!-- 3b. Rundung beim Einstempeln (Arbeitszeit-Tracker) -->
+      <section class="settings-card">
+        <span class="settings-card__label">Becherbestand korrigieren</span>
+        <p class="settings-card__hint">Aktuell laut App: <strong id="settings-becher-aktuell">0,00 €</strong>. Falls der echte Becher davon abweicht (z.B. nach dem Leeren), hier den tatsächlichen Betrag eintragen.</p>
+        <div class="settings-input-row">
+          <input type="number" inputmode="decimal" step="0.01" min="0" id="settings-becher-input" placeholder="0,00" />
+          <span>€</span>
+          <button class="settings-apply-btn" id="settings-becher-apply">Übernehmen</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- ================= Bildschirm: Stempeluhr-Einstellungen =================
+         Eigener Untermenü-Screen, erreichbar über "Stempeluhr ›" auf dem
+         Einstellungen-Screen - Rundung beim Einstempeln, Stundenlohn.
+         Interner Name bewusst "stempeluhr-einstellungen" statt "stempeluhr",
+         um nicht mit dem gleichnamigen Haupt-Tab (#screen-stempeluhr) zu
+         kollidieren. -->
+    <main id="screen-stempeluhr-einstellungen" class="screen" hidden>
+      <div class="modal__header">
+        <button class="modal__cancel" id="stempeluhr-einstellungen-close">Zurück</button>
+        <h2>Stempeluhr</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
       <section class="settings-card">
         <span class="settings-card__label">Rundung beim Einstempeln</span>
         <div class="choice-group" id="settings-zeiterfassung-rundung-group">
@@ -523,7 +594,6 @@
         <p class="settings-card__hint">Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:45 → 12:00 bei "Stunde"). Beim Ausstempeln erfolgt keine Rundung.</p>
       </section>
 
-      <!-- 3c. Stundenlohn (Arbeitszeit-Tracker) -->
       <section class="settings-card">
         <div class="settings-card__header">
           <span class="settings-card__label">Stundenlohn</span>
@@ -531,51 +601,33 @@
         </div>
         <p class="settings-card__hint">Wird beim Ausstempeln für den Verdienst dieser Schicht verwendet und fest gespeichert - spätere Änderungen wirken nur auf künftige Schichten.</p>
       </section>
+    </main>
 
-      <!-- 4. Becherbestand manuell korrigieren -->
+    <!-- ================= Bildschirm: Darstellung =================
+         Eigener Untermenü-Screen, erreichbar über "Darstellung ›" auf dem
+         Einstellungen-Screen - Farbmodus, Motivationssprüche an/aus. -->
+    <main id="screen-darstellung" class="screen" hidden>
+      <div class="modal__header">
+        <button class="modal__cancel" id="darstellung-close">Zurück</button>
+        <h2>Darstellung</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
       <section class="settings-card">
-        <span class="settings-card__label">Becherbestand korrigieren</span>
-        <p class="settings-card__hint">Aktuell laut App: <strong id="settings-becher-aktuell">0,00 €</strong>. Falls der echte Becher davon abweicht (z.B. nach dem Leeren), hier den tatsächlichen Betrag eintragen.</p>
-        <div class="settings-input-row">
-          <input type="number" inputmode="decimal" step="0.01" min="0" id="settings-becher-input" placeholder="0,00" />
-          <span>€</span>
-          <button class="settings-apply-btn" id="settings-becher-apply">Übernehmen</button>
+        <span class="settings-card__label">Farbmodus</span>
+        <div class="choice-group" id="settings-farbmodus-group">
+          <button class="choice-btn" data-farbmodus="system">System</button>
+          <button class="choice-btn" data-farbmodus="hell">Hell</button>
+          <button class="choice-btn" data-farbmodus="dunkel">Dunkel</button>
         </div>
       </section>
 
-      <!-- 5. Backup & Export: eigener Untermenü-Screen (siehe #screen-backup-export
-           weiter unten) statt zwei Karten mitten in der langen Einstellungen-
-           Liste - Inhalt/Funktionalität unverändert, nur an einem ruhigeren
-           eigenen Ort. -->
-      <section class="settings-card">
-        <button class="settings-link-btn" id="settings-backup-export-open">Backup & Export ›</button>
-      </section>
-
-      <!-- 6. Motivationssprüche an/aus -->
       <section class="settings-card settings-card--row">
         <span class="settings-card__label">Motivationssprüche anzeigen</span>
         <label class="toggle">
           <input type="checkbox" id="settings-motivation-toggle" />
           <span class="toggle__track"><span class="toggle__thumb"></span></span>
         </label>
-      </section>
-
-      <!-- 7. Gefahrenzone: Sparziel zurücksetzen + Alle Daten löschen, beide
-           unwiderruflich/destruktiv, deshalb zusammen ganz unten. -->
-      <section class="settings-card">
-        <span class="settings-card__label">Gefahrenzone</span>
-        <button class="settings-link-btn settings-link-btn--danger" id="settings-goal-reset">Sparziel zurücksetzen</button>
-        <button class="settings-link-btn settings-link-btn--danger" id="settings-delete-all">Alle Daten löschen</button>
-      </section>
-
-      <!-- 8. App-Info -->
-      <section class="settings-info">
-        <p class="settings-info__desc">Veeno hilft dir, dein Trinkgeld zu erfassen und zu sparen.</p>
-        <p class="settings-info__privacy">Alle Daten werden ausschließlich lokal auf diesem Gerät gespeichert. Es gibt keinen Server, keine Cloud-Synchronisation, keine Datenweitergabe.</p>
-        <p class="settings-info__meta">
-          Veeno <span id="settings-app-semver">0.5.0</span> · Build <span id="settings-build-version">v29</span> ·
-          <a href="https://github.com/Marviniee/Veeno" target="_blank" rel="noopener">GitHub-Repo</a>
-        </p>
       </section>
     </main>
 
