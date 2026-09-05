@@ -226,19 +226,6 @@ button,
   margin: 4px 0 0;
 }
 
-.screen-title--with-icon {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.screen-title__icon {
-  width: 1.1em;
-  height: 1.1em;
-  flex-shrink: 0;
-  color: var(--color-text-muted);
-}
-
 /* ==========================================================================
    Kopfzeile (Logo + Name)
    ========================================================================== */
