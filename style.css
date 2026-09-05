@@ -291,12 +291,28 @@ button,
   background: var(--color-surface);
   color: var(--color-accent);
   cursor: pointer;
+  /* Dezenter Schatten auch im "Clocked Out"-Zustand, damit der Knopf nicht
+     blank wirkt - deutlich schwächer als der gefüllte "Ausstempeln"-Schatten
+     unten. */
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
 }
 
 .clock-toggle__btn--aktiv {
   background: var(--color-accent);
   color: var(--color-accent-text);
   box-shadow: 0 8px 28px rgba(255, 158, 62, 0.35);
+}
+
+/* Kleines Play-Icon oberhalb von "Einstempeln" - nur im "Clocked Out"-
+   Zustand, im gefüllten "Ausstempeln"-Zustand würde es neben dem Timer
+   zu voll wirken. */
+.clock-toggle__icon {
+  width: 28px;
+  height: 28px;
+}
+
+.clock-toggle__btn--aktiv .clock-toggle__icon {
+  display: none;
 }
 
 .clock-toggle__state {
