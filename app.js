@@ -33,6 +33,7 @@ const STORAGE_KEY_BADGES = "veeno-badges";
 const STORAGE_KEY_ZEITERFASSUNG_AKTIV = "veeno-zeiterfassung-aktiv";
 const STORAGE_KEY_SCHICHTEN = "veeno-schichten";
 const STORAGE_KEY_SCHICHT_MONATSSUMMEN = "veeno-schicht-monatssummen";
+const STORAGE_KEY_PROFIL = "veeno-profil";
 
 // Einzelne Schicht-Datensätze werden maximal so viele Kalendermonate lang
 // aufbewahrt (siehe verdichteAlteSchichten() in Abschnitt 7b) - älter als
@@ -44,7 +45,7 @@ const SCHICHT_RETENTION_MONATE = 2;
 // STRUKTUR eines Backups ändert (neues/entferntes Feld, anderer Aufbau),
 // damit importBackup() künftig gezielt zwischen Formaten unterscheiden
 // kann, statt wie bisher per Ad-hoc-Heuristik ("hat das Feld X?").
-const BACKUP_SCHEMA_VERSION = 4;
+const BACKUP_SCHEMA_VERSION = 5;
 
 // Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
 // wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
@@ -60,7 +61,7 @@ const APP_SEMVER = "2.1.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v70";
+const APP_VERSION = "v71";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -72,6 +73,15 @@ const EINSTELLUNGEN_DEFAULT = {
   motivationAn: true,   // Motivationssprüche an/aus
   zeiterfassungRundung: "stunde", // Rundung der Einstempel-Zeit: "stunde" | "halbeStunde" | "viertelstunde" | "exakt"
   stundenlohn: null,    // Stundenlohn in € - null = noch nicht gesetzt (siehe Stempeluhr-Tab, Ersteinrichtung)
+};
+
+// Profil: bewusst getrennt von EINSTELLUNGEN_DEFAULT/einstellungen, weil es
+// inhaltlich keine Einstellung ist, sondern Nutzer-Stammdaten (siehe
+// Abschnitt 9b, Profil-Screen). foto ist ein komprimiertes Base64-JPEG
+// (siehe verarbeiteProfilFoto()) oder null, solange kein Foto gesetzt ist.
+const PROFIL_DEFAULT = {
+  name: "",
+  foto: null,
 };
 
 // "buffer" ist das, was der Nutzer gerade auf dem Haupt-Zahlenfeld eintippt,
@@ -125,6 +135,10 @@ let schichten = loadSchichten();
 // Stempeluhr-Kalender die einzige noch verfügbare Information zu älteren
 // Monaten (keine Tages-Details mehr, nur noch die Monatssumme).
 let schichtMonatssummen = loadSchichtMonatssummen();
+
+// Profil-Stammdaten (Name + Foto) - siehe PROFIL_DEFAULT weiter oben und
+// Abschnitt 9b weiter unten.
+let profil = loadProfil();
 
 // Intervall-ID des Live-Timers im Stempeluhr-Tab (Abschnitt 7b) - null,
 // solange nicht eingestempelt.
@@ -439,6 +453,29 @@ function loadEinstellungen() {
 
 function persistEinstellungen() {
   localStorage.setItem(STORAGE_KEY_EINSTELLUNGEN, JSON.stringify(einstellungen));
+}
+
+function normalisiereProfil(roh) {
+  if (!roh || typeof roh !== "object") return { ...PROFIL_DEFAULT };
+  return {
+    name: typeof roh.name === "string" ? roh.name : PROFIL_DEFAULT.name,
+    foto: typeof roh.foto === "string" ? roh.foto : PROFIL_DEFAULT.foto,
+  };
+}
+
+function loadProfil() {
+  const raw = localStorage.getItem(STORAGE_KEY_PROFIL);
+  if (!raw) return { ...PROFIL_DEFAULT };
+  try {
+    return normalisiereProfil(JSON.parse(raw));
+  } catch (fehler) {
+    console.error("Konnte Profil nicht lesen:", fehler);
+    return { ...PROFIL_DEFAULT };
+  }
+}
+
+function persistProfil() {
+  localStorage.setItem(STORAGE_KEY_PROFIL, JSON.stringify(profil));
 }
 
 
@@ -2106,12 +2143,15 @@ function renderHomeGreeting() {
   const stunde = new Date().getHours();
   let gruss;
   if (stunde >= 5 && stunde < 12) {
-    gruss = "Guten Morgen!";
+    gruss = "Guten Morgen";
   } else if (stunde >= 12 && stunde < 18) {
-    gruss = "Guten Tag!";
+    gruss = "Guten Tag";
   } else {
-    gruss = "Guten Abend!";
+    gruss = "Guten Abend";
   }
+  // Mit Namen persönlicher, sobald im Profil einer gesetzt ist (siehe
+  // Abschnitt 9b) - ohne Namen bleibt es wie bisher rein generisch.
+  gruss += profil.name ? `, ${profil.name}!` : "!";
   document.getElementById("home-greeting-title").textContent = gruss;
 }
 
@@ -2740,6 +2780,185 @@ function renderSettings() {
   document.getElementById("settings-motivation-toggle").checked = einstellungen.motivationAn;
 }
 
+// ============================================================================
+// 9b. Profil
+//
+// Eigener Vollbild-Screen (#screen-profil), erreichbar über die Profilzeile
+// ganz oben auf dem Einstellungen-Screen. Enthält Foto, Name, "Dabei seit"
+// (automatisch berechnet, kein manuelles Feld) und eine kleine Stat-Zeile.
+// ============================================================================
+
+// Aktualisiert die Profilzeile auf dem Haupt-Einstellungen-Screen (Avatar +
+// Name) - wird sowohl beim Start als auch nach jeder Profil-Änderung
+// aufgerufen, damit die Zeile nie veraltet ist.
+function renderProfilRow() {
+  document.getElementById("profile-row-name").textContent = profil.name || "Profil";
+
+  const imgEl = document.getElementById("profile-row-img");
+  const placeholderEl = document.getElementById("profile-row-placeholder");
+  if (profil.foto) {
+    imgEl.src = profil.foto;
+    imgEl.hidden = false;
+    placeholderEl.hidden = true;
+  } else {
+    imgEl.hidden = true;
+    imgEl.removeAttribute("src");
+    placeholderEl.hidden = false;
+  }
+}
+
+// Frühestes Datum aus allen drei Datenquellen, die es unabhängig
+// voneinander geben kann (Trinkgeld-Einträge, Tagesabrechnungen,
+// Arbeitszeit-Schichten) - das jeweils älteste zählt als "Dabei seit".
+// Gibt null zurück, wenn noch gar keine Daten vorhanden sind.
+function calcProfilDabeiSeit() {
+  const daten = [];
+
+  for (const eintrag of entries) {
+    const datum = new Date(eintrag.timestamp);
+    if (!isNaN(datum)) daten.push(datum);
+  }
+  for (const tag of Object.keys(dailySummaries)) {
+    const datum = new Date(tag);
+    if (!isNaN(datum)) daten.push(datum);
+  }
+  for (const s of schichten) {
+    const datum = new Date(s.startBezahlt);
+    if (!isNaN(datum)) daten.push(datum);
+  }
+
+  if (daten.length === 0) return null;
+  return daten.reduce((frueheste, datum) => (datum < frueheste ? datum : frueheste));
+}
+
+// Gesamtzahl getrackter Schichten: sowohl die noch einzeln vorliegenden
+// (schichten) als auch die bereits zu Monatssummen verdichteten
+// (schichtMonatssummen, siehe Abschnitt 7b) - sonst würde die Zahl nach
+// jeder Verdichtung unerwartet sinken.
+function calcProfilSchichtAnzahl() {
+  const verdichtet = Object.values(schichtMonatssummen).reduce(
+    (summe, monat) => summe + monat.anzahlSchichten, 0
+  );
+  return schichten.length + verdichtet;
+}
+
+function renderProfilSeit() {
+  const seit = calcProfilDabeiSeit();
+  document.getElementById("profil-seit-text").textContent = seit
+    ? `Dabei seit ${seit.toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" })}`
+    : "Noch keine Daten";
+}
+
+function renderProfilStats() {
+  const anzahl = calcProfilSchichtAnzahl();
+  document.getElementById("profil-stats-text").textContent =
+    `${anzahl} ${anzahl === 1 ? "Schicht" : "Schichten"} getrackt · ${formatAmount(calcSavingsTotal())} gespart insgesamt`;
+}
+
+// Füllt den kompletten Profil-Screen (Foto, Name, "Dabei seit", Stats) -
+// wird beim Öffnen des Screens aufgerufen (siehe switchScreen()), damit er
+// nie einen veralteten Stand zeigt.
+function renderProfil() {
+  const nameInput = document.getElementById("profil-name-input");
+  // Während der Nutzer gerade tippt, das Feld nicht überschreiben (change
+  // feuert erst bei Verlassen des Felds, siehe initProfil()).
+  if (document.activeElement !== nameInput) {
+    nameInput.value = profil.name;
+  }
+
+  const fotoImg = document.getElementById("profil-foto-img");
+  const fotoPlaceholder = document.getElementById("profil-foto-placeholder");
+  const fotoRemove = document.getElementById("profil-foto-remove");
+  if (profil.foto) {
+    fotoImg.src = profil.foto;
+    fotoImg.hidden = false;
+    fotoPlaceholder.hidden = true;
+    fotoRemove.hidden = false;
+  } else {
+    fotoImg.hidden = true;
+    fotoImg.removeAttribute("src");
+    fotoPlaceholder.hidden = false;
+    fotoRemove.hidden = true;
+  }
+
+  renderProfilSeit();
+  renderProfilStats();
+}
+
+// Verkleinert/komprimiert ein ausgewähltes Foto client-seitig (max. 400x400,
+// JPEG-Qualität 0.8), bevor es als Base64 in localStorage landet - ein
+// unbearbeitetes Handyfoto wäre sonst um ein Vielfaches größer als der Rest
+// aller App-Daten zusammen. callback bekommt den fertigen Data-URL-String.
+function verarbeiteProfilFoto(datei, callback) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const bild = new Image();
+    bild.onload = () => {
+      const maxGroesse = 400;
+      let breite = bild.width;
+      let hoehe = bild.height;
+      if (breite > hoehe) {
+        if (breite > maxGroesse) {
+          hoehe = Math.round(hoehe * (maxGroesse / breite));
+          breite = maxGroesse;
+        }
+      } else if (hoehe > maxGroesse) {
+        breite = Math.round(breite * (maxGroesse / hoehe));
+        hoehe = maxGroesse;
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = breite;
+      canvas.height = hoehe;
+      canvas.getContext("2d").drawImage(bild, 0, 0, breite, hoehe);
+      callback(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    bild.src = reader.result;
+  };
+  reader.readAsDataURL(datei);
+}
+
+function initProfil() {
+  document.getElementById("settings-profil-open").addEventListener("click", () => {
+    switchScreen("profil");
+  });
+  document.getElementById("profil-close").addEventListener("click", () => {
+    switchScreen("einstellungen");
+  });
+
+  // Name: Auto-Save beim Verlassen des Felds, kein extra Speichern-Button
+  // (gleiches Muster wie z.B. die Zeit-Inputs im Schicht-Detail).
+  document.getElementById("profil-name-input").addEventListener("change", (event) => {
+    profil.name = event.target.value.trim();
+    persistProfil();
+    renderProfilRow();
+    renderHomeGreeting();
+  });
+
+  document.getElementById("profil-foto-button").addEventListener("click", () => {
+    document.getElementById("profil-foto-input").click();
+  });
+
+  document.getElementById("profil-foto-input").addEventListener("change", (event) => {
+    const datei = event.target.files[0];
+    event.target.value = ""; // gleiche Datei erneut auswählbar machen
+    if (!datei) return;
+    verarbeiteProfilFoto(datei, (dataUrl) => {
+      profil.foto = dataUrl;
+      persistProfil();
+      renderProfil();
+      renderProfilRow();
+    });
+  });
+
+  document.getElementById("profil-foto-remove").addEventListener("click", () => {
+    profil.foto = null;
+    persistProfil();
+    renderProfil();
+    renderProfilRow();
+  });
+}
+
 // Setzt data-theme auf <html>. Bei "system" wird das Attribut entfernt,
 // dann greift wieder ganz normal die prefers-color-scheme-Media-Query in
 // style.css (automatisch hell/dunkel je nach iPhone-Einstellung).
@@ -3000,6 +3219,12 @@ function importBackup(jsonText) {
     ? normalisiereEinstellungen(daten.einstellungen)
     : { ...einstellungen };
 
+  // profil gab es vor diesem Umbau noch nicht im Backup - fehlt das Feld
+  // (altes Backup), bleibt das aktuelle lokale Profil unangetastet, statt es
+  // zu leeren (gleiches Prinzip wie bei sparziel/einstellungen oben).
+  const hatProfilFeld = daten.profil !== undefined;
+  const profilNeu = hatProfilFeld ? normalisiereProfil(daten.profil) : { ...profil };
+
   // Randfund aus der Backup-Analyse: einstellungen.becherKorrektur floss
   // bisher ungeprüft in calcBecherBestand() ein - ein zweiter, von den
   // Tagesabrechnungen unabhängiger Weg zu einem negativen effektiven
@@ -3085,6 +3310,7 @@ function importBackup(jsonText) {
   // (altes Backup), fällt es auf {} zurück statt den lokalen Stand zu
   // übernehmen, aus demselben Grund wie zeiterfassungAktiv/schichten oben.
   schichtMonatssummen = normalisiereSchichtMonatssummen(daten.schichtMonatssummen);
+  profil = profilNeu;
   letzteAusgestempelteSchichtId = null;
   persistEntries();
   persistDailySummaries();
@@ -3095,6 +3321,7 @@ function importBackup(jsonText) {
   persistZeiterfassungAktiv();
   persistSchichten();
   persistSchichtMonatssummen();
+  persistProfil();
 
   wendeFarbmodusAn(); // eine importierte Einstellung kann den Farbmodus geändert haben
   renderEntries();
@@ -3107,6 +3334,8 @@ function importBackup(jsonText) {
   renderPendingCard();
   renderBadges();
   renderSettings();
+  renderProfilRow();
+  renderHomeGreeting();
   renderMotivation();
   renderStempeluhrKnopf();
   renderStempeluhrKalender();
@@ -3334,6 +3563,7 @@ function exportData() {
     zeiterfassungAktiv: zeiterfassungAktiv,
     schichten: schichten,
     schichtMonatssummen: schichtMonatssummen,
+    profil: profil,
     // Kontrollwerte: zum Exportzeitpunkt berechnete Summen, die
     // importBackup() nach dem Einlesen aus den Rohdaten neu berechnet und
     // damit abgleicht. Eine Abweichung deutet auf eine nachträglich von
@@ -3521,6 +3751,12 @@ function switchScreen(name) {
     if (einstellungen.stundenlohn === null) {
       openStundenlohnDialog();
     }
+  }
+
+  // Profil-Screen: "Dabei seit"/Stats hängen von den Trinkgeld-/Schicht-
+  // Daten ab, die sich seit dem letzten Öffnen geändert haben können.
+  if (name === "profil") {
+    renderProfil();
   }
 }
 
@@ -3774,6 +4010,7 @@ function init() {
   renderHomeGreeting();
   renderMotivation();
   renderSettings();
+  renderProfilRow();
 
   // Jede init*()-Funktion läuft einzeln abgesichert (siehe initSicher()) -
   // ein Fehler in einer von ihnen (z.B. fehlendes DOM-Element durch eine
@@ -3786,6 +4023,7 @@ function init() {
   initSicher(initGoalDialog);
   initSicher(initDepositDialog);
   initSicher(initSettings);
+  initSicher(initProfil);
   initSicher(initMaxDialog);
   initSicher(initBadgeCelebration);
   initSicher(initBadgeDetail);

@@ -498,6 +498,21 @@
         </svg>
       </h1>
 
+      <!-- 0. Profil: eigener Vollbild-Screen (siehe #screen-profil weiter
+           unten) - Foto, Name, "Dabei seit", kleine Stat-Zeile. Nach
+           Apple-Einstellungen-Muster ganz oben, vor allen anderen Karten. -->
+      <button class="profile-row" id="settings-profil-open">
+        <span class="profile-row__avatar" id="profile-row-avatar">
+          <svg class="profile-row__placeholder" id="profile-row-placeholder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8.5" r="3.5" />
+            <path d="M4.5 20c1.5-4 4.5-6 7.5-6s6 2 7.5 6" />
+          </svg>
+          <img class="profile-row__img" id="profile-row-img" alt="" hidden />
+        </span>
+        <span class="profile-row__name" id="profile-row-name">Profil</span>
+        <span class="profile-row__chevron">›</span>
+      </button>
+
       <!-- 1. Trinkgeld & Schicht: eigener Untermenü-Screen (siehe
            #screen-trinkgeld-schicht weiter unten) - Eingabe-Obergrenze,
            Rundung beim Schicht abschließen, Becherbestand korrigieren. -->
@@ -543,6 +558,43 @@
           Veeno <span id="settings-app-semver">0.5.0</span> · Build <span id="settings-build-version">v29</span> ·
           <a href="https://github.com/Marviniee/Veeno" target="_blank" rel="noopener">GitHub-Repo</a>
         </p>
+      </section>
+    </main>
+
+    <!-- ================= Bildschirm: Profil =================
+         Eigener Vollbild-Screen, erreichbar über die Profilzeile ganz oben
+         auf dem Einstellungen-Screen - Foto, Name, "Dabei seit", kleine
+         Stat-Zeile. -->
+    <main id="screen-profil" class="screen" hidden>
+      <div class="modal__header">
+        <button class="modal__cancel" id="profil-close">Zurück</button>
+        <h2>Profil</h2>
+        <span class="modal__spacer"></span>
+      </div>
+
+      <div class="profile-photo-wrap">
+        <button class="profile-photo" id="profil-foto-button" aria-label="Profilfoto ändern">
+          <svg class="profile-photo__placeholder" id="profil-foto-placeholder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="8.5" r="3.5" />
+            <path d="M4.5 20c1.5-4 4.5-6 7.5-6s6 2 7.5 6" />
+          </svg>
+          <img class="profile-photo__img" id="profil-foto-img" alt="" hidden />
+        </button>
+        <input type="file" accept="image/*" id="profil-foto-input" hidden />
+        <button class="profile-photo__remove" id="profil-foto-remove" hidden>Foto entfernen</button>
+      </div>
+
+      <section class="settings-card">
+        <span class="settings-card__label">Name</span>
+        <input type="text" id="profil-name-input" class="settings-input-row__solo" placeholder="Dein Name" maxlength="40" autocomplete="off" />
+      </section>
+
+      <section class="settings-info" id="profil-seit-wrap">
+        <p class="settings-info__meta" id="profil-seit-text">Dabei seit …</p>
+      </section>
+
+      <section class="settings-info">
+        <p class="settings-info__meta" id="profil-stats-text">0 Schichten getrackt · 0,00 € gespart insgesamt</p>
       </section>
     </main>
 
