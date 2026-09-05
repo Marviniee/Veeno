@@ -60,7 +60,7 @@ const APP_SEMVER = "1.1.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v54";
+const APP_VERSION = "v55";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -142,6 +142,14 @@ let letzteAusgestempelteSchichtId = null;
 // änderbar über die Vor/Zurück-Pfeile (siehe wechsleKalenderMonat()).
 let kalenderJahr = new Date().getFullYear();
 let kalenderMonat = new Date().getMonth();
+
+// Welcher Tag gerade im Kalender-Detail-Overlay offen ist (siehe
+// openSchichtDetail()) - wird nach dem Löschen einer Schicht gebraucht, um
+// die verbleibenden Schichten desselben Tages frisch zu ermitteln (siehe
+// deleteSchichtAusDetail()), ohne sie separat durchreichen zu müssen.
+let schichtDetailJahr = null;
+let schichtDetailMonat = null;
+let schichtDetailTag = null;
 
 
 // ============================================================================
@@ -1554,6 +1562,10 @@ function wechsleKalenderMonat(delta) {
 // eigenen, nummerierten Block ("Schicht 1"/"Schicht 2") - so ist immer klar,
 // welche gerade bearbeitet wird - plus eine Gesamtzeile am Ende.
 function openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags) {
+  schichtDetailJahr = jahr;
+  schichtDetailMonat = monatIndex;
+  schichtDetailTag = tag;
+
   document.getElementById("schicht-detail-title").textContent = `${tag}. ${MONATSNAMEN[monatIndex]} ${jahr}`;
 
   const mehrereSchichten = schichtenDesTags.length > 1;
@@ -1585,6 +1597,7 @@ function openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags) {
             <span class="schicht-detail__dauer" data-schicht-id="${s.schichtId}">${formatZeiterfassungDauer(s.dauerMinuten * 60000)}</span>
             <span class="schicht-detail__lohn" data-schicht-id="${s.schichtId}">${formatAmount(s.lohn)}</span>
           </div>
+          <button type="button" class="schicht-detail__delete-link" data-schicht-id="${s.schichtId}">Schicht löschen</button>
         </div>
       `
     )
@@ -1598,8 +1611,34 @@ function openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags) {
   liste.querySelectorAll(".schicht-detail__start-input, .schicht-detail__ende-input").forEach((input) => {
     input.addEventListener("change", () => bearbeiteSchichtZeitImDetail(input.dataset.schichtId, schichtenDesTags));
   });
+  liste.querySelectorAll(".schicht-detail__delete-link").forEach((link) => {
+    link.addEventListener("click", () => deleteSchichtAusDetail(link.dataset.schichtId));
+  });
 
   document.getElementById("schicht-detail-overlay").hidden = false;
+}
+
+// Löscht eine einzelne Schicht direkt aus dem Kalender-Detail (pro Schicht
+// ein eigener Lösch-Link, siehe openSchichtDetail() - bei Doppelschichten
+// ist dadurch immer eindeutig, welche gemeint ist). Ermittelt die
+// verbleibenden Schichten des Tages danach frisch aus schichten() statt aus
+// der alten schichtenDesTags-Liste (die enthielte den gelöschten Eintrag
+// noch) - bleiben keine mehr übrig, schließt sich das Overlay statt eine
+// leere Liste zu zeigen.
+function deleteSchichtAusDetail(schichtId) {
+  schichten = schichten.filter((s) => s.schichtId !== schichtId);
+  persistSchichten();
+  renderStempeluhrKalender();
+
+  const verbleibendeSchichtenDesTags = schichtenFuerMonat(schichtDetailJahr, schichtDetailMonat).filter(
+    (s) => new Date(s.endeIst).getDate() === schichtDetailTag
+  );
+
+  if (verbleibendeSchichtenDesTags.length === 0) {
+    closeSchichtDetail();
+  } else {
+    openSchichtDetail(schichtDetailJahr, schichtDetailMonat, schichtDetailTag, verbleibendeSchichtenDesTags);
+  }
 }
 
 // Liest BEIDE Zeitfelder der angegebenen Schicht (nicht nur das gerade

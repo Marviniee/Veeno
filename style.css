@@ -426,6 +426,22 @@ button,
   text-align: right;
 }
 
+/* Löschen: bewusst unauffällig, gleiches Muster wie .modal__delete-link im
+   Trinkgeld-Bearbeiten-Dialog (reiner Text-Link, kein Button-Rahmen) - hier
+   aber pro Schicht ein eigener Link statt einem gemeinsamen für den ganzen
+   Tag, damit bei Doppelschichten klar ist, welche gemeint ist. */
+.schicht-detail__delete-link {
+  display: block;
+  margin-top: 6px;
+  border: none;
+  background: none;
+  padding: 4px 0;
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+}
+
 /* Kopfbereich des Eintrag-Screens: Betragsfeld über den beiden Kacheln
    (siehe .entry-pills weiter unten). */
 .entry-head {
