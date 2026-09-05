@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v57";
+const APP_VERSION = "v58";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -2790,6 +2790,62 @@ function repariereTagesabrechnung(roh) {
   };
 }
 
+// Erkennt ein Stempeluhr-NUR-Backup (siehe exportStempeluhrJson()) am
+// Fehlen von eintraege/tagesabrechnungen bei gleichzeitig vorhandenem
+// schichten-Array - so lässt sich diese schlankere Variante von einem
+// vollständigen Backup (importBackup()s regulärer Pfad) unterscheiden,
+// ohne ein eigenes schemaVersion-Schema einzuführen.
+function istStempeluhrNurBackup(daten) {
+  return (
+    daten &&
+    typeof daten === "object" &&
+    Array.isArray(daten.schichten) &&
+    daten.eintraege === undefined &&
+    daten.tagesabrechnungen === undefined
+  );
+}
+
+// Importiert ein Stempeluhr-NUR-Backup: überschreibt ausschließlich
+// zeiterfassungAktiv/schichten/schichtMonatssummen, alle Trinkgeld-Daten
+// (entries, dailySummaries, sparziel, einstellungen, badges, ...) bleiben
+// komplett unangetastet - anders als beim vollständigen Backup unten, das
+// weiterhin beides ersetzt.
+function importStempeluhrBackup(daten) {
+  const statusEl = document.getElementById("settings-restore-status");
+
+  const zeitpunkt = daten.exportiertAm
+    ? new Date(daten.exportiertAm).toLocaleString("de-DE")
+    : "unbekanntem Zeitpunkt";
+  if (!confirm(`Stempeluhr-Backup vom ${zeitpunkt} einspielen? Das ersetzt die aktuelle Zeiterfassung/Schicht-Historie - Trinkgeld-Daten bleiben unverändert.`)) {
+    statusEl.textContent = "";
+    return;
+  }
+
+  zeiterfassungAktiv = normalisiereZeiterfassungAktiv(daten.zeiterfassungAktiv);
+  schichten = normalisiereSchichten(daten.schichten);
+  schichtMonatssummen = normalisiereSchichtMonatssummen(daten.schichtMonatssummen);
+  letzteAusgestempelteSchichtId = null;
+
+  persistZeiterfassungAktiv();
+  persistSchichten();
+  persistSchichtMonatssummen();
+
+  renderStempeluhrKnopf();
+  renderVerdienstPille();
+  renderStempeluhrKalender();
+  if (zeiterfassungAktiv) {
+    starteZeiterfassungTimer();
+  } else {
+    stoppeZeiterfassungTimer();
+  }
+
+  const schemaHinweis =
+    typeof daten.schemaVersion === "number" && daten.schemaVersion > BACKUP_SCHEMA_VERSION
+      ? " Hinweis: Diese Datei stammt aus einer neueren App-Version - einige Felder wurden eventuell nicht berücksichtigt."
+      : "";
+  statusEl.textContent = `Stempeluhr-Backup erfolgreich eingespielt.${schemaHinweis}`;
+}
+
 function importBackup(jsonText) {
   const statusEl = document.getElementById("settings-restore-status");
 
@@ -2798,6 +2854,11 @@ function importBackup(jsonText) {
     daten = JSON.parse(jsonText);
   } catch (fehler) {
     statusEl.textContent = "Datei ist kein gültiges JSON.";
+    return;
+  }
+
+  if (istStempeluhrNurBackup(daten)) {
+    importStempeluhrBackup(daten);
     return;
   }
 
@@ -3103,8 +3164,12 @@ function initSettings() {
 
   document.getElementById("settings-max-edit").addEventListener("click", openMaxDialog);
 
-  // 9. Daten exportieren: Auswahl Stempeluhr/Trinkgeld/Beides (siehe
-  // exportStempeluhrCsv()/exportData() weiter unten in Abschnitt 10).
+  // 9. Daten exportieren: Auswahl Stempeluhr/Trinkgeld/Beides, alle drei als
+  // JSON (siehe exportStempeluhrJson()/exportData() weiter unten in
+  // Abschnitt 10) - "Beides" ist das eine komplette Backup (exportData()
+  // enthält ohnehin schon alles), keine zwei getrennten Dateien mehr, das
+  // wäre nur eine redundante Aufspaltung derselben Daten. Die CSV bleibt
+  // ein eigener, immer verfügbarer Link unabhängig von dieser Auswahl.
   document.querySelectorAll("#settings-export-auswahl-group .choice-btn").forEach((button) => {
     button.addEventListener("click", () => {
       exportAuswahl = button.dataset.exportAuswahl;
@@ -3114,15 +3179,16 @@ function initSettings() {
     });
   });
   document.getElementById("settings-export-btn").addEventListener("click", () => {
-    // "Beides" löst zwei getrennte Downloads nacheinander aus, keine
-    // Kombi-Datei - CSV zuerst, dann das gewohnte JSON-Backup.
-    if (exportAuswahl === "stempeluhr" || exportAuswahl === "beides") {
-      exportStempeluhrCsv();
-    }
-    if (exportAuswahl === "trinkgeld" || exportAuswahl === "beides") {
+    if (exportAuswahl === "stempeluhr") {
+      exportStempeluhrJson();
+    } else {
+      // "trinkgeld" und "beides" nutzen beide die bestehende exportData() -
+      // das volle Backup enthält schon immer alle Felder (siehe
+      // Abschnitts-Kommentar), "Beides" ist also einfach ihr expliziter Name.
       exportData();
     }
   });
+  document.getElementById("settings-export-csv-btn").addEventListener("click", exportStempeluhrCsv);
 }
 
 
@@ -3182,17 +3248,46 @@ function initExport() {
 
 // Welche Daten der "Daten exportieren"-Bereich in den Einstellungen als
 // nächstes exportiert (siehe initSettings()) - "stempeluhr" | "trinkgeld" |
-// "beides". Trinkgeld bleibt bewusst reines JSON (wiederherstellbar über
-// "Backup wiederherstellen"), die Stempeluhr-Historie ist reiner CSV-Export
-// ohne Re-Import (für externe Auswertung, z.B. Excel) - kein Bedarf, das
-// JSON-Format künftig um ein CSV-Parsing zu erweitern.
+// "beides". Alle drei sind JSON und vollständig wiederherstellbar über
+// "Backup wiederherstellen": "stempeluhr" exportiert NUR die Zeiterfassungs-
+// Keys (siehe exportStempeluhrJson()), "trinkgeld" und "beides" nutzen beide
+// die bestehende exportData() (die ohnehin schon alle Felder enthält - siehe
+// dortigen Kommentar). Die CSV (exportStempeluhrCsv() weiter unten) ist
+// unabhängig davon ein eigener, immer verfügbarer Link für externe
+// Auswertung (z.B. Excel) - bewusst reiner Export ohne Re-Import.
 let exportAuswahl = "trinkgeld";
+
+// JSON-Export NUR der Zeiterfassungs-Daten (Stempeluhr) - Pendant zu
+// exportData(), aber ohne jedes Trinkgeld-Feld. importBackup() erkennt
+// dieses schlankere Format am Fehlen von eintraege/tagesabrechnungen (siehe
+// istStempeluhrNurBackup()) und überschreibt beim Reimport ausschließlich
+// diese drei Keys, ohne bestehende Trinkgeld-Daten anzufassen.
+function exportStempeluhrJson() {
+  const daten = {
+    schemaVersion: BACKUP_SCHEMA_VERSION,
+    exportiertAm: new Date().toISOString(),
+    zeiterfassungAktiv: zeiterfassungAktiv,
+    schichten: schichten,
+    schichtMonatssummen: schichtMonatssummen,
+  };
+
+  const blob = new Blob([JSON.stringify(daten, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `veeno-stempeluhr-${todayDateKey()}.json`;
+  link.click();
+
+  URL.revokeObjectURL(url);
+}
 
 // CSV-Export der Schicht-Historie: eine Zeile pro Einzelschicht (Datum,
 // Start, Ende, Dauer in Stunden, Lohn), danach - falls vorhanden - ein
 // eigener Abschnitt mit den verdichteten Monatssummen (siehe
-// verdichteAlteSchichten()). Bewusst kein JSON, weil das explizit für
-// externe Tabellenauswertung gedacht ist, nicht fürs Zurückspielen in Veeno.
+// verdichteAlteSchichten()). Bewusst kein Ersatz für exportStempeluhrJson():
+// die CSV ist für externe Tabellenauswertung gedacht, nicht fürs
+// Zurückspielen in Veeno (kein Re-Import-Parsing dafür vorgesehen).
 function exportStempeluhrCsv() {
   const zeilen = ["Datum,Start,Ende,Dauer (Std),Lohn (€)"];
 

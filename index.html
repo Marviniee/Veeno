@@ -569,10 +569,16 @@
         <p class="settings-card__hint" id="settings-restore-status"></p>
       </section>
 
-      <!-- 5b. Daten exportieren: Auswahl Stempeluhr (CSV)/Trinkgeld (JSON)/
-           Beides (zwei getrennte Downloads) - siehe exportStempeluhrCsv()/
-           exportData() in app.js. Trinkgeld default-aktiv, da das dem
-           bisherigen Verhalten des "Daten exportieren"-Links am nächsten kommt. -->
+      <!-- 5b. Daten exportieren: Auswahl Stempeluhr/Trinkgeld/Beides, alle drei
+           als JSON und damit vollständig wiederherstellbar (siehe
+           exportStempeluhrJson()/exportData()/importBackup() in app.js -
+           "Nur Stempeluhr" bzw. "Nur Trinkgeld" überschreiben beim Import
+           gezielt nur die jeweiligen Daten, "Beides" ist das komplette
+           Backup). Trinkgeld default-aktiv, da das dem bisherigen Verhalten
+           des "Daten exportieren"-Links am nächsten kommt. Die CSV bleibt
+           separat als reiner Lese-Export für Excel/Lohnkontrolle - kein
+           Ersatz für das JSON-Backup, deshalb ein eigener Link statt einer
+           vierten Auswahl-Option. -->
       <section class="settings-card">
         <span class="settings-card__label">Daten exportieren</span>
         <div class="choice-group" id="settings-export-auswahl-group">
@@ -580,8 +586,9 @@
           <button class="choice-btn choice-btn--active" data-export-auswahl="trinkgeld">Nur Trinkgeld</button>
           <button class="choice-btn" data-export-auswahl="beides">Beides</button>
         </div>
-        <p class="settings-card__hint">Stempeluhr als CSV (Datum, Start, Ende, Dauer, Lohn) für externe Auswertung - reiner Export, nicht wiederherstellbar. Trinkgeld wie gewohnt als JSON-Backup.</p>
+        <p class="settings-card__hint">Alle drei Optionen als JSON-Backup, vollständig wiederherstellbar über "Backup wiederherstellen" oben - "Nur Stempeluhr"/"Nur Trinkgeld" überschreiben beim Import gezielt nur die jeweiligen Daten, "Beides" das komplette Backup.</p>
         <button class="settings-link-btn" id="settings-export-btn">Exportieren</button>
+        <button class="settings-link-btn" id="settings-export-csv-btn">Stempeluhr zusätzlich als CSV (für Excel/Lohnkontrolle, reiner Export, nicht wiederherstellbar)</button>
       </section>
 
       <!-- 6. Motivationssprüche an/aus -->
