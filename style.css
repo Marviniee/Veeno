@@ -1503,9 +1503,20 @@ button,
   color: var(--color-danger);
 }
 
-/* Speichern-Taste: nimmt die restlichen 2 Spalten ein und ist die Hauptfarbe */
+/* Speichern-Taste: nimmt die restlichen 2 Spalten ein und ist die Hauptfarbe.
+   width:100% ist hier NICHT redundant zu grid-column:span 2: einige Dialoge
+   (Schicht abschließen, Einzahlung, Eingabe-Obergrenze, Stundenlohn) nutzen
+   .key--save als freistehenden Button außerhalb von .keypad, direkt in
+   einem flex-column-Container (.modal/.screen). Echtes iOS-Safari/WKWebView
+   stretcht dort einen nativen <button> NICHT zuverlässig auf die volle
+   Breite, obwohl align-items:stretch (der Flexbox-Default) das eigentlich
+   vorsieht - Desktop-Browser rendern das unauffälliger/breiter, was den Bug
+   im Simulator/Desktop-Test leicht übersehen lässt. width:100% erzwingt die
+   volle Breite explizit, unabhängig von diesem Stretch-Verhalten - im
+   Grid-Kontext füllt es einfach die bereits per span reservierte Fläche. */
 .key--save {
   grid-column: span 2;
+  width: 100%;
   background: var(--color-accent);
   color: var(--color-accent-text);
   font-size: 1.3rem;
@@ -2337,8 +2348,9 @@ button,
 
 /* #shift-save und #deposit-save sitzen anders als das Haupt-Zahlenfeld
    nicht in der 60px-Grid-Zeile von .keypad, sondern als freistehende
-   Buttons - ohne eigene Größe würden sie sich nur an ihren Text anpassen
-   und zu klein/gequetscht wirken. */
+   Buttons - die Höhe braucht deshalb eine eigene Angabe (die volle Breite
+   erzwingt seit dem iOS-Stretch-Bugfix schon width:100% auf .key--save
+   selbst, siehe dort). */
 #shift-save,
 #deposit-save {
   padding: 16px 0;
