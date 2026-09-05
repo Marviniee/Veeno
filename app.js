@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v65";
+const APP_VERSION = "v66";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -2307,15 +2307,15 @@ function renderStrongestWeekday() {
   avgEl.textContent = `Ø +${formatAmount(round2(bestDurchschnitt))}`;
 }
 
-// Wachstumskurve: kumulierte Sparrücklage über Zeit (1 Monat / 3 Monate /
-// 6 Monate), zusätzlich zum 7-Tage-Balken oben. Anders als der Balken
-// (Zuwachs PRO Tag) zeigt diese Kurve den "Kontostand" - also die Summe
-// aller bisherigen paidOut-Werte bis zu jedem Zeitpunkt, aufsteigend. Reines
-// SVG-Polyline, keine neue Dependency, alles aus dailySummaries berechnet.
-let growthChartRange = "1m";
-
-// Anzahl Tage, die ein Zeitraum insgesamt abdeckt.
-const GROWTH_CHART_TAGE = { "1m": 30, "3m": 90, "6m": 180 };
+// Wachstumskurve: kumulierte Sparrücklage über die letzten 30 Tage,
+// zusätzlich zum 7-Tage-Balken oben. Anders als der Balken (Zuwachs PRO Tag)
+// zeigt diese Kurve den "Kontostand" - also die Summe aller bisherigen
+// paidOut-Werte bis zu jedem Zeitpunkt, aufsteigend. Reines SVG-Polyline,
+// keine neue Dependency, alles aus dailySummaries berechnet.
+//
+// Es gab hier früher einen 1/3/6-Monate-Umschalter - der funktionierte nicht
+// zuverlässig und wurde ersatzlos entfernt statt weiter geflickt zu werden;
+// die Kurve zeigt jetzt fest immer die letzten 30 Tage.
 
 // Summe aller paidOut-Werte bis (inklusive) zu einem Datumsschlüssel - der
 // "Kontostand" der Sparrücklage an diesem Tag. String-Vergleich reicht, weil
@@ -2329,20 +2329,14 @@ function calcSavingsCumulativeBis(datumsSchluessel) {
   return round2(summe);
 }
 
-// Liefert die Stichtage (älteste zuerst) für einen Zeitraum. Alle drei
-// Zeiträume nutzen immer genau 30 Stichtage, nur der Abstand dazwischen
-// wächst (täglich / alle 3 Tage / alle 6 Tage) - so deckt "6 Monate"
-// tatsächlich ca. 180 Tage ab statt nur ein paar Wochen, und die Kurve ist
-// bei keinem der drei Zeiträume überladen.
-function growthChartStichtage(range) {
+// Liefert die letzten 30 Stichtage (älteste zuerst, täglich, bis heute).
+function growthChartStichtage() {
   const heute = new Date();
-  const gesamtTage = GROWTH_CHART_TAGE[range] ?? GROWTH_CHART_TAGE["1m"];
-  const schrittTage = gesamtTage / 30;
   const stichtage = [];
 
   for (let i = 29; i >= 0; i--) {
     const tag = new Date(heute);
-    tag.setDate(tag.getDate() - Math.round(i * schrittTage));
+    tag.setDate(tag.getDate() - i);
     stichtage.push(tag);
   }
 
@@ -2367,16 +2361,16 @@ function renderGrowthChart() {
   const frueheste = alleSchluessel[0];
 
   // Nie weiter zurückgehen als der tatsächlich vorhandene Verlauf - sonst
-  // würde z.B. bei "1 Jahr" kurz nach dem ersten Start ein Großteil der
-  // Kurve nur einen flachen Nullstrich vor der eigentlichen ersten Nutzung
-  // zeigen (kein Fake-Zeitraum).
-  const stichtage = growthChartStichtage(growthChartRange).filter(
+  // würde kurz nach dem ersten Start ein Großteil der Kurve nur einen
+  // flachen Nullstrich vor der eigentlichen ersten Nutzung zeigen (kein
+  // Fake-Zeitraum).
+  const stichtage = growthChartStichtage().filter(
     (tag) => dateKey(tag) >= frueheste
   );
 
   // Nach dem Filtern könnte nur ein einzelner Punkt übrig sein (z.B. ganz
-  // frische Nutzung + "1 Jahr" gewählt) - verdoppelt ihn zu einer kurzen
-  // flachen Linie, damit trotzdem etwas Sichtbares gezeichnet wird.
+  // frische Nutzung, erst seit heute Daten vorhanden) - verdoppelt ihn zu
+  // einer kurzen flachen Linie, damit trotzdem etwas Sichtbares gezeichnet wird.
   if (stichtage.length === 1) stichtage.unshift(stichtage[0]);
 
   const werte = stichtage.map((tag) => calcSavingsCumulativeBis(dateKey(tag)));
@@ -2426,6 +2420,22 @@ function renderGrowthChart() {
   const ersterLabel = formatGrowthChartLabel(stichtage[0]);
   const letzterLabel = formatGrowthChartLabel(stichtage[stichtage.length - 1]);
 
+  // Jeder Datenpunkt bekommt jetzt einen kleinen Marker, nicht nur Start und
+  // Ende - dieselbe Technik wie bei den bestehenden Start-/End-Markern
+  // (eigene absolut positionierte HTML-Elemente statt SVG-<circle>, siehe
+  // Kommentar bei .growth-chart__marker in style.css: preserveAspectRatio
+  // ="none" auf der SVG würde einen echten Kreis IN der SVG zur Ellipse
+  // verzerren). Die beiden äußeren Punkte haben schon ihre eigenen,
+  // größeren Start-/End-Marker - hier nur die dazwischenliegenden, damit
+  // sich nichts doppelt überlagert.
+  const zwischenpunkte = punkte.slice(1, -1);
+  const zwischenpunkteHtml = zwischenpunkte
+    .map(
+      (p) =>
+        `<div class="growth-chart__marker growth-chart__marker--point" style="left: ${((p.x / breite) * 100).toFixed(1)}%; top: ${p.y.toFixed(1)}%"></div>`
+    )
+    .join("");
+
   wrap.innerHTML = `
     <div class="growth-chart__plot">
       <div class="growth-chart__y-axis">
@@ -2438,6 +2448,7 @@ function renderGrowthChart() {
           <line class="growth-chart__start-line" x1="0" y1="${startLinieY}" x2="${breite}" y2="${startLinieY}"></line>
           <polyline class="growth-chart__line" points="${punkteAttr}"></polyline>
         </svg>
+        ${zwischenpunkteHtml}
         <div class="growth-chart__marker growth-chart__marker--start" style="top: ${yPos(startWert).toFixed(1)}%"></div>
         <div class="growth-chart__marker growth-chart__marker--end" style="top: ${yPos(endWert).toFixed(1)}%"></div>
       </div>
@@ -2451,18 +2462,6 @@ function renderGrowthChart() {
       <strong class="growth-chart__summary-delta">+${formatAmount(zuwachs)}</strong>
     </p>
   `;
-}
-
-function initGrowthChart() {
-  document.querySelectorAll("#growth-range-group .choice-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      growthChartRange = button.dataset.range;
-      document.querySelectorAll("#growth-range-group .choice-btn").forEach((b) =>
-        b.classList.toggle("choice-btn--active", b === button)
-      );
-      renderGrowthChart();
-    });
-  });
 }
 
 // ============================================================================
@@ -3779,7 +3778,6 @@ function init() {
   initSicher(initExport);
   initSicher(initSettings);
   initSicher(initMaxDialog);
-  initSicher(initGrowthChart);
   initSicher(initBadgeCelebration);
   initSicher(initBadgeDetail);
   initSicher(initBottomNav);

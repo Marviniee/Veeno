@@ -264,16 +264,12 @@
 
         <!-- Wachstumskurve: kumulierte Sparrücklage über Zeit (im
              Gegensatz zum 7-Tage-Balken oben, der nur den Tages-Zuwachs
-             zeigt) - siehe renderGrowthChart() in app.js. Umschalter
-             wiederverwendet .choice-group/.choice-btn (gleiches Muster wie
-             Farbmodus/Rundung im Einstellungen-Screen). -->
+             zeigt) - siehe renderGrowthChart() in app.js. Fest die letzten
+             30 Tage, kein Zeitraum-Umschalter mehr (der 1/3/6-Monate-
+             Umschalter funktionierte nicht zuverlässig und wurde entfernt
+             statt weiter geflickt zu werden). -->
         <div class="verlauf-card__section">
           <div class="growth-chart">
-            <div class="choice-group growth-chart__range" id="growth-range-group">
-              <button class="choice-btn choice-btn--active" data-range="1m">1 Monat</button>
-              <button class="choice-btn" data-range="3m">3 Monate</button>
-              <button class="choice-btn" data-range="6m">6 Monate</button>
-            </div>
             <div class="growth-chart__wrap" id="growth-chart-wrap">
               <!-- wird von app.js gefüllt -->
             </div>

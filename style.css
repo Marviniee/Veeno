@@ -983,24 +983,12 @@ button,
   color: var(--color-text-muted);
 }
 
-/* Wachstumskurve: kumulierte Sparrücklage über Zeit, siehe
-   renderGrowthChart() in app.js. Der Umschalter darüber (.growth-chart__range)
-   ist eine ganz normale .choice-group/.choice-btn (siehe Einstellungen-
-   Screen) - keine eigenen Regeln nötig, nur etwas kompakter (siehe unten). */
+/* Wachstumskurve: kumulierte Sparrücklage über die letzten 30 Tage, siehe
+   renderGrowthChart() in app.js. Der frühere 1/3/6-Monate-Umschalter
+   funktionierte nicht zuverlässig und wurde ersatzlos entfernt. */
 .growth-chart {
   width: 100%;
   margin-top: 14px;
-}
-
-.growth-chart__range {
-  margin-bottom: 8px;
-}
-
-/* Etwas kompakter als die reguläre .choice-btn-Höhe (40px) - hier nur ein
-   Sub-Umschalter innerhalb der Karte, keine Einstellungen-Screen-Sektion. */
-.growth-chart__range .choice-btn {
-  min-height: 32px;
-  font-size: 0.75rem;
 }
 
 .growth-chart__wrap {
@@ -1090,6 +1078,18 @@ button,
 
 .growth-chart__marker--start {
   left: 0;
+}
+
+/* Ein Marker pro dazwischenliegendem Datenpunkt (siehe renderGrowthChart())
+   - deutlich kleiner/dezenter als Start/Ende, damit die beiden weiterhin als
+   die eigentlich wichtigen Punkte herausstechen. Gleiche Technik (eigenes
+   HTML-Element statt SVG-<circle>, siehe Kommentar oben), left UND top
+   kommen hier direkt als Inline-Style mit statt über eine feste
+   --start/--end-Modifier-Klasse, weil sich die Position pro Punkt ändert. */
+.growth-chart__marker--point {
+  width: 4px;
+  height: 4px;
+  border: 1.5px solid var(--color-surface);
 }
 
 .growth-chart__marker--end {
