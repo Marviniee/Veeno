@@ -62,15 +62,20 @@
         <span class="app-header__title">Veeno</span>
       </header>
 
-      <!-- Betragsfeld links + Tagessumme als eigene Karte rechts daneben,
-           auf gleicher Höhe - so sind Eingabe und Tagessumme auf einen
-           Blick zusammen sichtbar (siehe Variante 2 "Balanciert"). -->
+      <!-- Betragsfeld: eigene Zeile über den beiden Kacheln. -->
       <div class="entry-head">
         <div class="entry-amount">
           <span class="entry-amount__label">Betrag</span>
           <div class="display" id="display">0 €</div>
         </div>
+      </div>
 
+      <!-- Zwei gleich gestaltete Kacheln nebeneinander: "Heute" (Trinkgeld,
+           unverändert) links, daneben der live hochgezählte Stundenlohn-
+           Verdienst der laufenden Schicht - immer sichtbar, auch
+           ausgestempelt (dann neutral 0,00 €/0 min, siehe
+           renderVerdienstPille() in app.js). -->
+      <div class="entry-pills">
         <div class="today-card">
           <div class="today-card__header">
             <svg class="today-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -81,6 +86,18 @@
             <span class="today-card__label">Heute</span>
           </div>
           <div class="today-card__value" id="day-total-value">0,00 €</div>
+        </div>
+
+        <div class="today-card">
+          <div class="today-card__header">
+            <svg class="today-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <polyline points="12 7 12 12 15.5 14" />
+            </svg>
+            <span class="today-card__label">Verdienst</span>
+          </div>
+          <div class="today-card__value" id="verdienst-value">0,00 €</div>
+          <div class="today-card__sub" id="verdienst-dauer">0 min</div>
         </div>
       </div>
 
@@ -351,16 +368,19 @@
 
       <!-- Arbeitszeit-Karte: nur sichtbar, wenn dieser Screen gerade automatisch
            durchs Ausstempeln geöffnet wurde (siehe renderSchichtArbeitszeit()
-           in app.js) - die gerundete Startzeit ist hier direkt nachträglich
-           editierbar (für Sonderschichten außerhalb des Rasters). -->
+           in app.js) - hier ist die Ausstempeln-Zeit direkt nachträglich
+           editierbar, für den Fall dass man kurz vor/nach dem tatsächlichen
+           Ausstempeln in der App abschließt. Start-Korrekturen laufen jetzt
+           nur noch über das Kalender-Detail im Stempeluhr-Tab (siehe
+           openSchichtDetail()). -->
       <section class="zeiterfassung-abschluss" id="zeiterfassung-abschluss" hidden>
-        <label class="field-label" for="zeiterfassung-abschluss-start">Eingestempelt (gerundet)</label>
+        <label class="field-label" for="zeiterfassung-abschluss-ende">Ausgestempelt</label>
         <div class="field-with-icon field-with-icon--time">
           <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9" />
             <polyline points="12 7 12 12 15.5 14" />
           </svg>
-          <input type="time" id="zeiterfassung-abschluss-start" class="time-input" />
+          <input type="time" id="zeiterfassung-abschluss-ende" class="time-input" />
         </div>
         <p class="zeiterfassung-abschluss__dauer" id="zeiterfassung-abschluss-dauer"></p>
       </section>
@@ -393,7 +413,7 @@
            ändern, der "Neuer Becherbestand"-Kasten oben rechts folgt live mit. -->
       <div class="split-cards">
         <label class="split-card split-card--ausstehend">
-          <span class="split-card__icon" aria-hidden="true">👛</span>
+          <span class="split-card__icon" aria-hidden="true">💶</span>
           <span class="split-card__label">Ausstehend</span>
           <span class="split-card__value-row">
             <input type="number" inputmode="decimal" step="0.01" min="0" id="shift-ausstehend" class="split-card__value" />

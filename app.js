@@ -44,7 +44,7 @@ const SCHICHT_RETENTION_MONATE = 2;
 // STRUKTUR eines Backups ändert (neues/entferntes Feld, anderer Aufbau),
 // damit importBackup() künftig gezielt zwischen Formaten unterscheiden
 // kann, statt wie bisher per Ad-hoc-Heuristik ("hat das Feld X?").
-const BACKUP_SCHEMA_VERSION = 3;
+const BACKUP_SCHEMA_VERSION = 4;
 
 // Zwei getrennte Versionsangaben, die absichtlich unterschiedlich oft
 // wechseln - beide werden im Einstellungen-Screen angezeigt (siehe
@@ -60,7 +60,7 @@ const APP_SEMVER = "1.1.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v53";
+const APP_VERSION = "v54";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -291,10 +291,14 @@ function persistZeiterfassungAktiv() {
 // Wie normalisiereZeiterfassungAktiv(), nur für die Schicht-Historie: jeder
 // Eintrag braucht die sechs Kernfelder mit dem richtigen Typ, sonst fliegt er
 // raus - besser ein paar (kaputte) Alt-Schichten weniger als ein Absturz
-// beim Rendern der Statistiken. "lohn" ist NICHT Teil dieser Pflichtprüfung:
-// das Feld gab es vor Einführung des Stundenlohns noch nicht, alte Schichten
-// (lokal oder aus einem älteren Backup) bekommen per .map() rückwirkend 0€
-// statt komplett rausgefiltert zu werden.
+// beim Rendern der Statistiken. "lohn" und "stundenlohnZumZeitpunkt" sind
+// NICHT Teil dieser Pflichtprüfung: beide Felder gab es vor Einführung des
+// Stundenlohns noch nicht, alte Schichten (lokal oder aus einem älteren
+// Backup) bekommen per .map() rückwirkend lohn=0 und
+// stundenlohnZumZeitpunkt=null (= "kein eingefrorener Satz bekannt") statt
+// komplett rausgefiltert zu werden - null wird von
+// effektiverStundenlohnFuerSchicht()/neuBerechneSchichtLohn() erkannt und
+// dort mit einem Hinweis auf den aktuellen Stundenlohn zurückgefallen.
 function normalisiereSchichten(roh) {
   if (!Array.isArray(roh)) return [];
   return roh
@@ -308,7 +312,11 @@ function normalisiereSchichten(roh) {
         typeof s.dauerMinuten === "number" &&
         typeof s.trinkgeldGesamt === "number"
     )
-    .map((s) => ({ ...s, lohn: typeof s.lohn === "number" ? s.lohn : 0 }));
+    .map((s) => ({
+      ...s,
+      lohn: typeof s.lohn === "number" ? s.lohn : 0,
+      stundenlohnZumZeitpunkt: typeof s.stundenlohnZumZeitpunkt === "number" ? s.stundenlohnZumZeitpunkt : null,
+    }));
 }
 
 function loadSchichten() {
@@ -1155,6 +1163,7 @@ function einstempeln() {
   persistZeiterfassungAktiv();
 
   renderStempeluhrKnopf();
+  renderVerdienstPille();
   starteZeiterfassungTimer();
 }
 
@@ -1176,7 +1185,11 @@ function ausstempeln() {
   );
   // Verdienst dieser Schicht mit dem JETZT gültigen Stundenlohn berechnen und
   // fest speichern (siehe Abschnitts-Kommentar oben) - kein Stundenlohn
-  // gesetzt (null) zählt dabei wie 0€.
+  // gesetzt (null) zählt dabei wie 0€. stundenlohnZumZeitpunkt wird separat
+  // mitgespeichert, damit spätere Zeit-Korrekturen (Kalender-Detail, Schicht-
+  // Abschluss-Screen) den Lohn IMMER mit diesem eingefrorenen Satz neu
+  // rechnen, nie mit dem dann aktuellen Einstellungswert (siehe
+  // neuBerechneSchichtLohn()).
   const stundenlohn = typeof einstellungen.stundenlohn === "number" ? einstellungen.stundenlohn : 0;
   const lohn = round2((dauerMinuten / 60) * stundenlohn);
 
@@ -1188,6 +1201,7 @@ function ausstempeln() {
     dauerMinuten,
     trinkgeldGesamt,
     lohn,
+    stundenlohnZumZeitpunkt: stundenlohn,
   });
   letzteAusgestempelteSchichtId = zeiterfassungAktiv.schichtId;
   zeiterfassungAktiv = null;
@@ -1197,22 +1211,51 @@ function ausstempeln() {
   stoppeZeiterfassungTimer();
   renderStempeluhrKnopf();
   renderStempeluhrKalender();
+  renderVerdienstPille();
 
   // Durchgehender Feierabend-Flow: direkt weiter zur Becher-Logik, statt
   // zwei getrennte Aktionen zu verlangen (siehe openShiftDialog()).
   openShiftDialog();
 }
 
-// Aktualisiert nur die Live-Dauer-Anzeige im Stempeluhr-Knopf, ohne den
-// ganzen Tab neu zu rendern (läuft jede Sekunde). Rechnet mit startBezahlt
-// (nicht startIst) - der Timer zählt also die für die Lohnkontrolle
-// tatsächlich zählende, gerundete Zeit, siehe Abschnitts-Kommentar oben.
+// Aktualisiert nur die Live-Dauer-Anzeige im Stempeluhr-Knopf UND die
+// Verdienst-Pille auf dem Eintrag-Screen, ohne den ganzen Tab neu zu
+// rendern (läuft jede Sekunde). Rechnet mit startBezahlt (nicht startIst) -
+// der Timer zählt also die für die Lohnkontrolle tatsächlich zählende,
+// gerundete Zeit, siehe Abschnitts-Kommentar oben.
 function tickZeiterfassungTimer() {
   if (!zeiterfassungAktiv) return;
   const timerEl = document.getElementById("clock-toggle-timer");
-  if (!timerEl) return;
+  if (timerEl) {
+    const start = new Date(zeiterfassungAktiv.startBezahlt);
+    timerEl.textContent = formatZeiterfassungDauer(Date.now() - start.getTime());
+  }
+  renderVerdienstPille();
+}
+
+// Verdienst-Pille auf dem Eintrag-Screen: NUR Stundenlohn-Verdienst der
+// laufenden Schicht, live aus verstrichener (gerundeter) Zeit x aktuellem
+// Stundenlohn berechnet - kein Trinkgeld, das läuft weiterhin unabhängig
+// über die "Heute"-Kachel daneben. Immer sichtbar, auch ausgestempelt
+// (dann neutral 0,00 €/0 min statt ausgeblendet).
+function renderVerdienstPille() {
+  const wertEl = document.getElementById("verdienst-value");
+  const dauerEl = document.getElementById("verdienst-dauer");
+  if (!wertEl || !dauerEl) return;
+
+  if (!zeiterfassungAktiv) {
+    wertEl.textContent = formatAmount(0);
+    dauerEl.textContent = "0 min";
+    return;
+  }
+
   const start = new Date(zeiterfassungAktiv.startBezahlt);
-  timerEl.textContent = formatZeiterfassungDauer(Date.now() - start.getTime());
+  const dauerMs = Math.max(0, Date.now() - start.getTime());
+  const stundenlohn = typeof einstellungen.stundenlohn === "number" ? einstellungen.stundenlohn : 0;
+  const verdienst = round2((dauerMs / 3600000) * stundenlohn);
+
+  wertEl.textContent = formatAmount(verdienst);
+  dauerEl.textContent = formatZeiterfassungDauer(dauerMs);
 }
 
 function starteZeiterfassungTimer() {
@@ -1250,6 +1293,54 @@ function renderStempeluhrKnopf() {
   }
 }
 
+// Liefert den Stundenlohn-Satz, mit dem der Lohn EINER bestimmten Schicht
+// neu zu berechnen ist: der zum Ausstempel-Zeitpunkt eingefrorene Satz
+// (stundenlohnZumZeitpunkt), falls vorhanden - NIE der aktuelle
+// Einstellungswert, sonst würde eine spätere Stundenlohn-Änderung
+// rückwirkend alte Schichten verändern (siehe Abschnitts-Kommentar oben).
+// Nur bei Alt-Schichten von vor Einführung dieses Felds (kein gespeicherter
+// Satz) weicht das ab: dort fällt der Code auf den aktuellen Stundenlohn
+// zurück, siehe neuBerechneSchichtLohn().
+function effektiverStundenlohnFuerSchicht(schicht) {
+  if (typeof schicht.stundenlohnZumZeitpunkt === "number") return schicht.stundenlohnZumZeitpunkt;
+  return typeof einstellungen.stundenlohn === "number" ? einstellungen.stundenlohn : 0;
+}
+
+// Berechnet schicht.lohn aus dem aktuellen schicht.dauerMinuten neu - wird
+// nach jeder nachträglichen Zeit-Korrektur aufgerufen (Kalender-Detail,
+// Schicht-Abschluss-Screen). Fehlt bei einer Alt-Schicht der eingefrorene
+// Satz noch, wird er hier einmalig aus dem aktuellen Stundenlohn nachgetragen
+// (und ab da wie ein normaler eingefrorener Satz behandelt) - mit einem
+// kurzen Hinweis-Toast, damit das nicht unbemerkt passiert.
+function neuBerechneSchichtLohn(schicht) {
+  const hatteGespeichertenSatz = typeof schicht.stundenlohnZumZeitpunkt === "number";
+  const satz = effektiverStundenlohnFuerSchicht(schicht);
+  schicht.lohn = round2((schicht.dauerMinuten / 60) * satz);
+
+  if (!hatteGespeichertenSatz) {
+    schicht.stundenlohnZumZeitpunkt = satz;
+    zeigeInfoToast(
+      `Für diese Alt-Schicht war kein gespeicherter Stundenlohn hinterlegt - der Lohn wurde mit dem aktuellen Stundenlohn (${formatAmount(satz)}) neu berechnet.`
+    );
+  }
+}
+
+// Rechnet dauerMinuten aus startBezahlt/endeIst neu und lässt daraufhin den
+// Lohn neu berechnen (siehe neuBerechneSchichtLohn()) - gemeinsam genutzt
+// von der Arbeitszeit-Karte im Schicht-Abschluss-Screen (nur endeIst
+// editierbar) und dem Kalender-Detail im Stempeluhr-Tab (beide Zeiten
+// editierbar).
+function neuBerechneSchichtDauerUndLohn(schicht) {
+  // Math.max(0, ...): eine nachträglich unplausibel gesetzte Zeit (Ende vor
+  // Start) soll nie zu einer negativen Arbeitszeit führen, gleiche Klemmung
+  // wie beim ursprünglichen Ausstempeln.
+  schicht.dauerMinuten = Math.max(
+    0,
+    Math.round((new Date(schicht.endeIst).getTime() - new Date(schicht.startBezahlt).getTime()) / 60000)
+  );
+  neuBerechneSchichtLohn(schicht);
+}
+
 // Arbeitszeit-Karte im "Schicht abschließen"-Screen: zeigt/versteckt sich
 // je nachdem, ob dieser Screen-Aufruf gerade von ausstempeln() kommt (siehe
 // letzteAusgestempelteSchichtId) oder ganz normal über den Button auf dem
@@ -1267,22 +1358,23 @@ function renderSchichtArbeitszeit() {
   }
 
   container.hidden = false;
-  document.getElementById("zeiterfassung-abschluss-start").value = toTimeInputValue(schicht.startBezahlt);
+  document.getElementById("zeiterfassung-abschluss-ende").value = toTimeInputValue(schicht.endeIst);
   aktualisiereSchichtArbeitszeitDauer(schicht);
 }
 
 function aktualisiereSchichtArbeitszeitDauer(schicht) {
-  const dauerMs = new Date(schicht.endeIst).getTime() - new Date(schicht.startBezahlt).getTime();
   document.getElementById("zeiterfassung-abschluss-dauer").textContent =
-    `Bezahlte Arbeitszeit: ${formatZeiterfassungDauer(dauerMs)}`;
+    `Bezahlte Arbeitszeit: ${formatZeiterfassungDauer(schicht.dauerMinuten * 60000)}`;
 }
 
-// Manuelles Nachbearbeiten der gerundeten Startzeit (für Sonderschichten
-// außerhalb des Rasters, siehe Abschnitts-Kommentar oben) - nur das Datum
-// der bisherigen startBezahlt bleibt erhalten, nur die Uhrzeit wird ersetzt
-// (gleiches Muster wie saveEditedEntry() im Bearbeiten-Dialog).
+// Manuelles Nachbearbeiten der Ausstempeln-Zeit (für den Fall, dass man kurz
+// vor/nach dem tatsächlichen Ausstempeln in der App abschließt) - nur das
+// Datum der bisherigen endeIst bleibt erhalten, nur die Uhrzeit wird ersetzt
+// (gleiches Muster wie saveEditedEntry() im Bearbeiten-Dialog). Start-
+// Korrekturen laufen jetzt nur noch über das Kalender-Detail (siehe
+// openSchichtDetail()).
 function initZeiterfassungAbschluss() {
-  document.getElementById("zeiterfassung-abschluss-start").addEventListener("change", (event) => {
+  document.getElementById("zeiterfassung-abschluss-ende").addEventListener("change", (event) => {
     const schicht = letzteAusgestempelteSchichtId
       ? schichten.find((s) => s.schichtId === letzteAusgestempelteSchichtId)
       : null;
@@ -1291,17 +1383,10 @@ function initZeiterfassungAbschluss() {
     const [stunden, minuten] = event.target.value.split(":").map(Number);
     if (isNaN(stunden) || isNaN(minuten)) return;
 
-    const neueStart = new Date(schicht.startBezahlt);
-    neueStart.setHours(stunden, minuten, 0, 0);
-    schicht.startBezahlt = neueStart.toISOString();
-    // Math.max(0, ...): gleiche Klemmung wie in ausstempeln() - eine von
-    // Hand nachträglich spät gesetzte Startzeit soll nie zu einer
-    // negativen Arbeitszeit führen.
-    schicht.dauerMinuten = Math.max(0, Math.round((new Date(schicht.endeIst).getTime() - neueStart.getTime()) / 60000));
-    // Lohn mit der aktuell gültigen Rate neu berechnen (praktisch derselbe
-    // Moment wie das Ausstempeln selbst, kein "rückwirkend andere Rate"-Fall).
-    const stundenlohn = typeof einstellungen.stundenlohn === "number" ? einstellungen.stundenlohn : 0;
-    schicht.lohn = round2((schicht.dauerMinuten / 60) * stundenlohn);
+    const neuesEnde = new Date(schicht.endeIst);
+    neuesEnde.setHours(stunden, minuten, 0, 0);
+    schicht.endeIst = neuesEnde.toISOString();
+    neuBerechneSchichtDauerUndLohn(schicht);
 
     persistSchichten();
     aktualisiereSchichtArbeitszeitDauer(schicht);
@@ -1462,33 +1547,99 @@ function wechsleKalenderMonat(delta) {
   renderStempeluhrKalender();
 }
 
-// Detail-Overlay: alle Schichten eines angetippten Tages mit Start/Ende,
-// Dauer und Lohn - bei mehreren Schichten am selben Tag (Doppelschicht)
-// zusätzlich eine Gesamtzeile.
+// Detail-Overlay: alle Schichten eines angetippten Tages, Start- und Endzeit
+// direkt editierbar (analog zum Bearbeiten-Dialog-Muster bei Trinkgeld-
+// Einträgen), Dauer und Lohn aktualisieren sich sofort nach jeder Änderung.
+// Bei mehreren Schichten am selben Tag (Doppelschicht) bekommt jede ihren
+// eigenen, nummerierten Block ("Schicht 1"/"Schicht 2") - so ist immer klar,
+// welche gerade bearbeitet wird - plus eine Gesamtzeile am Ende.
 function openSchichtDetail(jahr, monatIndex, tag, schichtenDesTags) {
   document.getElementById("schicht-detail-title").textContent = `${tag}. ${MONATSNAMEN[monatIndex]} ${jahr}`;
 
+  const mehrereSchichten = schichtenDesTags.length > 1;
   const liste = document.getElementById("schicht-detail-liste");
+
   liste.innerHTML = schichtenDesTags
     .map(
-      (s) => `
+      (s, index) => `
         <div class="schicht-detail__eintrag">
-          <div class="schicht-detail__zeile">
-            <span>${formatTime(s.startBezahlt)} – ${formatTime(s.endeIst)}</span>
-            <span>${formatZeiterfassungDauer(s.dauerMinuten * 60000)}</span>
+          ${mehrereSchichten ? `<p class="schicht-detail__kennzeichnung">Schicht ${index + 1}</p>` : ""}
+          <div class="schicht-detail__zeitfelder">
+            <div class="field-with-icon field-with-icon--time">
+              <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <polyline points="12 7 12 12 15.5 14" />
+              </svg>
+              <input type="time" class="time-input schicht-detail__start-input" data-schicht-id="${s.schichtId}" value="${toTimeInputValue(s.startBezahlt)}" />
+            </div>
+            <span class="schicht-detail__zeitfelder-trenner" aria-hidden="true">–</span>
+            <div class="field-with-icon field-with-icon--time">
+              <svg class="field-with-icon__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <polyline points="12 7 12 12 15.5 14" />
+              </svg>
+              <input type="time" class="time-input schicht-detail__ende-input" data-schicht-id="${s.schichtId}" value="${toTimeInputValue(s.endeIst)}" />
+            </div>
           </div>
-          <div class="schicht-detail__lohn">${formatAmount(s.lohn)}</div>
+          <div class="schicht-detail__zeile">
+            <span class="schicht-detail__dauer" data-schicht-id="${s.schichtId}">${formatZeiterfassungDauer(s.dauerMinuten * 60000)}</span>
+            <span class="schicht-detail__lohn" data-schicht-id="${s.schichtId}">${formatAmount(s.lohn)}</span>
+          </div>
         </div>
       `
     )
     .join("");
 
-  if (schichtenDesTags.length > 1) {
+  if (mehrereSchichten) {
     const gesamt = round2(schichtenDesTags.reduce((summe, s) => summe + s.lohn, 0));
-    liste.innerHTML += `<div class="schicht-detail__gesamt">Gesamt: ${formatAmount(gesamt)}</div>`;
+    liste.innerHTML += `<div class="schicht-detail__gesamt" id="schicht-detail-gesamt">Gesamt: ${formatAmount(gesamt)}</div>`;
   }
 
+  liste.querySelectorAll(".schicht-detail__start-input, .schicht-detail__ende-input").forEach((input) => {
+    input.addEventListener("change", () => bearbeiteSchichtZeitImDetail(input.dataset.schichtId, schichtenDesTags));
+  });
+
   document.getElementById("schicht-detail-overlay").hidden = false;
+}
+
+// Liest BEIDE Zeitfelder der angegebenen Schicht (nicht nur das gerade
+// geänderte) und rechnet damit startBezahlt/endeIst sowie Dauer/Lohn neu -
+// robust unabhängig davon, welches der beiden Felder das change-Event
+// ausgelöst hat. schichtenDesTags/der gefundene schicht-Eintrag sind
+// dieselben Objekte wie in der globalen schichten-Liste (kein Kopieren beim
+// Filtern) - eine "Gesamt"-Zeile aus schichtenDesTags spiegelt Änderungen
+// dadurch automatisch, ohne den Tag neu aus schichten() zu laden.
+function bearbeiteSchichtZeitImDetail(schichtId, schichtenDesTags) {
+  const schicht = schichten.find((s) => s.schichtId === schichtId);
+  if (!schicht) return;
+
+  const startInput = document.querySelector(`.schicht-detail__start-input[data-schicht-id="${schichtId}"]`);
+  const endeInput = document.querySelector(`.schicht-detail__ende-input[data-schicht-id="${schichtId}"]`);
+  const [startStunden, startMinuten] = startInput.value.split(":").map(Number);
+  const [endeStunden, endeMinuten] = endeInput.value.split(":").map(Number);
+  if ([startStunden, startMinuten, endeStunden, endeMinuten].some((n) => isNaN(n))) return;
+
+  const neuerStart = new Date(schicht.startBezahlt);
+  neuerStart.setHours(startStunden, startMinuten, 0, 0);
+  const neuesEnde = new Date(schicht.endeIst);
+  neuesEnde.setHours(endeStunden, endeMinuten, 0, 0);
+
+  schicht.startBezahlt = neuerStart.toISOString();
+  schicht.endeIst = neuesEnde.toISOString();
+  neuBerechneSchichtDauerUndLohn(schicht);
+  persistSchichten();
+
+  document.querySelector(`.schicht-detail__dauer[data-schicht-id="${schichtId}"]`).textContent =
+    formatZeiterfassungDauer(schicht.dauerMinuten * 60000);
+  document.querySelector(`.schicht-detail__lohn[data-schicht-id="${schichtId}"]`).textContent = formatAmount(schicht.lohn);
+
+  const gesamtEl = document.getElementById("schicht-detail-gesamt");
+  if (gesamtEl) {
+    const gesamt = round2(schichtenDesTags.reduce((summe, s) => summe + s.lohn, 0));
+    gesamtEl.textContent = `Gesamt: ${formatAmount(gesamt)}`;
+  }
+
+  renderStempeluhrKalender(); // Tagesmarkierung/Monatssumme im Hintergrund aktuell halten
 }
 
 function closeSchichtDetail() {
@@ -1529,6 +1680,7 @@ function saveStundenlohn() {
   einstellungen.stundenlohn = betrag;
   persistEinstellungen();
   renderSettings();
+  renderVerdienstPille(); // wirkt sofort auf die laufende Live-Anzeige, falls gerade eingestempelt
   closeStundenlohnDialog();
 }
 
@@ -3219,6 +3371,7 @@ function init() {
   updateDisplay();
   renderEntries();
   renderDayTotal();
+  renderVerdienstPille();
   renderSavingsTotal();
   renderSavingsChart();
   renderGrowthChart();

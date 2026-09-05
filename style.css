@@ -366,7 +366,8 @@ button,
   text-align: center;
 }
 
-/* Schicht-Detail-Overlay (Tap auf einen hervorgehobenen Kalendertag) */
+/* Schicht-Detail-Overlay (Tap auf einen hervorgehobenen Kalendertag) -
+   Start-/Endzeit direkt editierbar, siehe openSchichtDetail() in app.js. */
 .schicht-detail__eintrag {
   padding: 10px 0;
   border-bottom: 1px solid var(--color-border);
@@ -374,6 +375,34 @@ button,
 
 .schicht-detail__eintrag:last-of-type {
   border-bottom: none;
+}
+
+/* Nummerierung bei mehreren Schichten am selben Tag (Doppelschicht) - macht
+   eindeutig, welcher Zeitfelder-Block zu welcher Schicht gehört. */
+.schicht-detail__kennzeichnung {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.schicht-detail__zeitfelder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.schicht-detail__zeitfelder .field-with-icon {
+  flex: 1;
+  min-width: 0;
+}
+
+.schicht-detail__zeitfelder-trenner {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
 }
 
 .schicht-detail__zeile {
@@ -397,8 +426,8 @@ button,
   text-align: right;
 }
 
-/* Kopfbereich des Eintrag-Screens: Betragsfeld links + Tagessumme-Karte
-   rechts, auf gleicher Höhe (siehe Design "Variante 2 - Balanciert"). */
+/* Kopfbereich des Eintrag-Screens: Betragsfeld über den beiden Kacheln
+   (siehe .entry-pills weiter unten). */
 .entry-head {
   display: flex;
   align-items: stretch;
@@ -417,16 +446,25 @@ button,
   color: var(--color-text-muted);
 }
 
-/* Tagessumme als eigene, umrandete Karte - Wallet-Icon + Label oben,
-   großer Betrag darunter. Feste Breite statt flex:1 wie .entry-amount,
-   damit sie neben dem Betragsfeld wie ein Chip/eine Card wirkt und nicht
-   die Hälfte der Zeile beansprucht. */
+/* Zwei gleich breite Kacheln nebeneinander ("Heute" + "Verdienst") - je
+   flex:1, da jetzt zwei statt einer Kachel nebeneinander Platz brauchen
+   (vorher stand hier eine einzelne .today-card mit fester min-width neben
+   dem Betragsfeld). */
+.entry-pills {
+  display: flex;
+  gap: 10px;
+}
+
+/* Kachel: Icon + Label oben, großer Betrag darunter, optional eine kleine
+   Zusatzzeile (siehe .today-card__sub, für den Verdienst-Timer). flex:1
+   statt fester Breite, damit sich zwei Kacheln die Zeile gleichmäßig teilen. */
 .today-card {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 4px;
-  min-width: 108px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 14px;
@@ -456,6 +494,13 @@ button,
   font-size: 1.3rem;
   font-weight: 700;
   color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.today-card__sub {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
