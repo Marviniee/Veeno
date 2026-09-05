@@ -61,7 +61,7 @@ const APP_SEMVER = "2.2.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v77";
+const APP_VERSION = "v78";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -2146,6 +2146,14 @@ function renderSparziel() {
 // die einzelnen Bedingungen unten).
 const PROGNOSE_GRID_MAX = 20;
 
+// Eine einzige SVG-Grafik für "Verbleibend" (Grid-Quadrat UND Legende-Icon,
+// siehe renderZielprognose()) statt CSS-border-dashed an zwei Stellen mit
+// unterschiedlicher Elementgröße - eine gestrichelte CSS-Border skaliert
+// dabei nicht proportional zur Größe (fester px-Wert für Strich/Lücke), eine
+// SVG-Strichelung dagegen skaliert automatisch mit dem viewBox-Koordinaten-
+// system, sieht an beiden Stellen also identisch proportioniert aus.
+const PROGNOSE_ICON_VERBLEIBEND = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-dasharray="3 2" aria-hidden="true"><rect x="1.2" y="1.2" width="13.6" height="13.6" rx="3" /></svg>`;
+
 function renderZielprognose(sparruecklage, rest, erreicht) {
   const container = document.getElementById("prognose-card");
 
@@ -2171,7 +2179,7 @@ function renderZielprognose(sparruecklage, rest, erreicht) {
   const leereRest = verbleibendeSchichten - leereAnzahl;
 
   const gefuellteHtml = `<div class="prognose-card__square prognose-card__square--bisher"></div>`.repeat(gefuellteAnzahl);
-  const leereHtml = `<div class="prognose-card__square prognose-card__square--verbleibend"></div>`.repeat(leereAnzahl);
+  const leereHtml = `<span class="prognose-card__square prognose-card__square--verbleibend">${PROGNOSE_ICON_VERBLEIBEND}</span>`.repeat(leereAnzahl);
 
   const mehrTeile = [];
   if (gefuellteRest > 0) mehrTeile.push(`+${gefuellteRest} weitere bisher`);
@@ -2190,7 +2198,7 @@ function renderZielprognose(sparruecklage, rest, erreicht) {
     <p class="prognose-card__summary">${bisherigeSchichten} ${bisherigeSchichten === 1 ? "Schicht" : "Schichten"} bisher · noch ca. ${verbleibendeSchichten} ${verbleibendeSchichten === 1 ? "Schicht" : "Schichten"} bis zum Ziel</p>
     <div class="prognose-card__legend">
       <span class="prognose-card__legend-item prognose-card__legend-item--bisher">Bisher</span>
-      <span class="prognose-card__legend-item prognose-card__legend-item--verbleibend">Verbleibend</span>
+      <span class="prognose-card__legend-item prognose-card__legend-item--verbleibend"><span class="prognose-card__legend-icon">${PROGNOSE_ICON_VERBLEIBEND}</span>Verbleibend</span>
     </div>
   `;
 }

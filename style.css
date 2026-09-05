@@ -863,13 +863,18 @@ button,
   background: var(--color-accent);
 }
 
-/* Blasses Orange statt Grau (--color-border war in beiden Farbmodi zu
-   kontrastarm zum Karten-Hintergrund, kaum erkennbar) - passend zum
-   warmen Orange der gefüllten Quadrate, nur stark abgedunkelt/transparent
+/* Enthält jetzt die gemeinsame PROGNOSE_ICON_VERBLEIBEND-SVG (siehe
+   app.js) statt einer CSS-border-dashed - blasses Orange statt Grau, passend
+   zum warmen Orange der gefüllten Quadrate, nur abgedunkelt/transparent
    statt vollem --color-accent. */
 .prognose-card__square--verbleibend {
-  background: none;
-  border: 1.75px dashed rgba(255, 158, 62, 0.55);
+  display: block;
+  color: rgba(255, 158, 62, 0.55);
+}
+
+.prognose-card__square--verbleibend svg {
+  width: 100%;
+  height: 100%;
 }
 
 .prognose-card__mehr {
@@ -899,21 +904,28 @@ button,
   gap: 5px;
 }
 
-.prognose-card__legend-item::before {
+/* Nur noch "Bisher" nutzt den ::before-Punkt - "Verbleibend" hat stattdessen
+   ein echtes <span> mit der SVG-Grafik (.prognose-card__legend-icon
+   weiter unten), ein ::before hier würde nur einen unnötigen Leerraum davor
+   erzeugen. */
+.prognose-card__legend-item--bisher::before {
   content: "";
   width: 8px;
   height: 8px;
   border-radius: 2px;
   flex-shrink: 0;
-}
-
-.prognose-card__legend-item--bisher::before {
   background: var(--color-accent);
 }
 
-.prognose-card__legend-item--verbleibend::before {
-  background: none;
-  border: 1.75px dashed rgba(255, 158, 62, 0.55);
+/* "Verbleibend" nutzt statt des ::before-Punkts dieselbe SVG-Grafik wie das
+   Grid-Quadrat (siehe PROGNOSE_ICON_VERBLEIBEND in app.js) - dadurch sieht
+   das Icon hier und im Grid identisch proportioniert aus. */
+.prognose-card__legend-icon {
+  display: inline-flex;
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  color: rgba(255, 158, 62, 0.55);
 }
 
 /* ==========================================================================
