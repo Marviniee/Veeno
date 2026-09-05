@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v66";
+const APP_VERSION = "v67";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -737,13 +737,6 @@ function renderEntryList(listeId, leerHinweisId, limit) {
 
 function renderEntries() {
   renderEntryList("entries-list", "entries-empty", 10);
-  renderHomeRecent();
-}
-
-// Kompakte Vorschau auf der Übersichtsseite (Punkt 5) - bewusst nur 4
-// Einträge, keine Kopie der vollen Liste vom Eintrag-Screen.
-function renderHomeRecent() {
-  renderEntryList("home-recent-list", "home-recent-empty", 4);
 }
 
 
@@ -3345,10 +3338,6 @@ function exportData() {
   URL.revokeObjectURL(url);
 }
 
-function initExport() {
-  document.getElementById("export-data").addEventListener("click", exportData);
-}
-
 // Welche Daten der "Daten exportieren"-Bereich in den Einstellungen als
 // nächstes exportiert (siehe initSettings()) - "stempeluhr" | "trinkgeld" |
 // "beides". Alle drei sind JSON und vollständig wiederherstellbar über
@@ -3775,7 +3764,6 @@ function init() {
   initSicher(initShiftDialog);
   initSicher(initGoalDialog);
   initSicher(initDepositDialog);
-  initSicher(initExport);
   initSicher(initSettings);
   initSicher(initMaxDialog);
   initSicher(initBadgeCelebration);

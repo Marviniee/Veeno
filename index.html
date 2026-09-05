@@ -327,29 +327,14 @@
         </div>
       </section>
 
-      <!-- 6. Kompakte Vorschau der letzten Einträge (kein Duplikat der
-           vollen Liste vom Eintrag-Screen - nur die neuesten 4). Eigener
-           Abstand nach oben (siehe .home-recent in style.css) markiert den
-           Wechsel von der "Sparfortschritt"-Kartengruppe oben zur
-           "Aktivität"-Gruppe hier (Konsistenz-Pass, Punkt 7). -->
-      <section class="home-recent">
-        <div class="home-recent__header">
-          <h2 class="home-recent__title">Letzte Einträge</h2>
-        </div>
-        <ul class="entries__list" id="home-recent-list">
-          <!-- wird von app.js gefüllt -->
-        </ul>
-        <p class="entries__empty" id="home-recent-empty">Noch keine Einträge heute.</p>
-      </section>
-
-      <!-- 7. Motivationstext (bestehender Mechanismus/Einstellung, siehe
+      <!-- 6. Motivationstext (bestehender Mechanismus/Einstellung, siehe
            renderMotivation() - jetzt auch hier statt nur auf dem
-           Eintrag-Screen, wie in den Homescreen-Mockups ganz unten). -->
+           Eintrag-Screen, wie in den Homescreen-Mockups ganz unten).
+           "Letzte Einträge" (kompakte Vorschau) und der alte "Daten
+           exportieren"-Link sind entfernt - überholt seit dem eigenen
+           Eintrag-Screen mit vollständiger Liste bzw. dem Backup & Export-
+           Untermenü in den Einstellungen. -->
       <p class="motivation-text" id="home-motivation-text"></p>
-
-      <!-- 8. Backup: alle Daten als JSON-Datei herunterladen (Absicherung
-           gegen iOS' automatische Datenbereinigung bei längerer Nichtnutzung). -->
-      <button class="export-link" id="export-data">Daten exportieren</button>
     </main>
 
     <!-- ================= Bildschirm: Schicht abschließen (Becher-Logik) =================

@@ -580,38 +580,6 @@ button,
 }
 
 /* ==========================================================================
-   Übersichtsseite: kompakte Vorschau der letzten Einträge
-   ========================================================================== */
-/* Konsistenz-Pass, Punkt 1: bekommt jetzt dieselbe Card-Behandlung wie
-   jeder andere Abschnitt der Seite (war komplett ungestylt, schwebte ohne
-   Fläche/Radius auf dem Seitenhintergrund). Zusätzlicher margin-top (kommt
-   zum normalen .screen-gap oben drauf statt es zu ersetzen) markiert den
-   Wechsel von der "Sparfortschritt"-Kartengruppe zur "Aktivität"-Gruppe
-   (Konsistenz-Pass, Punkt 7). */
-.home-recent {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  padding: 16px;
-  margin-top: 12px;
-}
-
-.home-recent__header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin: 0 0 8px;
-}
-
-.home-recent__title {
-  font-size: 0.95rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  margin: 0;
-}
-
-/* ==========================================================================
    Sparziel-Karte (Zielbetrag + Fortschritt, ganz oben auf dem Sparziel-Screen)
    ========================================================================== */
 .goal-card {
@@ -1362,21 +1330,6 @@ button,
   opacity: 0.6;
 }
 
-/* Unauffälliger Text-Link, unten auf dem Sparziel-Screen. Kein Button-Look,
-   das ist eine Absicherungs-Funktion, keine Haupt-Aktion des Screens. */
-.export-link {
-  border: none;
-  background: none;
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  text-decoration: underline;
-  padding: 10px 0;
-  margin-top: auto; /* an den unteren Rand des Screens drücken */
-  align-self: center;
-  min-height: 44px;
-  cursor: pointer;
-}
-
 /* ==========================================================================
    "Schicht abschließen" - Button auf dem Eintrag-Screen
    ========================================================================== */
@@ -1480,9 +1433,8 @@ button,
   padding: 0;
 }
 
-/* Unauffälliger Text-Link für den seltenen Teil-Einzahlung-Fall - gleiches
-   Muster wie .export-link, damit "Einzahlung bestätigen" unten klar die
-   Hauptaktion bleibt. */
+/* Unauffälliger Text-Link für den seltenen Teil-Einzahlung-Fall, damit
+   "Einzahlung bestätigen" unten klar die Hauptaktion bleibt. */
 .deposit-hero__adjust {
   border: none;
   background: none;
