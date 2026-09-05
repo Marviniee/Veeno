@@ -195,53 +195,7 @@
         <p class="home-greeting__subtitle">Jeder Euro bringt dich deinem Ziel näher.</p>
       </div>
 
-      <!-- 2. Zielbetrag + Fortschritt - Herzstück der Seite, deshalb optisch
-           prominenter (goal-card--hero) als vorher. Wird komplett von
-           app.js gerendert (renderSparziel), weil der Inhalt je nach
-           Zustand (kein Ziel / Fortschritt / Ziel erreicht) sehr
-           unterschiedlich aussieht. -->
-      <section class="goal-card goal-card--hero" id="goal-card">
-        <!-- wird von app.js gefüllt -->
-      </section>
-
-      <!-- 3. Zielprognose: eigene Card mit Kalender-Grid (Contribution-Graph-
-           Stil) aus bisherigen vs. geschätzt verbleibenden Schichten bis zum
-           Sparziel. Komplett von app.js gerendert (renderZielprognose) und
-           bei fehlender Datenbasis/erreichtem Ziel/fehlendem Ziel per
-           [hidden] ausgeblendet - siehe dortigen Kommentar für die
-           Bedingungen. -->
-      <section class="prognose-card" id="prognose-card" hidden>
-        <!-- wird von app.js gefüllt -->
-      </section>
-
-      <!-- 4. Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher
-           liegt. Bewusst kompakt/nachrangig - die Zielkarte oben ist die
-           eigentlich wichtige Fläche. -->
-      <section class="becher-card">
-        <div class="becher-card__value" id="becher-bestand-value">0,00 €</div>
-        <div class="becher-card__label">Im Becher (aktuell)</div>
-      </section>
-
-      <!-- 4b. Ausstehend / Eingezahlt (gesamt): unabhängig von einzelnen
-           Schichten - "Ausstehend" ist Geld, das schon aus dem Becher
-           entnommen, aber noch nicht am Bankautomaten eingezahlt wurde.
-           Wächst mit jeder Schicht, sinkt nur über "Einzahlung erfassen"
-           (öffnet #screen-einzahlung, eigener Vollbild-Screen weiter unten). -->
-      <section class="pending-card">
-        <div class="pending-card__row">
-          <div class="pending-card__stat">
-            <div class="pending-card__value" id="pending-value">0,00 €</div>
-            <div class="pending-card__label">Ausstehend</div>
-          </div>
-          <div class="pending-card__stat">
-            <div class="pending-card__value pending-card__value--muted" id="deposited-value">0,00 €</div>
-            <div class="pending-card__label">Eingezahlt (gesamt)</div>
-          </div>
-        </div>
-        <button class="pending-card__button" id="deposit-open-btn">Einzahlung erfassen</button>
-      </section>
-
-      <!-- 5. Verlauf: bündelt drei zeitbezogene Ansichten der Sparrücklage
+      <!-- 2. Verlauf: bündelt drei zeitbezogene Ansichten der Sparrücklage
            unter einer gemeinsamen Überschrift statt sie als separate,
            ähnlich aussehende Karten aneinanderzureihen (Konsistenz-Pass,
            Punkt 3+4) - jede mit eigenem kleinem Zwischentitel und durch
@@ -253,7 +207,9 @@
            zusätzlich in der Zielkarte, siehe deren "Noch X € bis zum Ziel" -
            Konsistenz-Pass, Punkt 2) - das macht sie zur einzigen Quelle für
            "wie viel habe ich insgesamt", unabhängig davon, ob ein Sparziel
-           gesetzt ist. -->
+           gesetzt ist. Direkt nach der Begrüßung, weil "wie läuft's gerade"
+           die Frage ist, die als erstes beantwortet werden soll (Reihenfolge-
+           Umbau, Design-Feinschliff Gruppe 6). -->
       <section class="savings-card">
         <div class="savings-card__value" id="savings-total-value">0,00 €</div>
         <div class="savings-card__label">Verlauf</div>
@@ -309,17 +265,59 @@
         </div>
       </section>
 
-      <!-- Meine Meilensteine: Abzeichen-Galerie (Apple-Watch-Stil) - jetzt
-           hier direkt vor "Letzte Einträge" statt oben unter der Zielkarte
-           (Layout-Anpassung: die Karten zum aktuellen Sparfortschritt
-           bleiben oben zusammen, die Erfolgs-Galerie rutscht als Übergang
-           zur "Aktivität"-Gruppe nach unten). Gesperrte Abzeichen zeigen ein
-           gemeinsames Schloss-Icon (icons/badge-locked.png) statt einer
-           entsättigten Vorschau des eigentlichen Bildes - der Inhalt bleibt
-           bis zum Freischalten bewusst eine Überraschung. Ein Bild pro Stufe
-           (icons/badge-<id>.png), Freischalt-Logik in checkBadges()/
-           renderBadges() in app.js. Gleiches Wert-zuerst/Label-danach-Muster
-           wie becher-card/pending-card (Konsistenz-Pass, Punkt 5). -->
+      <!-- 3. Ausstehend / Eingezahlt (gesamt): unabhängig von einzelnen
+           Schichten - "Ausstehend" ist Geld, das schon aus dem Becher
+           entnommen, aber noch nicht am Bankautomaten eingezahlt wurde.
+           Wächst mit jeder Schicht, sinkt nur über "Einzahlung erfassen"
+           (öffnet #screen-einzahlung, eigener Vollbild-Screen weiter unten). -->
+      <section class="pending-card">
+        <div class="pending-card__row">
+          <div class="pending-card__stat">
+            <div class="pending-card__value" id="pending-value">0,00 €</div>
+            <div class="pending-card__label">Ausstehend</div>
+          </div>
+          <div class="pending-card__stat">
+            <div class="pending-card__value pending-card__value--muted" id="deposited-value">0,00 €</div>
+            <div class="pending-card__label">Eingezahlt (gesamt)</div>
+          </div>
+        </div>
+        <button class="pending-card__button" id="deposit-open-btn">Einzahlung erfassen</button>
+      </section>
+
+      <!-- 4. Becher-Bestand: wie viel Kleingeld aktuell insgesamt im Becher
+           liegt. Bewusst kompakt/nachrangig. -->
+      <section class="becher-card">
+        <div class="becher-card__value" id="becher-bestand-value">0,00 €</div>
+        <div class="becher-card__label">Im Becher (aktuell)</div>
+      </section>
+
+      <!-- 5. Zielbetrag + Fortschritt - Herzstück der Seite, deshalb optisch
+           prominenter (goal-card--hero) als vorher. Wird komplett von
+           app.js gerendert (renderSparziel), weil der Inhalt je nach
+           Zustand (kein Ziel / Fortschritt / Ziel erreicht) sehr
+           unterschiedlich aussieht. -->
+      <section class="goal-card goal-card--hero" id="goal-card">
+        <!-- wird von app.js gefüllt -->
+      </section>
+
+      <!-- 6. Zielprognose: eigene Card mit Kalender-Grid (Contribution-Graph-
+           Stil) aus bisherigen vs. geschätzt verbleibenden Schichten bis zum
+           Sparziel. Komplett von app.js gerendert (renderZielprognose) und
+           bei fehlender Datenbasis/erreichtem Ziel/fehlendem Ziel per
+           [hidden] ausgeblendet - siehe dortigen Kommentar für die
+           Bedingungen. -->
+      <section class="prognose-card" id="prognose-card" hidden>
+        <!-- wird von app.js gefüllt -->
+      </section>
+
+      <!-- 7. Meine Meilensteine: Abzeichen-Galerie (Apple-Watch-Stil).
+           Gesperrte Abzeichen zeigen ein gemeinsames Schloss-Icon
+           (icons/badge-locked.png) statt einer entsättigten Vorschau des
+           eigentlichen Bildes - der Inhalt bleibt bis zum Freischalten
+           bewusst eine Überraschung. Ein Bild pro Stufe (icons/badge-<id>.png),
+           Freischalt-Logik in checkBadges()/renderBadges() in app.js. Gleiches
+           Wert-zuerst/Label-danach-Muster wie becher-card/pending-card
+           (Konsistenz-Pass, Punkt 5). -->
       <section class="badges-card">
         <div class="badges-card__summary">
           <span class="badges-card__count" id="badges-count">0 / 0</span>
@@ -330,13 +328,10 @@
         </div>
       </section>
 
-      <!-- 6. Motivationstext (bestehender Mechanismus/Einstellung, siehe
+      <!-- 8. Motivationstext (bestehender Mechanismus/Einstellung, siehe
            renderMotivation() - jetzt auch hier statt nur auf dem
            Eintrag-Screen, wie in den Homescreen-Mockups ganz unten).
-           "Letzte Einträge" (kompakte Vorschau) und der alte "Daten
-           exportieren"-Link sind entfernt - überholt seit dem eigenen
-           Eintrag-Screen mit vollständiger Liste bzw. dem Backup & Export-
-           Untermenü in den Einstellungen. -->
+           Bleibt bewusst ganz unten. -->
       <p class="motivation-text" id="home-motivation-text"></p>
     </main>
 
