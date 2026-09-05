@@ -61,7 +61,7 @@ const APP_SEMVER = "2.2.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v78";
+const APP_VERSION = "v79";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -2520,19 +2520,19 @@ function renderGrowthChart() {
   const ersterLabel = formatGrowthChartLabel(stichtage[0]);
   const letzterLabel = formatGrowthChartLabel(stichtage[stichtage.length - 1]);
 
-  // Jeder Datenpunkt bekommt jetzt einen kleinen Marker, nicht nur Start und
-  // Ende - dieselbe Technik wie bei den bestehenden Start-/End-Markern
-  // (eigene absolut positionierte HTML-Elemente statt SVG-<circle>, siehe
-  // Kommentar bei .growth-chart__marker in style.css: preserveAspectRatio
-  // ="none" auf der SVG würde einen echten Kreis IN der SVG zur Ellipse
-  // verzerren). Die beiden äußeren Punkte haben schon ihre eigenen,
-  // größeren Start-/End-Marker - hier nur die dazwischenliegenden, damit
-  // sich nichts doppelt überlagert.
+  // Jeder Datenpunkt bekommt jetzt einen Marker, nicht nur Start und Ende -
+  // dieselbe Technik UND derselbe Stil (Größe, Füllung, Rand) wie die
+  // bestehenden Start-/End-Marker (eigene absolut positionierte HTML-
+  // Elemente statt SVG-<circle>, siehe Kommentar bei .growth-chart__marker
+  // in style.css: preserveAspectRatio="none" auf der SVG würde einen echten
+  // Kreis IN der SVG zur Ellipse verzerren). Die beiden äußeren Punkte haben
+  // schon ihre eigenen Start-/End-Marker - hier nur die dazwischenliegenden,
+  // damit sich nichts doppelt überlagert.
   const zwischenpunkte = punkte.slice(1, -1);
   const zwischenpunkteHtml = zwischenpunkte
     .map(
       (p) =>
-        `<div class="growth-chart__marker growth-chart__marker--point" style="left: ${((p.x / breite) * 100).toFixed(1)}%; top: ${p.y.toFixed(1)}%"></div>`
+        `<div class="growth-chart__marker" style="left: ${((p.x / breite) * 100).toFixed(1)}%; top: ${p.y.toFixed(1)}%"></div>`
     )
     .join("");
 

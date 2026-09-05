@@ -1121,17 +1121,11 @@ button,
 }
 
 /* Ein Marker pro dazwischenliegendem Datenpunkt (siehe renderGrowthChart())
-   - deutlich kleiner/dezenter als Start/Ende, damit die beiden weiterhin als
-   die eigentlich wichtigen Punkte herausstechen. Gleiche Technik (eigenes
-   HTML-Element statt SVG-<circle>, siehe Kommentar oben), left UND top
-   kommen hier direkt als Inline-Style mit statt über eine feste
-   --start/--end-Modifier-Klasse, weil sich die Position pro Punkt ändert. */
-.growth-chart__marker--point {
-  width: 4px;
-  height: 4px;
-  border: 1.5px solid var(--color-surface);
-}
-
+   - bewusst im GLEICHEN Stil (Größe, Füllung, Rand) wie Start/Ende, keine
+   eigene, kleinere Variante mehr. Gleiche Technik (eigenes HTML-Element
+   statt SVG-<circle>, siehe Kommentar oben), left UND top kommen hier direkt
+   als Inline-Style mit statt über eine feste --start/--end-Modifier-Klasse,
+   weil sich die Position pro Punkt ändert. */
 .growth-chart__marker--end {
   left: 100%;
 }
