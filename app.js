@@ -60,7 +60,7 @@ const APP_SEMVER = "2.0.0";
 // APP_VERSION: reiner Cache-Zähler für den Service Worker. Muss beim
 // Erhöhen von CACHE_NAME in service-worker.js manuell mitgezogen werden -
 // bei JEDEM inhaltlichen Push hochzählen, unabhängig von APP_SEMVER.
-const APP_VERSION = "v63";
+const APP_VERSION = "v64";
 
 // Defaults, mit denen die App läuft, solange niemand die Einstellungen
 // geöffnet hat. maxBetrag entspricht dem alten fest codierten MAX_BETRAG.
@@ -772,6 +772,50 @@ function calcDayTotal() {
 
 function renderDayTotal() {
   document.getElementById("day-total-value").textContent = formatAmount(calcDayTotal());
+  renderProStunde();
+}
+
+// Heute gearbeitete Minuten - abgeschlossene Schichten von heute (dauerMinuten)
+// plus, falls gerade eingestempelt, die seit dem Einstempeln (gerundet)
+// verstrichene Zeit. Bewusst ohne Tagesgrenzen-Kappung bei einer über
+// Mitternacht laufenden Schicht (gleiche Vereinfachung wie bei der
+// Verdienst-Pille, siehe renderVerdienstPille()).
+function calcHeutigeArbeitsminuten() {
+  let minuten = schichten
+    .filter((s) => isToday(s.endeIst))
+    .reduce((summe, s) => summe + s.dauerMinuten, 0);
+
+  if (zeiterfassungAktiv) {
+    const start = new Date(zeiterfassungAktiv.startBezahlt);
+    minuten += Math.max(0, (Date.now() - start.getTime()) / 60000);
+  }
+
+  return minuten;
+}
+
+// Zusatzzeile unter der "Heute"-Trinkgeld-Kachel: Ø Trinkgeld pro
+// gearbeiteter Stunde, nur auf Basis der heutigen Schicht(en) - keine
+// Division durch 0, wenn heute noch keine Arbeitszeit erfasst wurde. Muss
+// sich laut Vorgabe nicht live/sekündlich aktualisieren wie der Timer auf
+// der Verdienst-Pille daneben - wird deshalb nur bei renderDayTotal()
+// (Eintrag speichern/löschen, App-Start, Screen-Wechsel, Backup-Import) und
+// periodisch alle 30s aufgerufen (siehe initProStundeTimer()).
+function renderProStunde() {
+  const el = document.getElementById("day-total-pro-stunde");
+  if (!el) return;
+
+  const minuten = calcHeutigeArbeitsminuten();
+  if (minuten <= 0) {
+    el.textContent = "—";
+    return;
+  }
+
+  const proStunde = round2(calcDayTotal() / (minuten / 60));
+  el.textContent = `Ø ${formatAmount(proStunde)}/Std.`;
+}
+
+function initProStundeTimer() {
+  setInterval(renderProStunde, 30000);
 }
 
 
@@ -3740,6 +3784,7 @@ function init() {
   initSicher(initBadgeDetail);
   initSicher(initBottomNav);
   initSicher(initSwipeNavigation);
+  initSicher(initProStundeTimer);
   initSicher(initStempeluhr);
   initSicher(initStundenlohnDialog);
   initSicher(initServiceWorker);
