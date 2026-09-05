@@ -683,14 +683,15 @@ button,
   transition: width 0.3s ease;
 }
 
-/* Teal = "sicher angekommen" (schon am Automaten eingezahlt), Orange =
-   bisheriger Balkenton, jetzt für "noch im Geldbeutel/ausstehend". */
+/* Orange = "sicher angekommen" (schon am Automaten eingezahlt), Teal =
+   "noch im Geldbeutel/ausstehend" (getauscht gegenüber der ursprünglichen
+   Zuordnung - reiner Farbtausch, keine neue Farbe). */
 .goal-card__bar-fill--eingezahlt {
-  background: var(--color-accent-2);
+  background: var(--color-accent);
 }
 
 .goal-card__bar-fill--ausstehend {
-  background: var(--color-accent);
+  background: var(--color-accent-2);
 }
 
 /* Ziel erreicht: statt den Balken (der jetzt Eingezahlt/Ausstehend zeigt)
@@ -734,11 +735,11 @@ button,
 }
 
 .goal-card__legend-item--eingezahlt::before {
-  background: var(--color-accent-2);
+  background: var(--color-accent);
 }
 
 .goal-card__legend-item--ausstehend::before {
-  background: var(--color-accent);
+  background: var(--color-accent-2);
 }
 
 /* "Hero"-Variante auf der neuen Übersichtsseite: gleiche Balken-Lösung wie
