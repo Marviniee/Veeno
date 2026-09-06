@@ -75,4 +75,4 @@ Persönliches Projekt, kein Open-Source-Lizenz – alle Rechte vorbehalten.
 
 ## Version
 
-v2.2.0
+v2.2.1
