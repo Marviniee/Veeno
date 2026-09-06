@@ -11,6 +11,7 @@ Studienstart.
 | -------------------------------------------------- | -------------------------------------------------------- |
 | ![Eintrag-Screen](screenshots/eintrag.png)         | ![Übersicht-Screen](screenshots/uebersicht.png)           |
 | ![Meilensteine](screenshots/uebersicht_badges_alt.png) | ![Einstellungen-Screen](screenshots/einstellungen.png) |
+| ![Stempeluhr-Kalender](screenshots/stempeluhr.png) |                                                          |
 
 ## Funktionen
 
