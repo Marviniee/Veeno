@@ -1212,16 +1212,6 @@ const WOCHENTAGE_KURZ = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
 // Zeit unverändert zurück. Reine Millisekunden-Modulo-Rechnung: exakt auf
 // der Intervallgrenze (z.B. schon volle Stunde) bleibt unverändert, das
 // deckt auch den Grenzfall "Einstempeln exakt um 12:00" korrekt ab.
-// Beispieltext unter "Rundung beim Einstempeln" (Einstellungen), passend zur
-// jeweils gewählten Option - siehe renderSettings(). Die Beispielzeiten
-// spiegeln echtes Rundungsverhalten von rundeZeiterfassungStart() (immer
-// aufrunden zum nächsten Intervall).
-const ZEITERFASSUNG_RUNDUNG_BEISPIEL = {
-  stunde: 'Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:42 → 12:00 bei "Stunde"). Beim Ausstempeln erfolgt keine Rundung.',
-  halbeStunde: 'Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:40 → 12:00 bei "30 Min"). Beim Ausstempeln erfolgt keine Rundung.',
-  viertelstunde: 'Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:50 → 12:00 bei "15 Min"). Beim Ausstempeln erfolgt keine Rundung.',
-  exakt: "Keine Rundung, die exakte Einstempel-Zeit zählt.",
-};
 
 function rundeZeiterfassungStart(datum, modus) {
   const minutenProIntervall = { stunde: 60, halbeStunde: 30, viertelstunde: 15 };
@@ -1371,6 +1361,7 @@ function renderStempeluhrKnopf() {
   const zustand = document.getElementById("clock-toggle-state");
   const timerEl = document.getElementById("clock-toggle-timer");
   const hinweis = document.getElementById("clock-toggle-hint");
+  const rundungGruppe = document.getElementById("clock-toggle-rundung");
 
   if (zeiterfassungAktiv) {
     knopf.classList.add("clock-toggle__btn--aktiv");
@@ -1378,11 +1369,16 @@ function renderStempeluhrKnopf() {
     timerEl.hidden = false;
     timerEl.textContent = formatZeiterfassungDauer(Date.now() - new Date(zeiterfassungAktiv.startBezahlt).getTime());
     hinweis.textContent = `Eingestempelt seit ${formatTime(zeiterfassungAktiv.startIst)}`;
+    rundungGruppe.hidden = true;
   } else {
     knopf.classList.remove("clock-toggle__btn--aktiv");
     zustand.textContent = "Einstempeln";
     timerEl.hidden = true;
     hinweis.textContent = "Nicht eingestempelt";
+    rundungGruppe.hidden = false;
+    document.querySelectorAll("#settings-zeiterfassung-rundung-group .choice-btn").forEach((button) => {
+      button.classList.toggle("choice-btn--active", button.dataset.zeiterfassungRundung === einstellungen.zeiterfassungRundung);
+    });
   }
 }
 
@@ -1942,6 +1938,17 @@ function initStempeluhr() {
   document.getElementById("clock-calendar-prev").addEventListener("click", () => wechsleKalenderMonat(-1));
   document.getElementById("clock-calendar-next").addEventListener("click", () => wechsleKalenderMonat(1));
   document.getElementById("schicht-detail-close").addEventListener("click", closeSchichtDetail);
+
+  // Rundung beim Einstempeln: direkt auf dem Stempeluhr-Tab wählbar (siehe
+  // Kommentar bei #clock-toggle-rundung in index.html), nur im "Clocked
+  // Out"-Zustand sichtbar/bedienbar.
+  document.querySelectorAll("#settings-zeiterfassung-rundung-group .choice-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      einstellungen.zeiterfassungRundung = button.dataset.zeiterfassungRundung;
+      persistEinstellungen();
+      renderStempeluhrKnopf();
+    });
+  });
 
   initZeiterfassungAbschluss();
 
@@ -2842,14 +2849,7 @@ function renderSettings() {
     button.classList.toggle("choice-btn--active", Number(button.dataset.rundung) === einstellungen.rundung);
   });
 
-  // 3b. Rundung beim Einstempeln (Arbeitszeit-Tracker)
-  document.querySelectorAll("#settings-zeiterfassung-rundung-group .choice-btn").forEach((button) => {
-    button.classList.toggle("choice-btn--active", button.dataset.zeiterfassungRundung === einstellungen.zeiterfassungRundung);
-  });
-  document.getElementById("settings-zeiterfassung-rundung-hint").textContent =
-    ZEITERFASSUNG_RUNDUNG_BEISPIEL[einstellungen.zeiterfassungRundung];
-
-  // 3c. Stundenlohn (Arbeitszeit-Tracker)
+  // 3b. Stundenlohn (Arbeitszeit-Tracker)
   document.getElementById("settings-stundenlohn-value").textContent =
     typeof einstellungen.stundenlohn === "number" ? formatAmount(einstellungen.stundenlohn) : "Nicht gesetzt";
 
@@ -3506,15 +3506,6 @@ function initSettings() {
   document.querySelectorAll("#settings-rundung-group .choice-btn").forEach((button) => {
     button.addEventListener("click", () => {
       einstellungen.rundung = Number(button.dataset.rundung);
-      persistEinstellungen();
-      renderSettings();
-    });
-  });
-
-  // 3b. Rundung beim Einstempeln (Arbeitszeit-Tracker)
-  document.querySelectorAll("#settings-zeiterfassung-rundung-group .choice-btn").forEach((button) => {
-    button.addEventListener("click", () => {
-      einstellungen.zeiterfassungRundung = button.dataset.zeiterfassungRundung;
       persistEinstellungen();
       renderSettings();
     });

@@ -319,6 +319,34 @@ button,
   color: var(--color-text-muted);
 }
 
+/* Rundungs-Auswahl direkt unter dem Start-Knopf, nur im "Clocked Out"-
+   Zustand sichtbar (siehe renderStempeluhrKnopf() in app.js). Gleiche
+   .choice-group/.choice-btn wie in den Einstellungen, hier nur schmaler
+   gerahmt und mit etwas Abstand zum Hinweistext oben. */
+.clock-toggle__rundung {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 320px;
+  margin-top: 6px;
+}
+
+.clock-toggle__rundung[hidden] {
+  display: none;
+}
+
+.clock-toggle__rundung-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.clock-toggle__rundung .choice-group {
+  width: 100%;
+}
+
 /* Kalender-Karte: gleiches Karten-Grundgerüst wie goal-card/prognose-card. */
 .clock-calendar {
   display: flex;

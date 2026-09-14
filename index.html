@@ -173,6 +173,24 @@
           <span class="clock-toggle__timer" id="clock-toggle-timer" hidden>0:00 Std</span>
         </button>
         <p class="clock-toggle__hint" id="clock-toggle-hint">Nicht eingestempelt</p>
+
+        <!-- Rundung beim Einstempeln: nur im "Clocked Out"-Zustand wählbar
+             (siehe renderStempeluhrKnopf() in app.js, das dieses Element per
+             [hidden] ein-/ausblendet) - sobald eingestempelt wurde, ist die
+             Rundung für diese Schicht schon in startBezahlt eingefroren, eine
+             Auswahl wäre dann irreführend. War früher eine Einstellung unter
+             "Stempeluhr ›" im Einstellungen-Screen, jetzt direkt hier neben
+             dem Start-Knopf, wo die Wahl tatsächlich greift. Persistiert
+             weiterhin als einstellungen.zeiterfassungRundung. -->
+        <div class="clock-toggle__rundung" id="clock-toggle-rundung">
+          <span class="clock-toggle__rundung-label">Rundung beim Einstempeln</span>
+          <div class="choice-group" id="settings-zeiterfassung-rundung-group">
+            <button class="choice-btn" data-zeiterfassung-rundung="stunde">Stunde</button>
+            <button class="choice-btn" data-zeiterfassung-rundung="halbeStunde">30 Min</button>
+            <button class="choice-btn" data-zeiterfassung-rundung="viertelstunde">15 Min</button>
+            <button class="choice-btn" data-zeiterfassung-rundung="exakt">Exakt</button>
+          </div>
+        </div>
       </section>
 
       <section class="clock-calendar">
@@ -673,7 +691,10 @@
 
     <!-- ================= Bildschirm: Stempeluhr-Einstellungen =================
          Eigener Untermenü-Screen, erreichbar über "Stempeluhr ›" auf dem
-         Einstellungen-Screen - Rundung beim Einstempeln, Stundenlohn.
+         Einstellungen-Screen - Stundenlohn. Die Rundung beim Einstempeln
+         lebt jetzt direkt auf dem Stempeluhr-Tab selbst (#screen-stempeluhr,
+         .clock-toggle__rundung), nicht mehr hier - näher am Moment, in dem
+         sie tatsächlich gebraucht wird.
          Interner Name bewusst "stempeluhr-einstellungen" statt "stempeluhr",
          um nicht mit dem gleichnamigen Haupt-Tab (#screen-stempeluhr) zu
          kollidieren. -->
@@ -683,17 +704,6 @@
         <h2>Stempeluhr</h2>
         <span class="modal__spacer"></span>
       </div>
-
-      <section class="settings-card">
-        <span class="settings-card__label">Rundung beim Einstempeln</span>
-        <div class="choice-group" id="settings-zeiterfassung-rundung-group">
-          <button class="choice-btn" data-zeiterfassung-rundung="stunde">Stunde</button>
-          <button class="choice-btn" data-zeiterfassung-rundung="halbeStunde">30 Min</button>
-          <button class="choice-btn" data-zeiterfassung-rundung="viertelstunde">15 Min</button>
-          <button class="choice-btn" data-zeiterfassung-rundung="exakt">Exakt</button>
-        </div>
-        <p class="settings-card__hint" id="settings-zeiterfassung-rundung-hint">Die Einstempel-Zeit wird für die Lohnkontrolle aufgerundet (z.B. 11:42 → 12:00 bei "Stunde"). Beim Ausstempeln erfolgt keine Rundung.</p>
-      </section>
 
       <section class="settings-card">
         <div class="settings-card__header">
